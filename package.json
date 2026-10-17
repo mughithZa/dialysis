@@ -1,0 +1,11 @@
+{
+  "name": "dialysis",
+  "private": true,
+  "type": "module",
+  "engines": { "node": ">=22" },
+  "workspaces": ["shared", "server", "client"],
+  "scripts": {
+    "test": "npm test -w server && npm test -w client --if-present",
+    "dev": "npm run dev -w server"
+  }
+}
