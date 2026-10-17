@@ -12,6 +12,7 @@ import { Centre } from '../centres/centre.model.js';
 import { Role, type RoleDoc } from '../auth/role.model.js';
 import { User, type UserDoc } from '../auth/user.model.js';
 import { hashPassword } from '../auth/password.js';
+import { Patient } from '../patients/patient.model.js';
 
 export const usersRouter = Router({ mergeParams: true });
 
@@ -57,6 +58,24 @@ async function findMember(centreId: string, id: unknown): Promise<UserDoc> {
     throw notFound();
   }
   return user;
+}
+
+/**
+ * Target of a password reset: a patient of this centre, or a staff member of this centre whose
+ * privileged permissions here are all held by the caller (no resetting a more powerful colleague).
+ */
+async function findResettable(centreId: string, id: unknown, callerPerms: Set<Permission>): Promise<UserDoc> {
+  const user = validId(id) ? await User.findById(id) : null;
+  if (user?.kind === 'patient') {
+    if (!(await Patient.exists({ userId: user._id, centreId }))) throw notFound();
+    return user;
+  }
+  const member = await findMember(centreId, id);
+  const held = await effectivePermissions(member, centreId);
+  for (const p of held) {
+    if (PRIVILEGED.has(p) && !callerPerms.has(p)) throw new HttpError(403, 'cannot_grant');
+  }
+  return member;
 }
 
 const membership = (user: UserDoc, centreId: string) => user.memberships.find((m) => String(m.centreId) === centreId);
@@ -214,7 +233,8 @@ const resetBody = z.object({ password });
 
 usersRouter.post('/:id/reset-password', requirePerm('users.resetPassword'), validate(resetBody), async (req, res, next) => {
   try {
-    const user = await findMember(centreOf(req), req.params.id);
+    const centreId = centreOf(req);
+    const user = await findResettable(centreId, req.params.id, req.perms!);
     user.passwordHash = await hashPassword((req.body as z.infer<typeof resetBody>).password);
     await withTransaction(async (session) => {
       await user.save({ session });

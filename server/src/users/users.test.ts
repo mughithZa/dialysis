@@ -4,7 +4,7 @@ import { seedRoles } from '../auth/roles.seed.js';
 import { User } from '../auth/user.model.js';
 import { Role } from '../auth/role.model.js';
 import { AuditEntry } from '../audit/audit.model.js';
-import { createUser, getApp, login, makeCentre, programManager, staffIn } from '../../test/factories.js';
+import { createUser, getApp, login, makeCentre, makePatient, programManager, staffIn } from '../../test/factories.js';
 
 beforeEach(seedRoles);
 
@@ -136,6 +136,31 @@ describe('centre users', () => {
     expect((await fd.agent.post(`/api/centres/${a.centre.id}/users/${other.user.id}/reset-password`).send({ password: 'brandnew1' })).status).toBe(404);
     expect((await fd.agent.post(`/api/centres/${a.centre.id}/users/${nurse.user.id}/reset-password`).send({ password: 'x' })).status).toBe(400);
     expect(await AuditEntry.countDocuments({ action: 'user.resetPassword' })).toBe(1);
+  });
+
+  it('reset password also works for a patient of this centre; another centre is 404', async () => {
+    const a = await makeCentre();
+    const b = await makeCentre();
+    const fd = await staffIn(a.centre.id, ['front_desk']);
+    const mine = await makePatient(a.centre.id, { username: 'mypat' });
+    const theirs = await makePatient(b.centre.id);
+    const ok = await fd.agent.post(`/api/centres/${a.centre.id}/users/${mine.user.id}/reset-password`).send({ password: 'brandnew1' });
+    expect(ok.status).toBe(200);
+    await login('mypat', 'brandnew1');
+    expect((await fd.agent.post(`/api/centres/${a.centre.id}/users/${theirs.user.id}/reset-password`).send({ password: 'brandnew1' })).status).toBe(404);
+  });
+
+  it('front desk cannot reset a centre manager password; manager can reset front desk', async () => {
+    const { centre } = await makeCentre();
+    const fd = await staffIn(centre.id, ['front_desk'], 'fdesk');
+    const mgr = await staffIn(centre.id, ['centre_manager'], 'themgr');
+    const denied = await fd.agent.post(`/api/centres/${centre.id}/users/${mgr.user.id}/reset-password`).send({ password: 'hijacked1' });
+    expect(denied.status).toBe(403);
+    expect(denied.body.error).toBe('cannot_grant');
+    await login('themgr');
+    const ok = await mgr.agent.post(`/api/centres/${centre.id}/users/${fd.user.id}/reset-password`).send({ password: 'brandnew1' });
+    expect(ok.status).toBe(200);
+    await login('fdesk', 'brandnew1');
   });
 
   it('lookup by phone + link puts a doctor in two centres', async () => {

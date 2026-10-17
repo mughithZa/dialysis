@@ -7,6 +7,7 @@ import { hashPassword } from '../src/auth/password.js';
 import { Centre } from '../src/centres/centre.model.js';
 import { Chair, type ChairDoc } from '../src/centres/chair.model.js';
 import { Shift, type ShiftDoc } from '../src/centres/shift.model.js';
+import { Patient, type PatientData } from '../src/patients/patient.model.js';
 
 let sharedApp: ReturnType<typeof createApp> | undefined;
 export const getApp = () => (sharedApp ??= createApp());
@@ -76,6 +77,23 @@ export async function staffIn(centreId: string | Types.ObjectId, roleKeys: strin
   });
   const agent = await login(user.username);
   return { user, agent };
+}
+
+/** Patient account (User kind patient) plus its Patient record in `centreId`. */
+export async function makePatient(
+  centreId: string | Types.ObjectId,
+  overrides: Partial<PatientData> & { username?: string; password?: string } = {},
+) {
+  const { username, password, ...fields } = overrides;
+  const suffix = new Types.ObjectId().toHexString().slice(-6);
+  const user = await createUser({
+    username: username ?? `pt-${suffix}`,
+    password,
+    name: fields.name ?? `Patient ${suffix}`,
+    kind: 'patient',
+  });
+  const patient = await Patient.create({ name: user.name, ...fields, centreId, userId: user._id });
+  return { user, patient };
 }
 
 export async function programManager() {
