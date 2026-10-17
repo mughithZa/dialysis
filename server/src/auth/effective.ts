@@ -13,12 +13,12 @@ export async function effectivePermissions(
   user: UserPermSource,
   centreId: string | null,
 ): Promise<Set<Permission>> {
-  const ids = [...user.globalRoleIds];
-  if (centreId) {
-    const m = user.memberships.find((x) => String(x.centreId) === String(centreId));
-    if (m) ids.push(...m.roleIds);
-  }
+  const m = centreId ? user.memberships.find((x) => String(x.centreId) === String(centreId)) : undefined;
+  const ids = [...user.globalRoleIds, ...(m?.roleIds ?? [])];
   if (!ids.length) return new Set();
   const roles = await Role.find({ _id: { $in: ids } });
-  return new Set(roles.flatMap((r) => r.permissions as Permission[]));
+  const globalIds = new Set(user.globalRoleIds.map(String));
+  // Defence in depth: a global-scope role never counts via a centre membership.
+  const usable = roles.filter((r) => r.scope === 'centre' || globalIds.has(String(r._id)));
+  return new Set(usable.flatMap((r) => r.permissions as Permission[]));
 }

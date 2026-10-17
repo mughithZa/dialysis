@@ -3,6 +3,7 @@ import session from 'express-session';
 import MongoStore from 'connect-mongo';
 import mongoose from 'mongoose';
 import { config } from './config.js';
+import { authRouter } from './auth/routes.js';
 import { HttpError, notFound } from './lib/errors.js';
 
 export function createApp(): express.Express {
@@ -27,6 +28,7 @@ export function createApp(): express.Express {
   api.get('/health', (_req, res) => {
     res.json({ ok: true });
   });
+  api.use('/auth', authRouter);
   // Feature routers are mounted here by later tasks.
   api.use((_req, _res, next) => next(notFound()));
   app.use('/api', api);
@@ -34,6 +36,10 @@ export function createApp(): express.Express {
   const onError: ErrorRequestHandler = (err, _req, res, _next) => {
     if (err instanceof HttpError) {
       res.status(err.status).json({ error: err.code });
+      return;
+    }
+    if ((err as { type?: string }).type === 'entity.parse.failed') {
+      res.status(400).json({ error: 'validation' });
       return;
     }
     console.error(err);
