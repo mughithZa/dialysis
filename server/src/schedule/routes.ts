@@ -4,7 +4,13 @@ import { z } from 'zod';
 import { DISCHARGE_REASONS } from '../patients/patient.model.js';
 import { loadPatientInCentre } from '../patients/load.js';
 import { validate } from '../lib/validate.js';
-import { conflict } from '../lib/errors.js';
+import mongoose from 'mongoose';
+import { badRequest, conflict, notFound } from '../lib/errors.js';
+import { todayLocal } from '../lib/dates.js';
+import { Role } from '../auth/role.model.js';
+import { User } from '../auth/user.model.js';
+import { Session } from '../sessions/session.model.js';
+import { ChairAssignment } from './assignment.model.js';
 import { withTransaction } from '../db.js';
 import { recordAudit } from '../audit/record.js';
 import { requirePerm } from '../auth/middleware.js';
@@ -106,6 +112,102 @@ scheduleRouter.put(
     }
   },
 );
+
+const validId = (id: unknown): id is string => typeof id === 'string' && mongoose.isValidObjectId(id);
+
+scheduleRouter.get('/assignments', requirePerm('schedule.view'), async (req, res, next) => {
+  try {
+    const rows = await ChairAssignment.find({ centreId: centreOf(req) });
+    res.json(rows.map((a) => ({ shiftId: String(a.shiftId), chairId: String(a.chairId), nurseId: String(a.nurseId) })));
+  } catch (e) {
+    next(e);
+  }
+});
+
+const assignBody = z.object({
+  shiftId: z.string().min(1),
+  nurseId: z.string().min(1),
+  chairIds: z.array(z.string().min(1)),
+});
+
+/** Sets the nurse's chairs for a shift (their full set), taking those chairs over from any other nurse. */
+scheduleRouter.put('/assignments', requirePerm('schedule.assignNurses'), validate(assignBody), async (req, res, next) => {
+  try {
+    const centreId = centreOf(req);
+    const b = req.body as z.infer<typeof assignBody>;
+    const chairIds = [...new Set(b.chairIds)];
+    const shift = validId(b.shiftId) ? await Shift.findById(b.shiftId) : null;
+    if (!shift || String(shift.centreId) !== centreId) throw notFound();
+    const chairs = chairIds.every(validId) ? await Chair.find({ _id: { $in: chairIds }, centreId }) : [];
+    if (chairs.length !== chairIds.length) throw notFound();
+    const nurseRole = await Role.findOne({ key: 'nurse' });
+    const nurse = validId(b.nurseId) ? await User.findById(b.nurseId) : null;
+    const isNurse =
+      !!nurseRole &&
+      !!nurse &&
+      nurse.active &&
+      nurse.memberships.some((m) => String(m.centreId) === centreId && m.roleIds.some((r) => String(r) === String(nurseRole._id)));
+    if (!isNurse) throw badRequest('not_a_nurse');
+    await withTransaction(async (session) => {
+      await ChairAssignment.deleteMany(
+        { shiftId: shift._id, $or: [{ nurseId: b.nurseId }, { chairId: { $in: chairIds } }] },
+        { session },
+      );
+      await ChairAssignment.create(
+        chairIds.map((chairId) => ({ centreId, shiftId: b.shiftId, chairId, nurseId: b.nurseId })),
+        { session, ordered: true },
+      );
+      await recordAudit(req, 'assignment.update', 'assignment', b.shiftId, b, session);
+    });
+    res.json({ shiftId: b.shiftId, nurseId: b.nurseId, chairIds });
+  } catch (e) {
+    next(e);
+  }
+});
+
+const dateQuery = z.object({ date: localDate.optional() });
+
+scheduleRouter.get('/today', requirePerm('sessions.view'), async (req, res, next) => {
+  try {
+    const centreId = centreOf(req);
+    const parsed = dateQuery.safeParse(req.query);
+    if (!parsed.success) throw badRequest('validation');
+    const date = parsed.data.date ?? todayLocal();
+    const [sessions, assignments, chairs, shifts] = await Promise.all([
+      Session.find({ centreId, date }),
+      ChairAssignment.find({ centreId }),
+      Chair.find({ centreId }),
+      Shift.find({ centreId }),
+    ]);
+    const patients = await Patient.find({ _id: { $in: sessions.map((s) => s.patientId) } });
+    const nurseOf = new Map(assignments.map((a) => [`${a.chairId}:${a.shiftId}`, String(a.nurseId)]));
+    const chairById = new Map(chairs.map((c) => [c.id as string, c]));
+    const shiftById = new Map(shifts.map((s) => [s.id as string, s]));
+    const patientById = new Map(patients.map((p) => [p.id as string, p]));
+    const out = { mine: [] as object[], unassigned: [] as object[], others: [] as object[] };
+    for (const s of sessions) {
+      const chair = chairById.get(String(s.chairId));
+      const shift = shiftById.get(String(s.shiftId));
+      const patient = patientById.get(String(s.patientId));
+      if (!chair || !shift || !patient) continue;
+      const card = {
+        id: s.id as string,
+        date: s.date,
+        status: s.status,
+        kind: s.kind,
+        chair: { id: chair.id as string, label: chair.label },
+        shift: { id: shift.id as string, name: shift.name, start: shift.start, end: shift.end },
+        patient: { id: patient.id as string, name: patient.name },
+        hasActiveOrders: false, // wired up with orders in a later task
+      };
+      const nurse = nurseOf.get(`${s.chairId}:${s.shiftId}`);
+      (nurse === undefined ? out.unassigned : nurse === String(req.user!._id) ? out.mine : out.others).push(card);
+    }
+    res.json(out);
+  } catch (e) {
+    next(e);
+  }
+});
 
 const dischargeBody = z.object({ reason: z.enum(DISCHARGE_REASONS), date: localDate });
 

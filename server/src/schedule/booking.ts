@@ -40,7 +40,7 @@ async function insertPattern(
   session: ClientSession,
 ): Promise<PatternDoc> {
   try {
-    await Slot.init(); // the unique index must exist before inserts can race
+    await Promise.all([Slot.init(), Pattern.init()]); // unique indexes must exist before inserts can race
     const [pattern] = await Pattern.create(
       [{ centreId, patientId, chairId: input.chairId, shiftId: input.shiftId, weekdays: input.weekdays, from: input.from }],
       { session },
@@ -57,7 +57,10 @@ async function insertPattern(
     );
     return pattern!;
   } catch (e) {
-    if (isDuplicateKey(e)) throw conflict('slot_taken');
+    if (isDuplicateKey(e)) {
+      const key = (e as { keyPattern?: Record<string, unknown> }).keyPattern;
+      throw conflict(key && 'patientId' in key ? 'already_booked' : 'slot_taken');
+    }
     throw e;
   }
 }
@@ -93,10 +96,15 @@ export async function changePattern(
   const pattern = await withTransaction(async (session) => {
     const open = await Pattern.findOne({ patientId: patient._id, to: null }).session(session);
     if (!open) throw conflict('no_pattern');
-    open.to = addDays(input.from, -1);
-    await open.save({ session });
+    const lastDay = addDays(input.from, -1);
+    if (input.from <= open.from) {
+      await open.deleteOne({ session }); // never took effect: replace rather than invert the range
+    } else {
+      open.to = lastDay;
+      await open.save({ session });
+    }
     await Slot.deleteMany({ patternId: open._id }, { session });
-    await deleteScheduledSessionsAfter(patient.id, open.to, session);
+    await deleteScheduledSessionsAfter(patient.id, lastDay, session);
     const created = await insertPattern(centreId, patient.id, input, session);
     await audit?.(created, session);
     return created;

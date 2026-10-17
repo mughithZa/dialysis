@@ -201,3 +201,40 @@ describe('discharge', () => {
     expect((await agent.post(url).send({ reason: 'moved', date: from() })).status).toBe(409);
   });
 });
+
+describe('open pattern invariants', () => {
+  it('concurrent bookings for the same patient: exactly one wins with already_booked', async () => {
+    const { centre, book } = await setup();
+    const { patient } = await makePatient(centre.id);
+    const rs = await Promise.all([book(patient.id, { weekdays: [1] }), book(patient.id, { weekdays: [2] })]);
+    expect(rs.map((r) => r.status).sort()).toEqual([201, 409]);
+    expect(rs.find((r) => r.status === 409)!.body.error).toBe('already_booked');
+    expect(await Pattern.countDocuments({ patientId: patient.id, to: null })).toBe(1);
+  });
+
+  it('the database refuses a second open pattern', async () => {
+    const { centre, chairs, shifts } = await setup();
+    const { patient } = await makePatient(centre.id);
+    await Pattern.init();
+    const doc = { centreId: centre.id, patientId: patient.id, chairId: chairs[0]!.id, shiftId: shifts[0]!.id, weekdays: [1], from: from() };
+    await Pattern.create(doc);
+    await expect(Pattern.create(doc)).rejects.toMatchObject({ code: 11000 });
+    await Pattern.create({ ...doc, to: from() }); // closed patterns are unlimited
+  });
+
+  it('changing from a date on or before the open pattern start replaces it instead of inverting the range', async () => {
+    const { centre, chairs, shifts, agent, base, book } = await setup();
+    const { patient } = await makePatient(centre.id);
+    const start = addDays(from(), 3);
+    await book(patient.id, { from: start });
+    const res = await agent.put(`${base}/patients/${patient.id}/pattern`).send({
+      chairId: chairs[0]!.id, shiftId: shifts[1]!.id, weekdays: [2], from: start,
+    });
+    expect(res.status).toBe(200);
+    const patterns = await Pattern.find({ patientId: patient.id });
+    expect(patterns).toHaveLength(1);
+    expect(patterns[0]!.to).toBeNull();
+    expect(String(patterns[0]!.shiftId)).toBe(shifts[1]!.id);
+    expect(await Slot.countDocuments()).toBe(1);
+  });
+});
