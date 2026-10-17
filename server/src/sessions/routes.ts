@@ -179,9 +179,10 @@ sessionsRouter.patch(
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
       const { line, itemName } = await loadLine(session.id, req.params.lineId);
       await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
-        const before = line.amount;
-        const r = await UsageLine.updateOne({ _id: line._id }, { $set: { amount: b.amount } }, { session: tx });
-        if (!r.matchedCount) throw notFound();
+        const current = await UsageLine.findById(line._id, null, { session: tx });
+        if (!current) throw notFound();
+        const before = current.amount;
+        await UsageLine.updateOne({ _id: line._id }, { $set: { amount: b.amount } }, { session: tx });
         if (closed) {
           await recordChange(
             tx,
@@ -206,10 +207,11 @@ sessionsRouter.delete('/sessions/:sid/usage/:lineId', requirePerm('sessions.reco
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
     const { line, itemName } = await loadLine(session.id, req.params.lineId);
     await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
-      const r = await UsageLine.deleteOne({ _id: line._id }, { session: tx });
-      if (!r.deletedCount) throw notFound();
-      if (closed) await recordChange(tx, fresh.id, req.user!._id, 'usage.remove', usageSnapshot(line.itemId, itemName, line.amount), null);
-      await recordAudit(req, 'usage.remove', 'session', fresh.id, { itemId: String(line.itemId), amount: line.amount, lineId: line.id }, tx);
+      const current = await UsageLine.findById(line._id, null, { session: tx });
+      if (!current) throw notFound();
+      await UsageLine.deleteOne({ _id: line._id }, { session: tx });
+      if (closed) await recordChange(tx, fresh.id, req.user!._id, 'usage.remove', usageSnapshot(line.itemId, itemName, current.amount), null);
+      await recordAudit(req, 'usage.remove', 'session', fresh.id, { itemId: String(line.itemId), amount: current.amount, lineId: line.id }, tx);
     });
     res.status(204).end();
   } catch (e) {

@@ -136,16 +136,32 @@ describe('editing a closed session', () => {
     expect(r.body.error).toBe('bad_status');
   });
 
-  it('a usage write racing a close still goes through the closed-session rules', async () => {
+  // Item.findById runs between the route's session load and the guarded transaction; the hook changes the status there.
+  const changeStatusMidRequest = (sessionId: string, status: string) => {
+    const orig = Item.findById.bind(Item);
+    vi.spyOn(Item, 'findById').mockImplementationOnce(((id: string) => {
+      const q = orig(id);
+      return Session.updateOne({ _id: sessionId }, { $set: { status } }).then(() => q);
+    }) as never);
+  };
+
+  it('a usage write racing a close goes through the closed-session rules (history written)', async () => {
     const { s, session, nurse, heparin } = await setup();
-    await nurse.agent.post(`${s}/close`);
-    const stale = (await Session.findById(session._id))!;
-    stale.status = 'active'; // what the route saw before the close landed
-    vi.spyOn(Session, 'findById').mockReturnValueOnce(Promise.resolve(stale) as never);
+    changeStatusMidRequest(session.id, 'completed');
     const r = await nurse.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 4 });
     vi.restoreAllMocks();
     expect(r.status).toBe(201);
     expect(await SessionChange.countDocuments({ kind: 'usage.add' })).toBe(1);
+  });
+
+  it('a usage write racing a postpone is rejected and writes nothing', async () => {
+    const { s, session, nurse, heparin } = await setup();
+    changeStatusMidRequest(session.id, 'postponed');
+    const r = await nurse.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 4 });
+    vi.restoreAllMocks();
+    expect(r.status).toBe(409);
+    expect(r.body.error).toBe('bad_status');
+    expect(await UsageLine.countDocuments({ sessionId: session.id })).toBe(0);
   });
 });
 
