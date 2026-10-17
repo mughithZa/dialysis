@@ -2,7 +2,8 @@ import { Router, type Request } from 'express';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import { validate } from '../lib/validate.js';
-import { conflict, notFound } from '../lib/errors.js';
+import { conflict } from '../lib/errors.js';
+import { loadPatientInCentre } from './load.js';
 import { withTransaction } from '../db.js';
 import { recordAudit } from '../audit/record.js';
 import { requirePerm } from '../auth/middleware.js';
@@ -16,13 +17,7 @@ const centreOf = (req: Request) => String(req.params.centreId);
 const isDuplicateKey = (e: unknown) => (e as { code?: number }).code === 11000;
 const escapeRegex = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 
-/** Loads a patient of this centre; a missing id or a patient of another centre is 404. */
-export async function loadPatientInCentre(centreId: string, patientId: unknown): Promise<PatientDoc> {
-  const patient =
-    typeof patientId === 'string' && mongoose.isValidObjectId(patientId) ? await Patient.findById(patientId) : null;
-  if (!patient || String(patient.centreId) !== String(centreId)) throw notFound();
-  return patient;
-}
+export { loadPatientInCentre };
 
 const patientDto = (p: PatientDoc) => ({
   id: p.id as string,

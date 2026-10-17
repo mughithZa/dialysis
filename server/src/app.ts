@@ -10,6 +10,7 @@ import { auditRouter } from './audit/routes.js';
 import { permissionsRouter, rolesRouter } from './auth/roles.routes.js';
 import { usersRouter } from './users/routes.js';
 import { patientsRouter } from './patients/routes.js';
+import { scheduleRouter } from './schedule/routes.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -39,6 +40,7 @@ export function createApp(): express.Express {
   api.use('/centres/:centreId/audit', auditRouter);
   api.use('/centres/:centreId/users', usersRouter);
   api.use('/centres/:centreId/patients', patientsRouter);
+  api.use('/centres/:centreId', scheduleRouter);
   api.use('/centres', centresRouter);
   // Feature routers are mounted here by later tasks.
   api.use((_req, _res, next) => next(notFound()));
