@@ -1,11 +1,13 @@
-import mongoose from 'mongoose';
-import { badRequest, conflict, notFound } from '../lib/errors.js';
+import mongoose, { type ClientSession } from 'mongoose';
+import { withTransaction } from '../db.js';
+import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { loadPatientInCentre } from '../patients/load.js';
 import { Pattern } from '../schedule/pattern.model.js';
 import { Slot } from '../schedule/slot.model.js';
+import { SessionChange, type ChangeKind } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
 
 export const MAKEUP_WINDOW_DAYS = 3;
@@ -20,11 +22,47 @@ export async function loadSessionInCentre(centreId: string, sid: unknown): Promi
 }
 
 /**
- * Statuses in which usage, vitals and notes may be written. Single place to change when
- * closed sessions become editable behind `sessions.editClosed`.
+ * Single status check for usage, vitals and notes writes. `active` is open for recording;
+ * `completed` needs `sessions.editClosed` and its edits are written to the change history
+ * (returns true); any other status is 409 `bad_status`.
  */
-export function assertRecordable(session: SessionDoc): void {
-  if (session.status !== 'active') throw conflict('bad_status');
+export function assertRecordable(session: SessionDoc, perms: ReadonlySet<string>): boolean {
+  if (session.status === 'active') return false;
+  if (session.status !== 'completed') throw conflict('bad_status');
+  if (!perms.has('sessions.editClosed')) throw forbidden();
+  return true;
+}
+
+/**
+ * Runs `fn` in a transaction after re-checking the session status inside it. The guarded `$inc`
+ * makes a concurrent close/postpone conflict with this transaction, so a write can never slip
+ * into a session whose status changed without passing the closed-session rules.
+ */
+export async function withRecordable<T>(
+  sessionId: string,
+  perms: ReadonlySet<string>,
+  fn: (tx: ClientSession, session: SessionDoc, closed: boolean) => Promise<T>,
+): Promise<T> {
+  return withTransaction(async (tx) => {
+    const fresh = await Session.findOneAndUpdate(
+      { _id: sessionId, status: { $in: ['active', 'completed'] } },
+      { $inc: { rev: 1 } },
+      { new: true, session: tx },
+    );
+    if (!fresh) throw conflict('bad_status');
+    return fn(tx, fresh, assertRecordable(fresh, perms));
+  });
+}
+
+export async function recordChange(
+  tx: ClientSession,
+  sessionId: string,
+  by: unknown,
+  kind: ChangeKind,
+  before: object | null,
+  after: object | null,
+): Promise<void> {
+  await SessionChange.create([{ sessionId, by, kind, before, after }], { session: tx });
 }
 
 /** Moves a session between statuses atomically: fails with 409 `bad_status` if it is not in one of `from`. */
@@ -32,22 +70,28 @@ export async function transition(
   sessionId: string,
   from: SessionDoc['status'][],
   set: Record<string, unknown>,
+  tx?: ClientSession,
 ): Promise<SessionDoc> {
-  const updated = await Session.findOneAndUpdate({ _id: sessionId, status: { $in: from } }, { $set: set }, { new: true });
+  const updated = await Session.findOneAndUpdate(
+    { _id: sessionId, status: { $in: from } },
+    { $set: set },
+    { new: true, session: tx },
+  );
   if (!updated) throw conflict('bad_status');
   return updated;
 }
 
-export async function openSession(session: SessionDoc, userId: string): Promise<SessionDoc> {
+export async function openSession(session: SessionDoc, userId: string, tx?: ClientSession): Promise<SessionDoc> {
   if (session.status !== 'scheduled') throw conflict('bad_status');
   if (session.date !== todayLocal()) throw conflict('not_today');
-  return transition(session.id, ['scheduled'], { status: 'active', openedAt: new Date(), openedBy: userId });
+  return transition(session.id, ['scheduled'], { status: 'active', openedAt: new Date(), openedBy: userId }, tx);
 }
 
-export const closeSession = (session: SessionDoc, userId: string) =>
-  transition(session.id, ['active'], { status: 'completed', closedAt: new Date(), closedBy: userId });
+export const closeSession = (session: SessionDoc, userId: string, tx?: ClientSession) =>
+  transition(session.id, ['active'], { status: 'completed', closedAt: new Date(), closedBy: userId }, tx);
 
-export const postponeSession = (session: SessionDoc) => transition(session.id, ['scheduled', 'missed'], { status: 'postponed' });
+export const postponeSession = (session: SessionDoc, tx?: ClientSession) =>
+  transition(session.id, ['scheduled', 'missed'], { status: 'postponed' }, tx);
 
 export interface MakeupInput {
   date: string;

@@ -43,12 +43,13 @@ const sessionSchema = new Schema({
           by: { type: Schema.Types.ObjectId, ref: 'User', required: true },
           text: { type: String, required: true },
         },
-        { _id: false },
       ),
     ],
     default: [],
   },
   reminderSentAt: Date,
+  /** Bumped by every guarded write so a concurrent status change conflicts with it. */
+  rev: { type: Number, default: 0 },
 });
 sessionSchema.index({ patientId: 1, date: 1, shiftId: 1 }, { unique: true });
 sessionSchema.index({ centreId: 1, date: 1 });

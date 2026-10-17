@@ -12,14 +12,16 @@ import { withTransaction } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { validate } from '../lib/validate.js';
 import { toSessionCards } from './card.js';
+import { SessionChange } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
 import {
-  assertRecordable,
   closeSession,
   createMakeup,
   loadSessionInCentre,
   openSession,
   postponeSession,
+  recordChange,
+  withRecordable,
 } from './service.js';
 import { UsageLine } from './usage.model.js';
 
@@ -52,7 +54,7 @@ async function detailOf(session: SessionDoc) {
       weightAfter: session.vitals?.weightAfter ?? null,
       bp: (session.vitals?.bp ?? []).map((b) => ({ at: b.at, systolic: b.systolic, diastolic: b.diastolic })),
     },
-    notes: session.notes.map((n) => ({ at: n.at, by: userDto(n.by), text: n.text })),
+    notes: session.notes.map((n) => ({ id: String(n._id), at: n.at, by: userDto(n.by), text: n.text })),
     usage: lines.map((l) => {
       const item = items.find((i) => String(i._id) === String(l.itemId));
       const unit = units.find((u) => String(u._id) === String(item?.unitId));
@@ -79,8 +81,11 @@ sessionsRouter.get('/sessions/:sid', requirePerm('sessions.view'), async (req, r
 sessionsRouter.post('/sessions/:sid/open', requirePerm('sessions.run'), async (req, res, next) => {
   try {
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-    const opened = await openSession(session, String(req.user!._id));
-    await recordAudit(req, 'session.open', 'session', opened.id);
+    const opened = await withTransaction(async (tx) => {
+      const o = await openSession(session, String(req.user!._id), tx);
+      await recordAudit(req, 'session.open', 'session', o.id, undefined, tx);
+      return o;
+    });
     res.json(await cardOf(opened));
   } catch (e) {
     next(e);
@@ -90,8 +95,11 @@ sessionsRouter.post('/sessions/:sid/open', requirePerm('sessions.run'), async (r
 sessionsRouter.post('/sessions/:sid/close', requirePerm('sessions.run'), async (req, res, next) => {
   try {
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-    const closed = await closeSession(session, String(req.user!._id));
-    await recordAudit(req, 'session.close', 'session', closed.id);
+    const closed = await withTransaction(async (tx) => {
+      const c = await closeSession(session, String(req.user!._id), tx);
+      await recordAudit(req, 'session.close', 'session', c.id, undefined, tx);
+      return c;
+    });
     res.json(await cardOf(closed));
   } catch (e) {
     next(e);
@@ -101,8 +109,11 @@ sessionsRouter.post('/sessions/:sid/close', requirePerm('sessions.run'), async (
 sessionsRouter.post('/sessions/:sid/postpone', requirePerm('sessions.postpone'), async (req, res, next) => {
   try {
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-    const postponed = await postponeSession(session);
-    await recordAudit(req, 'session.postpone', 'session', postponed.id);
+    const postponed = await withTransaction(async (tx) => {
+      const p = await postponeSession(session, tx);
+      await recordAudit(req, 'session.postpone', 'session', p.id, undefined, tx);
+      return p;
+    });
     res.json(await cardOf(postponed));
   } catch (e) {
     next(e);
@@ -110,6 +121,8 @@ sessionsRouter.post('/sessions/:sid/postpone', requirePerm('sessions.postpone'),
 });
 
 const usageBody = z.object({ itemId: z.string().min(1), amount: z.number().positive().finite() });
+const amountBody = z.object({ amount: z.number().positive().finite() });
+const usageSnapshot = (itemId: unknown, itemName: string, amount: number) => ({ itemId: String(itemId), itemName, amount });
 
 sessionsRouter.post(
   '/sessions/:sid/usage',
@@ -119,18 +132,17 @@ sessionsRouter.post(
     try {
       const b = req.body as z.infer<typeof usageBody>;
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-      assertRecordable(session);
       const item = validId(b.itemId) ? await Item.findById(b.itemId) : null;
       if (!item) throw notFound();
       if (item.status === 'retired') throw conflict('item_retired');
-      const line = await withTransaction(async (tx) => {
+      const line = await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
         const [created] = await UsageLine.create(
           [
             {
-              sessionId: session._id,
-              centreId: session.centreId,
-              patientId: session.patientId,
-              date: session.date,
+              sessionId: fresh._id,
+              centreId: fresh.centreId,
+              patientId: fresh.patientId,
+              date: fresh.date,
               itemId: item._id,
               amount: b.amount,
               by: req.user!._id,
@@ -139,7 +151,8 @@ sessionsRouter.post(
           { session: tx },
         );
         await markItemUsed(item.id, tx);
-        await recordAudit(req, 'usage.add', 'session', session.id, { itemId: item.id, amount: b.amount, lineId: created!.id }, tx);
+        if (closed) await recordChange(tx, fresh.id, req.user!._id, 'usage.add', null, usageSnapshot(item.id, item.name, b.amount));
+        await recordAudit(req, 'usage.add', 'session', fresh.id, { itemId: item.id, amount: b.amount, lineId: created!.id }, tx);
         return created!;
       });
       res.status(201).json({ id: line.id as string, itemId: item.id as string, amount: line.amount });
@@ -149,16 +162,54 @@ sessionsRouter.post(
   },
 );
 
+async function loadLine(sessionId: string, lineId: unknown) {
+  const line = validId(lineId) ? await UsageLine.findById(lineId) : null;
+  if (!line || String(line.sessionId) !== sessionId) throw notFound();
+  const item = await Item.findById(line.itemId);
+  return { line, itemName: item?.name ?? '' };
+}
+
+sessionsRouter.patch(
+  '/sessions/:sid/usage/:lineId',
+  requirePerm('sessions.recordUsage'),
+  validate(amountBody),
+  async (req, res, next) => {
+    try {
+      const b = req.body as z.infer<typeof amountBody>;
+      const session = await loadSessionInCentre(centreOf(req), sidOf(req));
+      const { line, itemName } = await loadLine(session.id, req.params.lineId);
+      await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+        const before = line.amount;
+        const r = await UsageLine.updateOne({ _id: line._id }, { $set: { amount: b.amount } }, { session: tx });
+        if (!r.matchedCount) throw notFound();
+        if (closed) {
+          await recordChange(
+            tx,
+            fresh.id,
+            req.user!._id,
+            'usage.update',
+            usageSnapshot(line.itemId, itemName, before),
+            usageSnapshot(line.itemId, itemName, b.amount),
+          );
+        }
+        await recordAudit(req, 'usage.update', 'session', fresh.id, { lineId: line.id, before, after: b.amount }, tx);
+      });
+      res.json({ id: line.id as string, itemId: String(line.itemId), amount: b.amount });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
 sessionsRouter.delete('/sessions/:sid/usage/:lineId', requirePerm('sessions.recordUsage'), async (req, res, next) => {
   try {
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-    assertRecordable(session);
-    const lineId = String(req.params.lineId);
-    const line = validId(lineId) ? await UsageLine.findById(lineId) : null;
-    if (!line || String(line.sessionId) !== session.id) throw notFound();
-    await withTransaction(async (tx) => {
-      await line.deleteOne({ session: tx });
-      await recordAudit(req, 'usage.remove', 'session', session.id, { itemId: String(line.itemId), amount: line.amount, lineId }, tx);
+    const { line, itemName } = await loadLine(session.id, req.params.lineId);
+    await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      const r = await UsageLine.deleteOne({ _id: line._id }, { session: tx });
+      if (!r.deletedCount) throw notFound();
+      if (closed) await recordChange(tx, fresh.id, req.user!._id, 'usage.remove', usageSnapshot(line.itemId, itemName, line.amount), null);
+      await recordAudit(req, 'usage.remove', 'session', fresh.id, { itemId: String(line.itemId), amount: line.amount, lineId: line.id }, tx);
     });
     res.status(204).end();
   } catch (e) {
@@ -179,14 +230,22 @@ sessionsRouter.patch(
     try {
       const b = req.body as z.infer<typeof vitalsBody>;
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-      assertRecordable(session);
-      const set: Record<string, number> = {};
-      if (b.weightBefore !== undefined) set['vitals.weightBefore'] = b.weightBefore;
-      if (b.weightAfter !== undefined) set['vitals.weightAfter'] = b.weightAfter;
-      const r = await Session.updateOne({ _id: session._id, status: session.status }, { $set: set });
-      if (!r.matchedCount) throw conflict('bad_status');
-      await recordAudit(req, 'vitals.update', 'session', session.id, b);
-      res.json((await detailOf((await Session.findById(session._id))!)).vitals);
+      const updated = await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+        const set: Record<string, number> = {};
+        const before: Record<string, number | null> = {};
+        const after: Record<string, number> = {};
+        for (const k of ['weightBefore', 'weightAfter'] as const) {
+          if (b[k] === undefined) continue;
+          set[`vitals.${k}`] = b[k];
+          before[k] = fresh.vitals?.[k] ?? null;
+          after[k] = b[k];
+        }
+        const doc = await Session.findOneAndUpdate({ _id: fresh._id }, { $set: set }, { new: true, session: tx });
+        if (closed) await recordChange(tx, fresh.id, req.user!._id, 'vitals.update', before, after);
+        await recordAudit(req, 'vitals.update', 'session', fresh.id, b, tx);
+        return doc!;
+      });
+      res.json((await detailOf(updated)).vitals);
     } catch (e) {
       next(e);
     }
@@ -201,11 +260,12 @@ sessionsRouter.post(
     try {
       const b = req.body as z.infer<typeof bpBody>;
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-      assertRecordable(session);
       const reading = { at: new Date(), systolic: b.systolic, diastolic: b.diastolic };
-      const r = await Session.updateOne({ _id: session._id, status: session.status }, { $push: { 'vitals.bp': reading } });
-      if (!r.matchedCount) throw conflict('bad_status');
-      await recordAudit(req, 'vitals.update', 'session', session.id, { bp: b });
+      await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+        await Session.updateOne({ _id: fresh._id }, { $push: { 'vitals.bp': reading } }, { session: tx });
+        if (closed) await recordChange(tx, fresh.id, req.user!._id, 'vitals.update', null, { bp: b });
+        await recordAudit(req, 'vitals.update', 'session', fresh.id, { bp: b }, tx);
+      });
       res.status(201).json(reading);
     } catch (e) {
       next(e);
@@ -214,17 +274,84 @@ sessionsRouter.post(
 );
 
 const noteBody = z.object({ text: z.string().trim().min(1).max(2000) });
+const noteIdOf = (req: Request) => {
+  const id = String(req.params.noteId);
+  if (!validId(id)) throw notFound();
+  return id;
+};
 
 sessionsRouter.post('/sessions/:sid/notes', requirePerm('sessions.addNotes'), validate(noteBody), async (req, res, next) => {
   try {
     const b = req.body as z.infer<typeof noteBody>;
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-    assertRecordable(session);
-    const note = { at: new Date(), by: req.user!._id, text: b.text };
-    const r = await Session.updateOne({ _id: session._id, status: session.status }, { $push: { notes: note } });
-    if (!r.matchedCount) throw conflict('bad_status');
-    await recordAudit(req, 'note.add', 'session', session.id);
-    res.status(201).json({ at: note.at, by: { id: String(req.user!._id), name: req.user!.name }, text: note.text });
+    const note = { _id: new mongoose.Types.ObjectId(), at: new Date(), by: req.user!._id, text: b.text };
+    await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      await Session.updateOne({ _id: fresh._id }, { $push: { notes: note } }, { session: tx });
+      if (closed) await recordChange(tx, fresh.id, req.user!._id, 'note.add', null, { text: b.text });
+      await recordAudit(req, 'note.add', 'session', fresh.id, undefined, tx);
+    });
+    res.status(201).json({ id: String(note._id), at: note.at, by: { id: String(req.user!._id), name: req.user!.name }, text: note.text });
+  } catch (e) {
+    next(e);
+  }
+});
+
+sessionsRouter.patch(
+  '/sessions/:sid/notes/:noteId',
+  requirePerm('sessions.addNotes'),
+  validate(noteBody),
+  async (req, res, next) => {
+    try {
+      const b = req.body as z.infer<typeof noteBody>;
+      const session = await loadSessionInCentre(centreOf(req), sidOf(req));
+      const noteId = noteIdOf(req);
+      await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+        const note = fresh.notes.find((n) => String(n._id) === noteId);
+        if (!note) throw notFound();
+        const before = note.text;
+        await Session.updateOne({ _id: fresh._id, 'notes._id': noteId }, { $set: { 'notes.$.text': b.text } }, { session: tx });
+        if (closed) await recordChange(tx, fresh.id, req.user!._id, 'note.update', { text: before }, { text: b.text });
+        await recordAudit(req, 'note.update', 'session', fresh.id, { noteId }, tx);
+      });
+      res.json({ id: noteId, text: b.text });
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+sessionsRouter.delete('/sessions/:sid/notes/:noteId', requirePerm('sessions.addNotes'), async (req, res, next) => {
+  try {
+    const session = await loadSessionInCentre(centreOf(req), sidOf(req));
+    const noteId = noteIdOf(req);
+    await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      const note = fresh.notes.find((n) => String(n._id) === noteId);
+      if (!note) throw notFound();
+      await Session.updateOne({ _id: fresh._id }, { $pull: { notes: { _id: noteId } } }, { session: tx });
+      if (closed) await recordChange(tx, fresh.id, req.user!._id, 'note.remove', { text: note.text }, null);
+      await recordAudit(req, 'note.remove', 'session', fresh.id, { noteId }, tx);
+    });
+    res.status(204).end();
+  } catch (e) {
+    next(e);
+  }
+});
+
+sessionsRouter.get('/sessions/:sid/history', requirePerm('sessions.viewHistory'), async (req, res, next) => {
+  try {
+    const session = await loadSessionInCentre(centreOf(req), sidOf(req));
+    const changes = await SessionChange.find({ sessionId: session._id }).sort({ at: -1, _id: -1 });
+    const users = await User.find({ _id: { $in: changes.map((c) => c.by) } });
+    res.json(
+      changes.map((c) => ({
+        id: c.id as string,
+        at: c.at,
+        kind: c.kind,
+        by: { id: String(c.by), name: users.find((u) => String(u._id) === String(c.by))?.name ?? '' },
+        before: c.before ?? null,
+        after: c.after ?? null,
+      })),
+    );
   } catch (e) {
     next(e);
   }

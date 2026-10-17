@@ -67,10 +67,8 @@ describe('running a session', () => {
     const actions = (await AuditEntry.find()).map((a) => a.action);
     for (const a of ['session.open', 'usage.add', 'vitals.update', 'note.add', 'session.close']) expect(actions).toContain(a);
     expect(actions.filter((a) => a === 'vitals.update')).toHaveLength(2);
-    // completed sessions are read-only in this task
-    const late = await nurse.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 1 });
-    expect(late.status).toBe(409);
-    expect(late.body.error).toBe('bad_status');
+    // completed sessions stay editable for nurses (history is covered in history.test.ts)
+    expect((await nurse.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 1 })).status).toBe(201);
   });
 
   it('removes a usage line (audited)', async () => {
