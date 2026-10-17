@@ -4,7 +4,7 @@ import { GLOBAL_PERMISSIONS, type Permission } from '@dialysis/shared';
 import { HttpError, forbidden, notFound } from '../lib/errors.js';
 import { Centre } from '../centres/centre.model.js';
 import { User, type UserDoc } from './user.model.js';
-import { effectivePermissions } from './effective.js';
+import { effectivePermissions, hasPermAnywhere } from './effective.js';
 
 declare module 'express-session' {
   interface SessionData {
@@ -68,5 +68,15 @@ export function requirePerm(perm: Permission): RequestHandler {
       if (!centre || centre.status === 'closed') throw notFound();
     }
     req.perms = perms;
+  });
+}
+
+/** For routes not scoped to a centre: passes when the user holds any of `perms` globally or in any active centre. */
+export function requirePermAnywhere(...perms: Permission[]): RequestHandler {
+  return guard(async (req) => {
+    const user = await loadUser(req);
+    if (user.kind !== 'staff') throw forbidden();
+    for (const p of perms) if (await hasPermAnywhere(user, p)) return;
+    throw forbidden();
   });
 }

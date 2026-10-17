@@ -1,6 +1,7 @@
 import type { Types } from 'mongoose';
 import type { Permission } from '@dialysis/shared';
 import { Role } from './role.model.js';
+import { Centre } from '../centres/centre.model.js';
 
 /** Minimal structural shape of the User document (defined fully in Task 3). */
 export interface UserPermSource {
@@ -21,4 +22,16 @@ export async function effectivePermissions(
   // Defence in depth: a global-scope role never counts via a centre membership.
   const usable = roles.filter((r) => r.scope === 'centre' || globalIds.has(String(r._id)));
   return new Set(usable.flatMap((r) => r.permissions as Permission[]));
+}
+
+/** True if a global role grants `perm`, or any membership in an active centre does. */
+export async function hasPermAnywhere(user: UserPermSource, perm: Permission): Promise<boolean> {
+  if ((await effectivePermissions(user, null)).has(perm)) return true;
+  const centreIds = user.memberships.map((m) => m.centreId);
+  if (!centreIds.length) return false;
+  const active = new Set((await Centre.find({ _id: { $in: centreIds }, status: 'active' }, { _id: 1 })).map((c) => String(c._id)));
+  for (const m of user.memberships) {
+    if (active.has(String(m.centreId)) && (await effectivePermissions(user, String(m.centreId))).has(perm)) return true;
+  }
+  return false;
 }

@@ -10,6 +10,7 @@ import { auditRouter } from './audit/routes.js';
 import { permissionsRouter, rolesRouter } from './auth/roles.routes.js';
 import { usersRouter } from './users/routes.js';
 import { patientsRouter } from './patients/routes.js';
+import { catalogRouter } from './catalog/routes.js';
 import { scheduleRouter } from './schedule/routes.js';
 
 export function createApp(): express.Express {
@@ -37,6 +38,7 @@ export function createApp(): express.Express {
   api.use('/auth', authRouter);
   api.use('/roles', rolesRouter);
   api.use('/permissions', permissionsRouter);
+  api.use('/catalog', catalogRouter);
   api.use('/centres/:centreId/audit', auditRouter);
   api.use('/centres/:centreId/users', usersRouter);
   api.use('/centres/:centreId/patients', patientsRouter);
