@@ -37,7 +37,8 @@ The first real use is the program manager creating centres and handing them to c
 | Topic | Decision | By |
 | --- | --- | --- |
 | Stack | Node.js backend, React frontend | Client (engineer's skills) |
-| Database | PostgreSQL | Builder's call |
+| Database | **MongoDB for the POC** (no migrations to manage while the model is still changing). The production version will move to PostgreSQL | Client |
+| Mongo usage | Mongoose schemas for every collection. Keep the model relational in shape: separate collections that reference each other by id, no deep embedding of things that are queried on their own (sessions, usage lines, users), so the move to PostgreSQL is a straight mapping. Run MongoDB as a single-node replica set so multi-document transactions work (list merges, transfers). Use unique compound indexes to prevent double booking of a chair, shift and weekday. Reports use aggregation pipelines | Builder's call |
 | Hosting | One VPS run by the client | Client |
 | Delivery | Web app, installable as a PWA (Android "Install app", iOS "Add to Home Screen"), with web push notifications | Client |
 | Store apps | Not in POC. Later, wrap the same React app with Capacitor | Builder's call (direction) |
