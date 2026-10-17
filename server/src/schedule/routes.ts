@@ -10,6 +10,7 @@ import { todayLocal } from '../lib/dates.js';
 import { Role } from '../auth/role.model.js';
 import { User } from '../auth/user.model.js';
 import { Session } from '../sessions/session.model.js';
+import { toSessionCards } from '../sessions/card.js';
 import { ChairAssignment } from './assignment.model.js';
 import { withTransaction } from '../db.js';
 import { recordAudit } from '../audit/record.js';
@@ -173,35 +174,10 @@ scheduleRouter.get('/today', requirePerm('sessions.view'), async (req, res, next
     const parsed = dateQuery.safeParse(req.query);
     if (!parsed.success) throw badRequest('validation');
     const date = parsed.data.date ?? todayLocal();
-    const [sessions, assignments, chairs, shifts] = await Promise.all([
-      Session.find({ centreId, date }),
-      ChairAssignment.find({ centreId }),
-      Chair.find({ centreId }),
-      Shift.find({ centreId }),
-    ]);
-    const patients = await Patient.find({ _id: { $in: sessions.map((s) => s.patientId) } });
-    const nurseOf = new Map(assignments.map((a) => [`${a.chairId}:${a.shiftId}`, String(a.nurseId)]));
-    const chairById = new Map(chairs.map((c) => [c.id as string, c]));
-    const shiftById = new Map(shifts.map((s) => [s.id as string, s]));
-    const patientById = new Map(patients.map((p) => [p.id as string, p]));
+    const sessions = await Session.find({ centreId, date });
     const out = { mine: [] as object[], unassigned: [] as object[], others: [] as object[] };
-    for (const s of sessions) {
-      const chair = chairById.get(String(s.chairId));
-      const shift = shiftById.get(String(s.shiftId));
-      const patient = patientById.get(String(s.patientId));
-      if (!chair || !shift || !patient) continue;
-      const card = {
-        id: s.id as string,
-        date: s.date,
-        status: s.status,
-        kind: s.kind,
-        chair: { id: chair.id as string, label: chair.label },
-        shift: { id: shift.id as string, name: shift.name, start: shift.start, end: shift.end },
-        patient: { id: patient.id as string, name: patient.name },
-        hasActiveOrders: false, // wired up with orders in a later task
-      };
-      const nurse = nurseOf.get(`${s.chairId}:${s.shiftId}`);
-      (nurse === undefined ? out.unassigned : nurse === String(req.user!._id) ? out.mine : out.others).push(card);
+    for (const { card, nurseId } of await toSessionCards(centreId, sessions)) {
+      (nurseId === undefined ? out.unassigned : nurseId === String(req.user!._id) ? out.mine : out.others).push(card);
     }
     res.json(out);
   } catch (e) {
