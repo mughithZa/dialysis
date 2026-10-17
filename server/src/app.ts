@@ -7,6 +7,8 @@ import { authRouter } from './auth/routes.js';
 import { HttpError, notFound } from './lib/errors.js';
 import { centresRouter } from './centres/routes.js';
 import { auditRouter } from './audit/routes.js';
+import { permissionsRouter, rolesRouter } from './auth/roles.routes.js';
+import { usersRouter } from './users/routes.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -31,7 +33,10 @@ export function createApp(): express.Express {
     res.json({ ok: true });
   });
   api.use('/auth', authRouter);
+  api.use('/roles', rolesRouter);
+  api.use('/permissions', permissionsRouter);
   api.use('/centres/:centreId/audit', auditRouter);
+  api.use('/centres/:centreId/users', usersRouter);
   api.use('/centres', centresRouter);
   // Feature routers are mounted here by later tasks.
   api.use((_req, _res, next) => next(notFound()));
