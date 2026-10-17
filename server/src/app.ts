@@ -13,6 +13,7 @@ import { patientsRouter } from './patients/routes.js';
 import { catalogRouter } from './catalog/routes.js';
 import { scheduleRouter } from './schedule/routes.js';
 import { sessionsRouter } from './sessions/routes.js';
+import { ordersRouter } from './orders/routes.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -45,6 +46,7 @@ export function createApp(): express.Express {
   api.use('/centres/:centreId/patients', patientsRouter);
   api.use('/centres/:centreId', scheduleRouter);
   api.use('/centres/:centreId', sessionsRouter);
+  api.use('/centres/:centreId', ordersRouter);
   api.use('/centres', centresRouter);
   // Feature routers are mounted here by later tasks.
   api.use((_req, _res, next) => next(notFound()));

@@ -2,6 +2,7 @@ import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { Patient } from '../patients/patient.model.js';
 import { ChairAssignment } from '../schedule/assignment.model.js';
+import { withActiveOrders } from '../orders/service.js';
 import type { SessionDoc } from './session.model.js';
 
 export interface SessionCard {
@@ -20,11 +21,12 @@ export async function toSessionCards(
   centreId: string,
   sessions: SessionDoc[],
 ): Promise<{ card: SessionCard; nurseId: string | undefined }[]> {
-  const [assignments, chairs, shifts, patients] = await Promise.all([
+  const [assignments, chairs, shifts, patients, ordered] = await Promise.all([
     ChairAssignment.find({ centreId }),
     Chair.find({ centreId }),
     Shift.find({ centreId }),
     Patient.find({ _id: { $in: sessions.map((s) => s.patientId) } }),
+    withActiveOrders(sessions),
   ]);
   const nurseOf = new Map(assignments.map((a) => [`${a.chairId}:${a.shiftId}`, String(a.nurseId)]));
   const chairById = new Map(chairs.map((c) => [c.id as string, c]));
@@ -45,7 +47,7 @@ export async function toSessionCards(
         chair: { id: chair.id as string, label: chair.label },
         shift: { id: shift.id as string, name: shift.name, start: shift.start, end: shift.end },
         patient: { id: patient.id as string, name: patient.name },
-        hasActiveOrders: false, // wired up with orders in a later task
+        hasActiveOrders: ordered.has(`${s.patientId}:${s.date}`),
       },
       nurseId: nurseOf.get(`${s.chairId}:${s.shiftId}`),
     });

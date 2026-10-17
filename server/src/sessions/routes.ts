@@ -11,6 +11,10 @@ import { Unit } from '../catalog/unit.model.js';
 import { withTransaction } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { validate } from '../lib/validate.js';
+import { Centre } from '../centres/centre.model.js';
+import { Shift } from '../centres/shift.model.js';
+import { activeOrdersFor } from '../orders/service.js';
+import { loadPatientInCentre } from '../patients/load.js';
 import { toSessionCards } from './card.js';
 import { SessionChange } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
@@ -37,7 +41,8 @@ async function cardOf(session: SessionDoc) {
   return row.card;
 }
 
-async function detailOf(session: SessionDoc) {
+/** Card + vitals + notes + usage of one session (no orders). */
+async function historyOf(session: SessionDoc) {
   const card = await cardOf(session);
   const lines = await UsageLine.find({ sessionId: session._id }).sort({ createdAt: 1 });
   const items = await Item.find({ _id: { $in: lines.map((l) => l.itemId) } });
@@ -66,8 +71,11 @@ async function detailOf(session: SessionDoc) {
         at: l.get('createdAt') as Date,
       };
     }),
-    orders: [] as object[], // wired up with orders in a later task
   };
+}
+
+async function detailOf(session: SessionDoc) {
+  return { ...(await historyOf(session)), orders: await activeOrdersFor(session.patientId, session.date) };
 }
 
 sessionsRouter.get('/sessions/:sid', requirePerm('sessions.view'), async (req, res, next) => {
@@ -378,6 +386,45 @@ sessionsRouter.post(
       const session = await createMakeup(centreOf(req), String(req.params.id), b);
       await recordAudit(req, 'session.makeup', 'session', session.id, b);
       res.status(201).json(await cardOf(session));
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+const historyQuery = z.object({
+  before: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((s) => DateTime.fromISO(s, { zone: 'utc' }).isValid)
+    .optional(),
+  limit: z.coerce.number().int().min(1).max(50).default(20),
+});
+
+sessionsRouter.get(
+  '/patients/:id/sessions',
+  requirePerm('sessions.view'),
+  validate(historyQuery, 'query'),
+  async (req, res, next) => {
+    try {
+      const { before, limit } = req.query as unknown as z.infer<typeof historyQuery>;
+      const patient = await loadPatientInCentre(centreOf(req), req.params.id);
+      const sessions = await Session.find({
+        patientId: patient._id,
+        status: { $ne: 'scheduled' },
+        ...(before ? { date: { $lt: before } } : {}),
+      });
+      const shifts = await Shift.find({ _id: { $in: sessions.map((s) => s.shiftId) } });
+      const start = (s: SessionDoc) => shifts.find((x) => String(x._id) === String(s.shiftId))?.start ?? '';
+      sessions.sort((a, b) => (a.date === b.date ? start(b).localeCompare(start(a)) : b.date.localeCompare(a.date)));
+      const page = sessions.slice(0, limit);
+      const centres = await Centre.find({ _id: { $in: page.map((s) => s.centreId) } });
+      const items = [];
+      for (const s of page) {
+        const centreName = centres.find((c) => String(c._id) === String(s.centreId))?.name ?? '';
+        items.push({ ...(await historyOf(s)), centreName });
+      }
+      res.json(items);
     } catch (e) {
       next(e);
     }
