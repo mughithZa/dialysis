@@ -5,6 +5,7 @@ import mongoose from 'mongoose';
 import { config } from './config.js';
 import { authRouter } from './auth/routes.js';
 import { HttpError, notFound } from './lib/errors.js';
+import { auditRouter } from './audit/routes.js';
 
 export function createApp(): express.Express {
   const app = express();
@@ -29,6 +30,7 @@ export function createApp(): express.Express {
     res.json({ ok: true });
   });
   api.use('/auth', authRouter);
+  api.use('/centres/:centreId/audit', auditRouter);
   // Feature routers are mounted here by later tasks.
   api.use((_req, _res, next) => next(notFound()));
   app.use('/api', api);
