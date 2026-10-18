@@ -12,6 +12,7 @@ import { validate } from '../lib/validate.js';
 import { activeOrdersFor } from '../orders/service.js';
 import { Patient } from '../patients/patient.model.js';
 import { Session, type SessionDoc } from '../sessions/session.model.js';
+import { buildTimeline } from '../sessions/timeline.js';
 import { UsageLine } from '../sessions/usage.model.js';
 
 export const meRouter = Router();
@@ -120,6 +121,17 @@ meRouter.get('/sessions', validate(sessionsQuery, 'query'), async (req, res, nex
       out.push(row);
     }
     res.json(out);
+  } catch (e) {
+    next(e);
+  }
+});
+
+meRouter.get('/timeline', validate(sessionsQuery, 'query'), async (req, res, next) => {
+  try {
+    const { before, limit } = req.query as unknown as z.infer<typeof sessionsQuery>;
+    const patient = await ownPatient(req.user!._id);
+    const centre = await Centre.findById(patient.centreId);
+    res.json(await buildTimeline(patient._id, { kind: 'patient', seeNotes: centre?.settings?.patientsSeeNotes === true }, { before, limit }));
   } catch (e) {
     next(e);
   }

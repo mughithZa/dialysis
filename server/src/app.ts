@@ -18,6 +18,7 @@ import { rosterRouter } from './schedule/roster.routes.js';
 import { setupRouter } from './schedule/setup.routes.js';
 import { sessionsRouter } from './sessions/routes.js';
 import { ordersRouter } from './orders/routes.js';
+import { notesRouter } from './notes/routes.js';
 import { transfersRouter } from './transfers/routes.js';
 import { meRouter } from './me/routes.js';
 import { pushRouter } from './notify/routes.js';
@@ -65,6 +66,7 @@ export function createApp(options: AppOptions = {}): express.Express {
   api.use('/centres/:centreId', scheduleRouter);
   api.use('/centres/:centreId', sessionsRouter);
   api.use('/centres/:centreId', ordersRouter);
+  api.use('/centres/:centreId', notesRouter);
   api.use('/centres/:centreId', transfersRouter);
   api.use('/centres/:centreId', centreStatsRouter);
   api.use('/stats', statsRouter);

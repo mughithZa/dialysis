@@ -15,6 +15,9 @@ import { Centre } from '../centres/centre.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { activeOrdersFor } from '../orders/service.js';
 import { loadPatientInCentre } from '../patients/load.js';
+import { recentNotesFor } from '../notes/service.js';
+import { addDays, localDateTime, todayLocal } from '../lib/dates.js';
+import { buildTimeline } from './timeline.js';
 import { toSessionCards } from './card.js';
 import { SessionChange } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
@@ -78,7 +81,11 @@ async function historyOf(session: SessionDoc) {
 }
 
 async function detailOf(session: SessionDoc) {
-  return { ...(await historyOf(session)), orders: await activeOrdersFor(session.patientId, session.date) };
+  return {
+    ...(await historyOf(session)),
+    orders: await activeOrdersFor(session.patientId, session.date),
+    recentNotes: await recentNotesFor(session.patientId, localDateTime(addDays(todayLocal(), -30), '00:00')),
+  };
 }
 
 sessionsRouter.get('/sessions/:sid', requirePerm('sessions.view'), async (req, res, next) => {
@@ -490,6 +497,21 @@ sessionsRouter.get(
         items.push({ ...(await historyOf(s)), centreId: String(s.centreId), centreName });
       }
       res.json(items);
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+sessionsRouter.get(
+  '/patients/:id/timeline',
+  requirePerm('sessions.view'),
+  validate(historyQuery, 'query'),
+  async (req, res, next) => {
+    try {
+      const { before, limit } = req.query as unknown as z.infer<typeof historyQuery>;
+      const patient = await loadPatientInCentre(centreOf(req), req.params.id);
+      res.json(await buildTimeline(patient._id, { kind: 'staff', centreId: centreOf(req) }, { before, limit }));
     } catch (e) {
       next(e);
     }
