@@ -72,6 +72,7 @@ export async function bookPattern(
 ): Promise<PatternDoc> {
   const patient = await loadPatientInCentre(centreId, input.patientId);
   await checkChairAndShift(centreId, input);
+  if (patient.status === 'transferring') throw conflict('transfer_pending');
   if (patient.status !== 'active') throw conflict('patient_not_active');
   const pattern = await withTransaction(async (session) => {
     if (await Pattern.exists({ patientId: patient._id, to: null }).session(session)) throw conflict('already_booked');
@@ -92,6 +93,7 @@ export async function changePattern(
 ): Promise<PatternDoc> {
   const patient = await loadPatientInCentre(centreId, patientId);
   await checkChairAndShift(centreId, input);
+  if (patient.status === 'transferring') throw conflict('transfer_pending');
   if (patient.status !== 'active') throw conflict('patient_not_active');
   const pattern = await withTransaction(async (session) => {
     const open = await Pattern.findOne({ patientId: patient._id, to: null }).session(session);

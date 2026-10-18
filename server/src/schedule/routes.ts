@@ -195,6 +195,7 @@ scheduleRouter.post(
     try {
       const b = req.body as z.infer<typeof dischargeBody>;
       const patient = await loadPatientInCentre(centreOf(req), req.params.id);
+      if (patient.status === 'transferring') throw conflict('transfer_pending');
       if (patient.status === 'discharged') throw conflict('already_discharged');
       await withTransaction(async (session) => {
         patient.status = 'discharged';

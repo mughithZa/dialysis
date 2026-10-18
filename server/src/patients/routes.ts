@@ -85,13 +85,16 @@ patientsRouter.post('/', requirePerm('patients.create'), validate(createBody), a
 
 const listQuery = z.object({
   q: z.string().trim().min(1).optional(),
-  status: z.enum(PATIENT_STATUSES).default('active'),
+  status: z.enum([...PATIENT_STATUSES, 'all']).optional(),
 });
 
 patientsRouter.get('/', requirePerm('patients.view'), validate(listQuery, 'query'), async (req, res, next) => {
   try {
     const { q, status } = req.query as unknown as z.infer<typeof listQuery>;
-    const filter: mongoose.FilterQuery<PatientDoc> = { centreId: centreOf(req), status };
+    const filter: mongoose.FilterQuery<PatientDoc> = { centreId: centreOf(req) };
+    // default: everyone still handled by this centre, including pending-transfer patients
+    if (status === undefined) filter.status = { $in: ['active', 'transferring'] };
+    else if (status !== 'all') filter.status = status;
     if (q) {
       const rx = new RegExp(escapeRegex(q), 'i');
       filter.$or = [{ name: rx }, { phone: rx }];
