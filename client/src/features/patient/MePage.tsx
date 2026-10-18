@@ -1,31 +1,12 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Loader, Stack, Text, Title } from '@mantine/core';
+import { Timeline } from '../../components/Timeline';
+import { formatDay } from '../../components/timelineApi';
 import { errorMessage } from '../../i18n/errors';
-import { formatDay, useOverview, type MiniSession } from './api';
+import { useOverview } from './api';
 import { InstallPrompt } from './InstallPrompt';
 import { useNotifications } from './useNotifications';
-
-function SessionRow({ s }: { s: MiniSession }) {
-  const { t, i18n } = useTranslation();
-  return (
-    <Card withBorder p="md">
-      <Group justify="space-between" wrap="nowrap" align="flex-start">
-        <div>
-          <Text fw={600}>{formatDay(s.date, i18n.language)}</Text>
-          <Text>
-            {s.start}–{s.end}
-          </Text>
-          <Text size="sm" c="dimmed">
-            {s.centreName}
-          </Text>
-        </div>
-        {s.kind === 'makeup' && <Badge variant="light">{t('me.makeup')}</Badge>}
-      </Group>
-    </Card>
-  );
-}
 
 function Reminders() {
   const { t } = useTranslation();
@@ -61,7 +42,7 @@ export function MePage() {
 
   if (q.isPending) return <Loader />;
   if (q.isError) return <Alert color="danger">{errorMessage(t, q.error)}</Alert>;
-  const { active, upcoming, patient, centre } = q.data;
+  const { active, patient, centre } = q.data;
 
   return (
     <Stack gap="md">
@@ -79,19 +60,7 @@ export function MePage() {
       )}
       <InstallPrompt />
       <Reminders />
-      <Title order={3}>{t('me.upcoming')}</Title>
-      {upcoming.length === 0 ? (
-        <Text c="dimmed">{t('me.noUpcoming')}</Text>
-      ) : (
-        <Stack gap="sm">
-          {upcoming.map((s) => (
-            <SessionRow key={s.id} s={s} />
-          ))}
-        </Stack>
-      )}
-      <Button component={Link} to="/me/history" variant="default" mih={44}>
-        {t('me.history')}
-      </Button>
+      <Timeline source={{ kind: 'me' }} />
     </Stack>
   );
 }

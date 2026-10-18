@@ -1,11 +1,9 @@
-import type { Types } from 'mongoose';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { AuditEntry } from '../audit/audit.model.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
-import { Patient } from '../patients/patient.model.js';
 import { Session } from '../sessions/session.model.js';
-import { ALL_DAYS, createUser, login, makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
+import { ALL_DAYS, createUser, login, makeCentre, makePatient, staffIn } from '../../test/factories.js';
 
 beforeEach(seedRoles);
 
@@ -87,43 +85,5 @@ describe('doctor orders', () => {
     expect((await agent.get(`${baseB}/patients/${pb.id}/orders`)).body.map((o: { text: string }) => o.text)).toEqual(['B order']);
     expect((await agent.get(`${a.base}/patients/${pb.id}/orders`)).status).toBe(404);
     expect((await agent.post(`${baseB}/patients/${a.patient.id}/orders`).send({ text: 'x' })).status).toBe(404);
-  });
-});
-
-describe('patient session history', () => {
-  it('follows the patient across centres, newest first, excludes scheduled, paginates', async () => {
-    const { centre, chairs, shifts, base, doctor, desk, patient } = await setup();
-    const other = await makeCentre({ name: 'Beta' });
-    const mk = (centreId: string | Types.ObjectId, chairId: string | Types.ObjectId, shiftId: string | Types.ObjectId, date: string, status: string) =>
-      makeSession({ centreId, patientId: patient._id, date, chairId, shiftId, status });
-    await mk(other.centre._id, other.chairs[0]!._id, other.shifts[0]!._id, '2026-01-01', 'completed');
-    await mk(centre._id, chairs[0]!._id, shifts[1]!._id, '2026-01-03', 'completed');
-    await mk(centre._id, chairs[0]!._id, shifts[0]!._id, '2026-01-03', 'missed');
-    await mk(centre._id, chairs[0]!._id, shifts[0]!._id, '2026-01-02', 'postponed');
-    const url = `${base}/patients/${patient.id}/sessions`;
-    const res = await doctor.agent.get(url);
-    expect(res.status).toBe(200);
-    // today's session is still scheduled so is excluded
-    expect(res.body.map((s: { date: string; status: string }) => `${s.date}:${s.status}`)).toEqual([
-      '2026-01-03:completed',
-      '2026-01-03:missed',
-      '2026-01-02:postponed',
-      '2026-01-01:completed',
-    ]);
-    expect(res.body[3].centreName).toBe('Beta');
-    expect(res.body[3].centreId).toBe(String(other.centre._id));
-    expect(res.body[0].centreId).toBe(String(centre._id));
-    expect(res.body[0].centreName).toBe('Alpha');
-    expect(res.body[0]).toMatchObject({ usage: [], notes: [], vitals: { bp: [] } });
-    expect((await desk.agent.get(url)).status).toBe(200);
-
-    const page = await doctor.agent.get(`${url}?before=2026-01-03&limit=1`);
-    expect(page.body.map((s: { date: string }) => s.date)).toEqual(['2026-01-02']);
-    expect((await doctor.agent.get(`${url}?limit=0`)).status).toBe(400);
-    expect((await doctor.agent.get(`${url}?limit=51`)).status).toBe(400);
-    expect((await doctor.agent.get(`${url}?before=bad`)).status).toBe(400);
-
-    await Patient.updateOne({ _id: patient._id }, { $set: { centreId: other.centre._id } });
-    expect((await doctor.agent.get(url)).status).toBe(404);
   });
 });

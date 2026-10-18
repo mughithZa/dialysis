@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiGet, apiPost, apiPatch, apiPut } from '../../api';
+import type { SessionStatus } from '../../sessionStatus';
 import { useCentreId } from '../centre/api';
 
 export type PatientStatus = 'active' | 'transferring' | 'discharged';
@@ -37,7 +38,7 @@ export interface PatientRecord {
 export interface SessionCardDto {
   id: string;
   date: string;
-  status: 'scheduled' | 'active' | 'completed' | 'postponed' | 'missed';
+  status: SessionStatus;
   kind: 'regular' | 'makeup';
   chair: { id: string; label: string };
   shift: { id: string; name: string; start: string; end: string };
@@ -339,9 +340,7 @@ export interface SetupBody {
   blocks: { id?: string; name: string; start: string; end: string }[];
   workingDays: number[];
 }
-export interface CalendarCard extends Omit<SessionCardDto, 'status'> {
-  status: SessionCardDto['status'] | 'did_not_come' | 'cancelled';
-}
+export type CalendarCard = SessionCardDto;
 export interface CalendarDto {
   days: {
     date: string;
@@ -390,27 +389,7 @@ export const useCalendar = (from: string, to: string) => {
   });
 };
 
-// ---------- Front-desk timeline actions ----------
-
-export interface TimelineRow {
-  id: string;
-  date: string;
-  block: string;
-  chairLabel: string;
-  centreId: string;
-  status: string;
-  kind: string;
-  linkable?: boolean;
-}
-
-export const usePatientTimeline = (patientId: string, enabled: boolean) => {
-  const centreId = useCentreId();
-  return useQuery({
-    queryKey: key(centreId, 'timeline', patientId),
-    queryFn: () => apiGet<{ upcoming: TimelineRow[]; today: TimelineRow[]; past: TimelineRow[] }>(`${base(centreId)}/patients/${patientId}/timeline`),
-    enabled: enabled && !!centreId && !!patientId,
-  });
-};
+// ---------- Front-desk session actions (the timeline itself is components/timelineApi) ----------
 
 export function useMoveSession() {
   const centreId = useCentreId();

@@ -27,6 +27,7 @@ const detail = (over: Record<string, unknown> = {}) => ({
   notes: [],
   usage: [],
   orders: [],
+  recentNotes: [],
   ...over,
 });
 
@@ -88,6 +89,13 @@ describe('SessionPage', () => {
   it('shows the doctor order text in a banner only when orders exist', async () => {
     mount(detail({ hasActiveOrders: true, orders: [{ id: 'o1', text: 'Reduce UF to 2 L', from: todayLocal(), doctor: { id: 'd', name: 'Dr Omar' } }] }));
     expect(await screen.findByText('Reduce UF to 2 L')).toBeInTheDocument();
+    expect(screen.getByText(/Dr Omar/)).toBeInTheDocument();
+  });
+
+  it('shows recent doctor notes in the orders banner, with or without orders', async () => {
+    mount(detail({ recentNotes: [{ id: 'n1', at: new Date().toISOString(), text: 'Watch the access site', author: { name: 'Dr Omar' } }] }));
+    expect(await screen.findByText('Watch the access site')).toBeInTheDocument();
+    expect(screen.getByText('Doctor notes')).toBeInTheDocument();
     expect(screen.getByText(/Dr Omar/)).toBeInTheDocument();
   });
 

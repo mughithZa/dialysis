@@ -7,6 +7,7 @@ import { addDays, localDateTime, todayLocal } from '../lib/dates.js';
 import { PatientNote } from '../notes/patient-note.model.js';
 import { RosterEntry } from '../schedule/roster.model.js';
 import { UsageLine } from './usage.model.js';
+import { Session } from './session.model.js';
 import { login, makeCentre, makePatient, makeSession, staffIn } from '../../test/factories.js';
 
 beforeAll(async () => {
@@ -98,6 +99,9 @@ describe('GET patients/:id/timeline', () => {
     await UsageLine.create({ sessionId: s._id, patientId: s.patientId, centreId: s.centreId, date: s.date, itemId: sup._id, amount: 2, by: nurse.user._id });
     const res = await desk.agent.get(`${url}/timeline`);
     expect(res.body.past[0].medicines).toEqual([{ name: 'Heparin', amount: 5, unit: 'cc' }]);
+    expect(res.body.past[0].oneOff).toBe(false);
+    await Session.updateOne({ _id: s._id }, { $set: { oneOff: true } });
+    expect((await desk.agent.get(`${url}/timeline`)).body.past[0].oneOff).toBe(true);
   });
 
   it('shows old-centre sessions after a transfer as not linkable', async () => {

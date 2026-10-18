@@ -4,9 +4,10 @@ import { Link, useParams } from 'react-router-dom';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, Stack, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
+import { formatDay } from '../../components/timelineApi';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
-import { todayLocal } from '../desk/dates';
+import { toLocalDate, todayLocal } from '../desk/dates';
 import { hasHeparin, useRemoveUsage, useSession, useSessionAction, useUpdateUsage, type SessionDetail, type UsageLineDto } from './api';
 import { HistoryDrawer } from './HistoryDrawer';
 import { NotesList } from './NotesList';
@@ -67,7 +68,7 @@ function UsageRow({ sessionId, line, canEdit }: { sessionId: string; line: Usage
 }
 
 function SessionView({ s }: { s: SessionDetail }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const centreId = useCentreId();
   const action = useSessionAction(s.id);
   const canRun = useCan('sessions.run');
@@ -105,7 +106,7 @@ function SessionView({ s }: { s: SessionDetail }) {
         </Text>
       </Stack>
 
-      {s.orders.length > 0 && (
+      {(s.orders.length > 0 || s.recentNotes.length > 0) && (
         <Alert color="warning" title={t('nurse.session.orders')}>
           <Stack gap="xs">
             {s.orders.map((o) => (
@@ -114,6 +115,20 @@ function SessionView({ s }: { s: SessionDetail }) {
                 <Text component="span" size="sm" c="dimmed">
                   {' '}
                   - {o.doctor.name}
+                </Text>
+              </Text>
+            ))}
+            {s.recentNotes.length > 0 && (
+              <Text fw={600} size="sm">
+                {t('doctor.notes.title')}
+              </Text>
+            )}
+            {s.recentNotes.map((n) => (
+              <Text key={n.id}>
+                {n.text}
+                <Text component="span" size="sm" c="dimmed">
+                  {' '}
+                  - {n.author.name}, {formatDay(toLocalDate(new Date(n.at)), i18n.language)}
                 </Text>
               </Text>
             ))}

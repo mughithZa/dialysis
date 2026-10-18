@@ -3,14 +3,14 @@ import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, PasswordInput, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
-import { SessionHistory } from '../../components/SessionHistory';
+import { Timeline } from '../../components/Timeline';
+import { useTimeline, type TimelineItem } from '../../components/timelineApi';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
 import { OrdersPanel } from '../doctor/OrdersPanel';
 import {
   usePatient,
-  usePatientTimeline,
   usePlan,
   usePostpone,
   useResetPatientPassword,
@@ -18,7 +18,6 @@ import {
   useSetup,
   useTransferTargets,
   type PatientDto,
-  type TimelineRow,
 } from './api';
 import { BookDialog } from './BookDialog';
 import { CancelDialog, DidNotComeDialog } from './CancelDialog';
@@ -32,7 +31,8 @@ import { PatientForm } from './PatientForm';
 function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: () => void }) {
   const { t } = useTranslation();
   const [date, setDate] = useState(todayLocal());
-  const timeline = usePatientTimeline(patientId, true);
+  const centreId = useCentreId();
+  const timeline = useTimeline({ kind: 'staff', centreId, patientId });
   const postpone = usePostpone();
   const rows = timeline.data ? [...timeline.data.upcoming, ...timeline.data.today, ...timeline.data.past] : [];
   const mine = rows.filter((s) => s.date === date && (s.status === 'scheduled' || s.status === 'missed'));
@@ -157,7 +157,6 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
   const plan = usePlan(patient.id, canView);
   const setup = useSetup();
   const canHistory = useCan('sessions.view');
-  const timeline = usePatientTimeline(patient.id, canHistory);
   const can = {
     edit: useCan('patients.edit'),
     book: useCan('schedule.book'),
@@ -168,9 +167,9 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
     reset: useCan('users.resetPassword'),
   };
   const [dialog, setDialog] = useState<Dialog | null>(null);
-  const [target, setTarget] = useState<TimelineRow | null>(null);
+  const [target, setTarget] = useState<TimelineItem | null>(null);
   const close = () => setDialog(null);
-  const act = (d: Dialog, row: TimelineRow) => {
+  const act = (d: Dialog, row: TimelineItem) => {
     setTarget(row);
     setDialog(d);
   };
@@ -183,10 +182,36 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
   const planItems = WEEKDAY_ORDER.flatMap((d) => (current?.items ?? []).filter((i) => i.weekday === d));
 
   const today = todayLocal();
-  const rows = [...(timeline.data?.upcoming ?? []), ...(timeline.data?.today ?? []), ...(timeline.data?.past ?? [])]
-    .filter((r) => r.centreId === centreId && (r.status === 'scheduled' || (r.status === 'missed' && r.date <= today)))
-    .sort((x, y) => x.date.localeCompare(y.date));
   const canActOnSessions = active && (can.book || can.postpone);
+  /** The front desk's per-session actions, shown on the rows of this centre that can still be acted on. */
+  const rowActions = (r: TimelineItem) => {
+    if (!canActOnSessions || r.centreId !== centreId) return null;
+    if (!(r.status === 'scheduled' || (r.status === 'missed' && r.date <= today))) return null;
+    const future = r.date >= today;
+    const move = can.book && future && r.status === 'scheduled';
+    const cancel = can.postpone && future && r.status === 'scheduled';
+    const dnc = can.postpone && r.date <= today;
+    if (!move && !cancel && !dnc) return null;
+    return (
+      <>
+        {move && (
+          <Button mih={44} variant="default" onClick={() => act('move', r)}>
+            {t('desk.patient.move')}
+          </Button>
+        )}
+        {cancel && (
+          <Button mih={44} variant="default" onClick={() => act('cancel', r)}>
+            {t('desk.patient.cancel')}
+          </Button>
+        )}
+        {dnc && (
+          <Button mih={44} variant="default" onClick={() => act('dnc', r)}>
+            {t('desk.patient.didNotCome')}
+          </Button>
+        )}
+      </>
+    );
+  };
 
   const titles: Record<Dialog, string> = {
     edit: t('desk.patients.editTitle'),
@@ -297,48 +322,12 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
         </Stack>
       )}
 
-      {canActOnSessions && (
-        <Stack gap="xs">
-          <Text fw={600}>{t('desk.patient.sessions')}</Text>
-          {timeline.isPending && <Loader size="sm" />}
-          {timeline.isError && <Alert color="danger">{errorMessage(t, timeline.error)}</Alert>}
-          {timeline.data && rows.length === 0 && <Text c="dimmed">{t('desk.patient.noSessions')}</Text>}
-          {rows.map((r) => {
-            const future = r.date >= today;
-            return (
-              <Card key={r.id} withBorder padding="xs">
-                <Stack gap="xs">
-                  <Text>{t('desk.patient.sessionLine', { date: r.date, block: r.block, chair: r.chairLabel })}</Text>
-                  <Group gap="xs">
-                    {can.book && future && r.status === 'scheduled' && (
-                      <Button mih={44} variant="default" onClick={() => act('move', r)}>
-                        {t('desk.patient.move')}
-                      </Button>
-                    )}
-                    {can.postpone && future && r.status === 'scheduled' && (
-                      <Button mih={44} variant="default" onClick={() => act('cancel', r)}>
-                        {t('desk.patient.cancel')}
-                      </Button>
-                    )}
-                    {can.postpone && r.date <= today && (
-                      <Button mih={44} variant="default" onClick={() => act('dnc', r)}>
-                        {t('desk.patient.didNotCome')}
-                      </Button>
-                    )}
-                  </Group>
-                </Stack>
-              </Card>
-            );
-          })}
-        </Stack>
-      )}
-
       <OrdersPanel patientId={patient.id} />
 
       {canHistory && (
         <Stack gap="xs">
-          <Text fw={600}>{t('sessions.history.title')}</Text>
-          <SessionHistory patientId={patient.id} />
+          <Text fw={600}>{t('timeline.title')}</Text>
+          <Timeline source={{ kind: 'staff', centreId, patientId: patient.id }} actions={rowActions} />
         </Stack>
       )}
 

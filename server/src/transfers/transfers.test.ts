@@ -190,9 +190,9 @@ describe('accept', () => {
     expect((await s.deskA.agent.get(`${s.baseA}/patients/${s.patient.id}`)).status).toBe(404);
     expect((await doctorA.agent.get(`${s.baseA}/patients/${s.patient.id}`)).status).toBe(404);
     expect((await doctorB.agent.get(`${s.baseB}/patients/${s.patient.id}`)).status).toBe(200);
-    const hist = await doctorB.agent.get(`${s.baseB}/patients/${s.patient.id}/sessions`);
+    const hist = await doctorB.agent.get(`${s.baseB}/patients/${s.patient.id}/timeline`);
     expect(hist.status).toBe(200);
-    expect(hist.body.map((h: { centreName: string }) => h.centreName)).toEqual(['Alpha']);
+    expect(hist.body.today.map((h: { centreName: string }) => h.centreName)).toEqual(['Alpha']);
     // the plan ends today (slot free from tomorrow) and another patient can take it
     expect((await Plan.find({ patientId: s.patient._id })).map((x) => x.to)).toEqual([todayLocal()]);
     const next = await makePatient(s.a.centre.id);

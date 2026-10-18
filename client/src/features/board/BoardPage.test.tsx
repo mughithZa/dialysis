@@ -99,6 +99,13 @@ describe('BoardPage', () => {
     expect(screen.getByRole('switch', { name: 'My machines' })).not.toBeChecked();
   });
 
+  it('shows the My machines toggle only to users who can run sessions', async () => {
+    mount(['sessions.view'], { waiting: [row('1', 'Mine P', '1', 'scheduled', { mine: true }), row('2', 'Other P', '2', 'scheduled')] });
+    expect(await screen.findByText('Other P')).toBeInTheDocument();
+    expect(screen.getByText('Mine P')).toBeInTheDocument();
+    expect(screen.queryByRole('switch', { name: 'My machines' })).toBeNull();
+  });
+
   it('shows row actions by permission', async () => {
     mount(['sessions.view'], { waiting: [row('1', 'Omar', '1', 'scheduled')] });
     await screen.findByText('Omar');

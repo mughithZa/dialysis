@@ -1,8 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiGet, apiPost } from '../../api';
+import type { SessionStatus } from '../../sessionStatus';
 import { useCentreId } from '../centre/api';
 
-export type BoardStatus = 'scheduled' | 'active' | 'completed' | 'postponed' | 'missed' | 'did_not_come' | 'cancelled';
+export type BoardStatus = SessionStatus;
 
 export interface BoardRow {
   id: string;

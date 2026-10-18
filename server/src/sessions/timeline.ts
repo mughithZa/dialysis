@@ -24,6 +24,7 @@ export interface TimelineItem {
   status: string;
   kind: string;
   detached: boolean;
+  oneOff: boolean;
   nurse: { name: string } | null;
   medicines: { name: string; amount: number; unit: string }[];
   statusReason?: string;
@@ -77,6 +78,7 @@ async function toItems(sessions: SessionDoc[], viewer: TimelineViewer, today: st
       status: s.status,
       kind: s.kind,
       detached: s.detached === true,
+      oneOff: s.oneOff === true,
       nurse: nid ? { name: users.find((u) => String(u._id) === nid)?.name ?? '' } : null,
       medicines: lines
         .filter((l) => String(l.sessionId) === String(s._id))

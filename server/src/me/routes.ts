@@ -1,19 +1,15 @@
 import { Router } from 'express';
 import { DateTime } from 'luxon';
 import { z } from 'zod';
-import { Item } from '../catalog/item.model.js';
-import { Unit } from '../catalog/unit.model.js';
 import { requirePatient } from '../auth/middleware.js';
 import { Centre } from '../centres/centre.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { addDays, todayLocal } from '../lib/dates.js';
 import { notFound } from '../lib/errors.js';
 import { validate } from '../lib/validate.js';
-import { activeOrdersFor } from '../orders/service.js';
 import { Patient } from '../patients/patient.model.js';
 import { Session, type SessionDoc } from '../sessions/session.model.js';
 import { buildTimeline } from '../sessions/timeline.js';
-import { UsageLine } from '../sessions/usage.model.js';
 
 export const meRouter = Router();
 meRouter.use(requirePatient);
@@ -82,48 +78,6 @@ const sessionsQuery = z.object({
     .refine((s) => DateTime.fromISO(s, { zone: 'utc' }).isValid)
     .optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
-});
-
-meRouter.get('/sessions', validate(sessionsQuery, 'query'), async (req, res, next) => {
-  try {
-    const { before, limit } = req.query as unknown as z.infer<typeof sessionsQuery>;
-    const patient = await ownPatient(req.user!._id);
-    const centre = await Centre.findById(patient.centreId);
-    const seeNotes = centre?.settings?.patientsSeeNotes === true;
-    const sessions = await Session.find({
-      patientId: patient._id,
-      status: { $in: ['completed', 'active', 'postponed', 'missed'] },
-      ...(before ? { date: { $lt: before } } : {}),
-    });
-    const l = await lookups(sessions);
-    const asc = byDateThenStart((s) => l.shiftOf(s)?.start ?? '');
-    const page = sessions.sort((a, b) => asc(b, a)).slice(0, limit);
-
-    const lines = await UsageLine.find({ sessionId: { $in: page.map((s) => s._id) } }).sort({ createdAt: 1 });
-    const items = await Item.find({ _id: { $in: lines.map((x) => x.itemId) } });
-    const units = await Unit.find({ _id: { $in: items.map((i) => i.unitId) } });
-    const usageOf = (s: SessionDoc) =>
-      lines
-        .filter((x) => String(x.sessionId) === String(s._id))
-        .map((x) => {
-          const item = items.find((i) => String(i._id) === String(x.itemId));
-          const unit = units.find((u) => String(u._id) === String(item?.unitId));
-          return { name: item?.name ?? '', amount: x.amount, unit: unit?.name ?? '' };
-        });
-
-    const out = [];
-    for (const s of page) {
-      const row: Record<string, unknown> = { ...mini(s, l), usage: usageOf(s) };
-      if (seeNotes) {
-        row.notes = s.notes.map((n) => ({ at: n.at, text: n.text }));
-        row.orders = (await activeOrdersFor(patient._id, s.date)).map((o) => ({ text: o.text, from: o.from }));
-      }
-      out.push(row);
-    }
-    res.json(out);
-  } catch (e) {
-    next(e);
-  }
 });
 
 meRouter.get('/timeline', validate(sessionsQuery, 'query'), async (req, res, next) => {

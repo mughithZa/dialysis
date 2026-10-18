@@ -47,9 +47,36 @@ describe('OrdersPanel', () => {
     expect(screen.queryByText('Heparin-free until further notice')).toBeNull();
   });
 
+  it('posts a doctor note which then appears in the notes list', async () => {
+    useCentreUser(['orders.view', 'orders.write']);
+    const notes: { id: string; at: string; text: string; author: { name: string } }[] = [];
+    let posted: unknown;
+    server.use(
+      http.get('*/api/centres/c1/patients/p1/orders', () => HttpResponse.json([])),
+      http.get('*/api/centres/c1/patients/p1/notes', () => HttpResponse.json(notes)),
+      http.post('*/api/centres/c1/patients/p1/notes', async ({ request }) => {
+        posted = await request.json();
+        const n = { id: 'n1', at: new Date().toISOString(), text: (posted as { text: string }).text, author: { name: 'Dr Omar' } };
+        notes.push(n);
+        return HttpResponse.json(n, { status: 201 });
+      }),
+    );
+    renderApp(<OrdersPanel patientId="p1" />);
+    expect(await screen.findByText('No notes.')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('New note'), 'Review dry weight next week');
+    await userEvent.click(screen.getByRole('button', { name: 'Add note' }));
+    expect(await screen.findByText('Review dry weight next week')).toBeInTheDocument();
+    expect(posted).toEqual({ text: 'Review dry weight next week' });
+    expect(screen.getByText(/Dr Omar/)).toBeInTheDocument();
+    expect(screen.queryByText('No notes.')).toBeNull();
+  });
+
   it('is read-only with orders.view alone', async () => {
     useCentreUser(['orders.view']);
     server.use(
+      http.get('*/api/centres/c1/patients/p1/notes', () =>
+        HttpResponse.json([{ id: 'n0', at: '2026-10-01T09:00:00Z', text: 'Old note', author: { name: 'Dr Omar' } }]),
+      ),
       http.get('*/api/centres/c1/patients/p1/orders', () =>
         HttpResponse.json([{ id: 'o1', text: 'Low flux', from: '2026-10-01', status: 'active', doctor: { id: 'd', name: 'Dr Omar' } }]),
       ),
@@ -58,6 +85,8 @@ describe('OrdersPanel', () => {
     expect(await screen.findByText('Low flux')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
     expect(screen.queryByLabelText('New order')).toBeNull();
+    expect(screen.queryByLabelText('New note')).toBeNull();
+    expect(await screen.findByText('Old note')).toBeInTheDocument();
   });
 });
 
@@ -83,7 +112,8 @@ describe('PatientPage as a doctor', () => {
         }),
       ),
       http.get('*/api/centres/c1/patients/p1/orders', () => HttpResponse.json([])),
-      http.get('*/api/centres/c1/patients/p1/sessions', () => HttpResponse.json([])),
+      http.get('*/api/centres/c1/patients/p1/notes', () => HttpResponse.json([])),
+      http.get('*/api/centres/c1/patients/p1/timeline', () => HttpResponse.json({ upcoming: [], today: [], past: [], notes: [] })),
     );
     renderApp(
       <Routes>

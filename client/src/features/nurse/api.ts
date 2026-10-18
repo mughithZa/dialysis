@@ -3,7 +3,9 @@ import { apiDelete, apiGet, apiPatch, apiPost } from '../../api';
 import { useCentreId } from '../centre/api';
 import type { ItemDto, ItemType, UnitDto } from '../pm/api';
 
-export type SessionStatus = 'scheduled' | 'active' | 'completed' | 'postponed' | 'missed';
+import type { SessionStatus } from '../../sessionStatus';
+
+export type { SessionStatus };
 
 export interface SessionCard {
   id: string;
@@ -39,6 +41,8 @@ export interface SessionDetail extends SessionCard {
   notes: NoteDto[];
   usage: UsageLineDto[];
   orders: OrderDto[];
+  /** Patient-level doctor notes from the last 30 days, newest first. */
+  recentNotes: { id: string; at: string; text: string; author: { name: string } }[];
 }
 export interface ChangeDto {
   id: string;

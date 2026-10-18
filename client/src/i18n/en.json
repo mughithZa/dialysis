@@ -350,9 +350,6 @@
       "postpone": "Postpone session",
       "makeup": "Make-up session",
       "changePlan": "Change weekly plan",
-      "sessions": "Upcoming sessions",
-      "noSessions": "No sessions to act on.",
-      "sessionLine": "{{date}} · {{block}} · {{chair}}",
       "move": "Move",
       "cancel": "Cancel",
       "didNotCome": "Did not come",
@@ -570,28 +567,27 @@
       "from": "Effective from (optional)",
       "add": "Add order",
       "end": "End"
+    },
+    "notes": {
+      "title": "Doctor notes",
+      "text": "New note",
+      "add": "Add note",
+      "none": "No notes.",
+      "added": "Note added."
     }
   },
   "sessions": {
     "history": {
-      "title": "Session history",
-      "empty": "No sessions yet.",
-      "more": "Load more",
-      "kind": {
-        "regular": "Regular",
-        "makeup": "Make-up"
-      },
-      "weightBefore": "Weight before: {{kg}} kg",
-      "weightAfter": "Weight after: {{kg}} kg",
-      "usage": "{{item}}: {{amount}} {{unit}}",
-      "bp": "BP {{systolic}}/{{diastolic}}"
+      "usage": "{{item}}: {{amount}} {{unit}}"
     },
     "status": {
       "scheduled": "Scheduled",
-      "active": "In progress",
+      "active": "Active",
       "completed": "Completed",
       "postponed": "Postponed",
-      "missed": "Missed"
+      "missed": "Missed",
+      "did_not_come": "Did not come",
+      "cancelled": "Cancelled"
     }
   },
   "nurse": {
@@ -684,24 +680,6 @@
   },
   "me": {
     "activeNow": "Session active now",
-    "upcoming": "Upcoming sessions",
-    "noUpcoming": "No sessions in the next two weeks.",
-    "makeup": "Make-up",
-    "history": "Session history",
-    "noHistory": "No past sessions yet.",
-    "loadMore": "Load more",
-    "medicines": "Medicines",
-    "noMedicines": "No medicines recorded.",
-    "notes": "Notes",
-    "orders": "Doctor's orders",
-    "back": "Back",
-    "status": {
-      "completed": "Completed",
-      "active": "In progress",
-      "postponed": "Postponed",
-      "missed": "Missed",
-      "scheduled": "Scheduled"
-    },
     "install": {
       "button": "Install app",
       "dismiss": "Dismiss",
@@ -738,5 +716,21 @@
     "summary": "Done {{done}} · Did not come {{didNotCome}} · Postponed or cancelled {{other}}",
     "empty": "Empty machines: {{machines}}",
     "noneEmpty": "none"
+  },
+  "timeline": {
+    "upcoming": "Upcoming",
+    "today": "Today",
+    "past": "Past",
+    "more": "Load more",
+    "empty": "No sessions yet.",
+    "machine": "Machine {{label}}",
+    "nurse": "Nurse {{name}}",
+    "noNurse": "No nurse yet",
+    "medicine": "{{name}}: {{amount}} {{unit}}",
+    "makeup": "Make-up",
+    "moved": "Moved",
+    "oneOff": "One-off",
+    "note": "Doctor note",
+    "title": "Sessions"
   }
 }

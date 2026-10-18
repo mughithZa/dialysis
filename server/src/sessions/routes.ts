@@ -11,8 +11,6 @@ import { Unit } from '../catalog/unit.model.js';
 import { withTransaction } from '../db.js';
 import { conflict, notFound } from '../lib/errors.js';
 import { validate } from '../lib/validate.js';
-import { Centre } from '../centres/centre.model.js';
-import { Shift } from '../centres/shift.model.js';
 import { activeOrdersFor } from '../orders/service.js';
 import { loadPatientInCentre } from '../patients/load.js';
 import { recentNotesFor } from '../notes/service.js';
@@ -472,36 +470,6 @@ const historyQuery = z.object({
     .optional(),
   limit: z.coerce.number().int().min(1).max(50).default(20),
 });
-
-sessionsRouter.get(
-  '/patients/:id/sessions',
-  requirePerm('sessions.view'),
-  validate(historyQuery, 'query'),
-  async (req, res, next) => {
-    try {
-      const { before, limit } = req.query as unknown as z.infer<typeof historyQuery>;
-      const patient = await loadPatientInCentre(centreOf(req), req.params.id);
-      const sessions = await Session.find({
-        patientId: patient._id,
-        status: { $ne: 'scheduled' },
-        ...(before ? { date: { $lt: before } } : {}),
-      });
-      const shifts = await Shift.find({ _id: { $in: sessions.map((s) => s.shiftId) } });
-      const start = (s: SessionDoc) => shifts.find((x) => String(x._id) === String(s.shiftId))?.start ?? '';
-      sessions.sort((a, b) => (a.date === b.date ? start(b).localeCompare(start(a)) : b.date.localeCompare(a.date)));
-      const page = sessions.slice(0, limit);
-      const centres = await Centre.find({ _id: { $in: page.map((s) => s.centreId) } });
-      const items = [];
-      for (const s of page) {
-        const centreName = centres.find((c) => String(c._id) === String(s.centreId))?.name ?? '';
-        items.push({ ...(await historyOf(s)), centreId: String(s.centreId), centreName });
-      }
-      res.json(items);
-    } catch (e) {
-      next(e);
-    }
-  },
-);
 
 sessionsRouter.get(
   '/patients/:id/timeline',

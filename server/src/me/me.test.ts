@@ -3,11 +3,7 @@ import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { Item } from '../catalog/item.model.js';
 import { Unit } from '../catalog/unit.model.js';
-import { Centre } from '../centres/centre.model.js';
 import { addDays, todayLocal } from '../lib/dates.js';
-import { Order } from '../orders/order.model.js';
-import { Session } from '../sessions/session.model.js';
-import { UsageLine } from '../sessions/usage.model.js';
 import { getApp, login, makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
@@ -62,71 +58,15 @@ describe('GET /api/me/overview', () => {
   });
 });
 
-describe('GET /api/me/sessions', () => {
-  it('returns own past sessions newest first with usage, paginated by before/limit', async () => {
-    const { agent, mk, centre, patient } = await setup();
-    const other = await makePatient(centre.id);
-    const today = todayLocal();
-    const s1 = await mk(addDays(today, -3), 'completed');
-    await mk(addDays(today, -2), 'missed');
-    await mk(addDays(today, -1), 'postponed');
-    await mk(addDays(today, 1), 'scheduled');
-    const staff = await staffIn(centre.id, ['nurse']);
-    const unit = await Unit.create({ name: 'cc' });
-    const item = await Item.create({ name: 'Heparin', type: 'medicine', unitId: unit._id, createdBy: staff.user._id, status: 'approved' });
-    await UsageLine.create({ sessionId: s1._id, centreId: centre._id, patientId: patient._id, date: s1.date, itemId: item._id, amount: 5, by: staff.user._id });
-    await makeSession({ centreId: centre._id, patientId: other.patient._id, date: addDays(today, -4), chairId: s1.chairId, shiftId: s1.shiftId, status: 'completed' });
-
-    const res = await agent.get('/api/me/sessions');
-    expect(res.status).toBe(200);
-    expect(res.body.map((s: { date: string }) => s.date)).toEqual([addDays(today, -1), addDays(today, -2), addDays(today, -3)]);
-    expect(res.body[2].usage).toEqual([{ name: 'Heparin', amount: 5, unit: 'cc' }]);
-    expect(res.body[2]).toMatchObject({ id: s1.id, centreName: 'North', start: '07:00', end: '11:30', status: 'completed' });
-
-    const page = await agent.get(`/api/me/sessions?limit=1&before=${addDays(today, -1)}`);
-    expect(page.body.map((s: { date: string }) => s.date)).toEqual([addDays(today, -2)]);
-    for (const q of ['limit=0', 'limit=51', 'before=nope']) expect((await agent.get(`/api/me/sessions?${q}`)).status).toBe(400);
-  });
-
-  it('shows medicines used in an active session', async () => {
-    const { agent, mk, centre, patient } = await setup();
-    const s = await mk(todayLocal(), 'active');
-    const staff = await staffIn(centre.id, ['nurse']);
-    const unit = await Unit.create({ name: 'mg' });
-    const item = await Item.create({ name: 'EPO', type: 'medicine', unitId: unit._id, createdBy: staff.user._id, status: 'approved' });
-    await UsageLine.create({ sessionId: s._id, centreId: centre._id, patientId: patient._id, date: s.date, itemId: item._id, amount: 2, by: staff.user._id });
-    const res = await agent.get('/api/me/sessions');
-    expect(res.body[0].usage).toEqual([{ name: 'EPO', amount: 2, unit: 'mg' }]);
-  });
-
-  it('omits notes and orders when the setting is off and includes them (without staff ids) when on', async () => {
-    const { agent, mk, centre, patient } = await setup();
-    const staff = await staffIn(centre.id, ['doctor']);
-    const today = todayLocal();
-    const s = await mk(addDays(today, -1), 'completed');
-    s.notes.push({ at: new Date(), by: staff.user._id, text: 'felt dizzy' } as never);
-    await s.save();
-    await Order.create({ patientId: patient._id, centreId: centre._id, doctorId: staff.user._id, text: 'no heparin', from: addDays(today, -5) });
-    await Order.create({ patientId: patient._id, centreId: centre._id, doctorId: staff.user._id, text: 'future', from: today });
-
-    const off = await agent.get('/api/me/sessions');
-    expect(off.body[0]).not.toHaveProperty('notes');
-    expect(off.body[0]).not.toHaveProperty('orders');
-
-    await Centre.updateOne({ _id: centre._id }, { $set: { 'settings.patientsSeeNotes': true } });
-    const on = await agent.get('/api/me/sessions');
-    expect(on.body[0].notes).toEqual([{ at: expect.any(String), text: 'felt dizzy' }]);
-    expect(on.body[0].orders).toEqual([{ text: 'no heparin', from: addDays(today, -5) }]);
-  });
-
+describe('patient-only access', () => {
   it('is patient-only and scoped to the caller', async () => {
     const { centre } = await setup();
     const staff = await staffIn(centre.id, ['nurse']);
     expect((await staff.agent.get('/api/me/overview')).status).toBe(403);
-    expect((await staff.agent.get('/api/me/sessions')).status).toBe(403);
+    expect((await staff.agent.get('/api/me/timeline')).status).toBe(403);
     const { user } = await makePatient(centre.id);
     const a = await login(user.username);
-    expect((await a.get('/api/me/sessions')).body).toEqual([]);
+    expect((await a.get('/api/me/timeline')).body).toMatchObject({ upcoming: [], today: [], past: [] });
     expect((await a.get(`/api/centres/${centre.id}/patients`)).status).toBe(403);
     expect((await request(getApp()).get('/api/me/overview')).status).toBe(401);
   });

@@ -83,7 +83,7 @@ export function BoardPage() {
   const start = useStartSession();
   const postpone = usePostpone();
   const d = board.data;
-  const onlyMine = mineOverride ?? (canRun && !canBook);
+  const onlyMine = canRun && (mineOverride ?? !canBook);
   const keep = (rows: BoardRow[]) => (onlyMine ? rows.filter((r) => r.mine) : rows);
   const all = d ? [...d.active, ...d.waiting, ...d.done, ...d.didNotCome, ...d.other] : [];
   const hidden = onlyMine ? all.filter((r) => !r.mine).length : 0;
@@ -135,7 +135,7 @@ export function BoardPage() {
               aria-label={t('board.block')}
             />
           )}
-          <Switch label={t('board.mine')} checked={onlyMine} onChange={(e) => setMineOverride(e.currentTarget.checked)} />
+          {canRun && <Switch label={t('board.mine')} checked={onlyMine} onChange={(e) => setMineOverride(e.currentTarget.checked)} />}
           {hidden > 0 && <Text size="sm" c="dimmed">{t('board.hidden', { count: hidden })}</Text>}
 
           <Stack gap="xs">
