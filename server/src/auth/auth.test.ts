@@ -128,6 +128,15 @@ describe('auth routes', () => {
     expect((await request(getApp()).get('/api/auth/me').set('Cookie', cookie)).status).toBe(401);
   });
 
+  it('rolling session: every authenticated response renews the cookie expiry', async () => {
+    await createUser({ username: 'u', globalRoleKeys: ['program_manager'] });
+    const cookie = await loginCookie('u');
+    const res = await request(getApp()).get('/api/auth/me').set('Cookie', cookie);
+    expect(res.status).toBe(200);
+    const renewed = (res.headers['set-cookie'] as unknown as string[] | undefined) ?? [];
+    expect(renewed.join('\n')).toMatch(/connect\.sid=.*Expires=/);
+  });
+
   it('login regenerates the session id (old cookie is not kept)', async () => {
     await createUser({ username: 'u', globalRoleKeys: ['program_manager'] });
     const first = cookieOf(await request(getApp()).post('/api/auth/login').send({ username: 'u', password: 'pass1234' }));

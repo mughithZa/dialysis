@@ -38,8 +38,10 @@ export function UserForm({ user, onDone }: Props) {
   const [doctorPhone, setDoctorPhone] = useState('');
 
   const showRoles = user ? canAssign : true;
+  const rolesChanged =
+    !!user && (roleKeys.length !== user.roleKeys.length || roleKeys.some((k) => !user.roleKeys.includes(k)));
   const valid = user
-    ? name.trim().length > 0
+    ? name.trim().length > 0 && (!showRoles || roleKeys.length > 0)
     : name.trim() && username.trim() && password.length >= 8 && roleKeys.length > 0;
   const mutation = user ? edit : create;
 
@@ -51,7 +53,7 @@ export function UserForm({ user, onDone }: Props) {
   const submit = () => {
     if (user) {
       edit.mutate(
-        { id: user.id, name: name.trim(), ...(phone.trim() ? { phone: phone.trim() } : {}), active, ...(canAssign ? { roleKeys } : {}) },
+        { id: user.id, name: name.trim(), ...(phone.trim() ? { phone: phone.trim() } : {}), active, ...(canAssign && rolesChanged ? { roleKeys } : {}) },
         { onSuccess: () => done('centre.users.saved') },
       );
     } else {

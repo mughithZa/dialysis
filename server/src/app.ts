@@ -5,6 +5,7 @@ import MongoStore from 'connect-mongo';
 import mongoose from 'mongoose';
 import { config } from './config.js';
 import { authRouter } from './auth/routes.js';
+import { SESSION_COLLECTION } from './auth/revoke.js';
 import { HttpError, notFound } from './lib/errors.js';
 import { centresRouter } from './centres/routes.js';
 import { auditRouter } from './audit/routes.js';
@@ -34,9 +35,11 @@ export function createApp(options: AppOptions = {}): express.Express {
       secret: config.sessionSecret,
       resave: false,
       saveUninitialized: false,
+      rolling: true, // the 7-day expiry restarts on every request, so active users stay logged in
       cookie: { httpOnly: true, sameSite: 'lax', secure: config.isProduction, maxAge: 1000 * 60 * 60 * 24 * 7 },
       store: MongoStore.create({
         client: mongoose.connection.getClient(),
+        collectionName: SESSION_COLLECTION,
         // interval cleanup avoids an unawaited TTL-index creation racing with client close
         autoRemove: 'interval',
         autoRemoveInterval: 10,
@@ -81,6 +84,10 @@ export function createApp(options: AppOptions = {}): express.Express {
         },
       }),
     );
+    // A missing asset or file (e.g. a stale hashed chunk) is a real 404: serving the HTML shell there breaks module loading.
+    app.get(/^\/assets\/|\.[^/]+$/, (_req, res) => {
+      res.status(404).type('text/plain').send('Not found');
+    });
     // Any other GET (/api is handled above) is a client-side route.
     app.get(/.*/, (_req, res) => {
       noCache(res);

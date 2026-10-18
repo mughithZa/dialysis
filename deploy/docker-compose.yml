@@ -41,12 +41,20 @@ services:
       APP_TZ: ${APP_TZ:-Asia/Damascus}
     expose:
       - "3000"
+    healthcheck:
+      # busybox wget ships with node:22-alpine
+      test: ["CMD", "wget", "-qO-", "http://localhost:3000/api/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 20s
 
   caddy:
     image: caddy:2
     restart: unless-stopped
     depends_on:
-      - app
+      app:
+        condition: service_healthy
     ports:
       - "80:80"
       - "443:443"

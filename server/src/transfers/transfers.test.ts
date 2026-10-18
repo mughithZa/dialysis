@@ -127,7 +127,13 @@ describe('listing', () => {
       },
     ]);
     const out = await s.deskA.agent.get(`${s.baseA}/transfers?direction=outgoing`);
-    expect(out.body[0]).toMatchObject({ id: t.id, status: 'pending', toCentre: { id: s.b.centre.id, name: 'Beta' }, rejectReason: null });
+    expect(out.body[0]).toMatchObject({
+      id: t.id,
+      status: 'pending',
+      toCentre: { id: s.b.centre.id, name: 'Beta' },
+      rejectReason: null,
+      patient: { id: s.patient.id, name: s.patient.name },
+    });
     expect((await s.deskA.agent.get(`${s.baseA}/transfers?direction=incoming`)).body).toEqual([]);
     expect((await s.deskA.agent.get(`${s.baseA}/transfers`)).status).toBe(400);
   });
@@ -143,7 +149,7 @@ describe('reject', () => {
     const p = (await Patient.findById(s.patient.id))!;
     expect([String(p.centreId), p.status]).toEqual([s.a.centre.id, 'active']);
     const out = await s.deskA.agent.get(`${s.baseA}/transfers?direction=outgoing`);
-    expect(out.body[0]).toMatchObject({ status: 'rejected', rejectReason: 'full' });
+    expect(out.body[0]).toMatchObject({ status: 'rejected', rejectReason: 'full', patient: { id: s.patient.id, name: s.patient.name } });
     const again = await s.deskB.agent.post(`${s.baseB}/transfers/${t.id}/accept`);
     expect([again.status, again.body]).toEqual([409, { error: 'not_pending' }]);
     expect((await s.send()).status).toBe(201); // a new transfer can be sent afterwards
@@ -195,6 +201,7 @@ describe('accept', () => {
     expect(String((await Order.findById(ended._id))!.centreId)).toBe(s.a.centre.id);
     const out = await s.deskA.agent.get(`${s.baseA}/transfers?direction=outgoing`);
     expect(out.body[0].status).toBe('accepted');
+    expect(out.body[0].patient).toBeNull(); // the patient now belongs to the other centre
     expect(await AuditEntry.countDocuments({ action: 'transfer.accept' })).toBe(1);
   });
 

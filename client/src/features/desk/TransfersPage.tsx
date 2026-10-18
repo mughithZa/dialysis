@@ -1,8 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Group, Loader, Modal, Stack, Tabs, Text, Textarea, Title } from '@mantine/core';
+import { Link } from 'react-router-dom';
+import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, Stack, Tabs, Text, Textarea, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
+import { useCentreId } from '../centre/api';
 import { errorMessage } from '../../i18n/errors';
 import { useTransferAction, useTransfers, type IncomingTransfer, type OutgoingTransfer } from './api';
 
@@ -107,6 +109,7 @@ function Incoming() {
 
 function Outgoing({ canCancel }: { canCancel: boolean }) {
   const { t } = useTranslation();
+  const centreId = useCentreId();
   const list = useTransfers('outgoing', true);
   const action = useTransferAction();
   return (
@@ -120,7 +123,12 @@ function Outgoing({ canCancel }: { canCancel: boolean }) {
           <Stack gap="xs">
             <Group justify="space-between" wrap="nowrap" align="flex-start">
               <Stack gap={0}>
-                <Text fw={600}>{t('desk.transfers.to', { centre: tr.toCentre.name })}</Text>
+                {tr.patient && (
+                  <Anchor component={Link} to={`/c/${centreId}/patients/${tr.patient.id}`} fw={600} mih={44} display="inline-flex" style={{ alignItems: 'center' }}>
+                    {tr.patient.name}
+                  </Anchor>
+                )}
+                <Text fw={tr.patient ? undefined : 600}>{t('desk.transfers.to', { centre: tr.toCentre.name })}</Text>
                 <Text size="sm" c="dimmed">
                   {t('desk.transfers.sent', { date: date(tr.sentAt) })}
                 </Text>

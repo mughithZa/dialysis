@@ -113,23 +113,46 @@ patientsRouter.get('/:id', requirePerm('patients.view'), async (req, res, next) 
   }
 });
 
-const patchBody = z.object({ ...fields, name: fields.name.optional() }).strict();
+/** In a patch, an optional text field sent as '' (after trim) or null is cleared; it arrives here as null. */
+const clearable = z
+  .union([z.string().trim(), z.null()])
+  .transform((v) => v || null)
+  .optional();
+const patchBody = z
+  .object({
+    name: fields.name.optional(),
+    phone: clearable,
+    emergencyContact: z.object({ name: clearable, phone: clearable, relation: clearable }).optional(),
+    kidneyFailureCause: clearable,
+    address: clearable,
+    socialSituation: clearable,
+    financialSituation: clearable,
+    otherDiseases: clearable,
+    notes: clearable,
+  })
+  .strict();
 
 patientsRouter.patch('/:id', requirePerm('patients.edit'), validate(patchBody), async (req, res, next) => {
   try {
     const b = req.body as z.infer<typeof patchBody>;
     const patient = await loadPatientInCentre(centreOf(req), req.params.id);
     const { emergencyContact, ...rest } = b;
-    patient.set(rest);
+    // setting undefined unsets the path
+    for (const [k, v] of Object.entries(rest)) if (v !== undefined) patient.set(k, v ?? undefined);
     if (emergencyContact) {
-      for (const [k, v] of Object.entries(emergencyContact)) patient.set(`emergencyContact.${k}`, v);
+      for (const [k, v] of Object.entries(emergencyContact)) {
+        if (v !== undefined) patient.set(`emergencyContact.${k}`, v ?? undefined);
+      }
     }
     await withTransaction(async (session) => {
       await patient.save({ session });
       if (b.name !== undefined || b.phone !== undefined) {
         await User.updateOne(
           { _id: patient.userId },
-          { $set: { ...(b.name !== undefined && { name: b.name }), ...(b.phone !== undefined && { phone: b.phone }) } },
+          {
+            $set: { ...(b.name !== undefined && { name: b.name }), ...(b.phone && { phone: b.phone }) },
+            ...(b.phone === null && { $unset: { phone: 1 } }),
+          },
           { session },
         );
       }

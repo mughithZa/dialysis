@@ -76,6 +76,8 @@ export interface OutgoingTransfer {
   note: string | null;
   toCentre: { id: string; name: string };
   rejectReason: string | null;
+  /** null once accepted: the patient then belongs to the other centre. */
+  patient: { id: string; name: string } | null;
 }
 export interface PatternBody {
   chairId: string;

@@ -36,6 +36,50 @@ describe('PatientForm', () => {
     );
   });
 
+  it('editing sends "" for cleared fields so the server clears them', async () => {
+    useCentreUser(['patients.edit']);
+    let body: unknown;
+    server.use(
+      http.patch('*/api/centres/c1/patients/p1', async ({ request }) => {
+        body = await request.json();
+        return HttpResponse.json({ id: 'p1' });
+      }),
+    );
+    const patient = {
+      id: 'p1',
+      userId: 'u1',
+      name: 'Layla Aziz',
+      phone: '0933',
+      emergencyContact: { name: 'Omar', phone: '0944', relation: null },
+      kidneyFailureCause: null,
+      address: null,
+      socialSituation: null,
+      financialSituation: null,
+      otherDiseases: null,
+      notes: 'old note',
+      status: 'active' as const,
+      discharge: null,
+    };
+    renderApp(<PatientForm patient={patient} onDone={() => {}} />);
+    await userEvent.clear(screen.getByLabelText('Phone'));
+    await userEvent.clear(screen.getByLabelText('Emergency contact phone'));
+    await userEvent.clear(screen.getByLabelText('Notes'));
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() =>
+      expect(body).toEqual({
+        name: 'Layla Aziz',
+        phone: '',
+        emergencyContact: { name: 'Omar', phone: '', relation: '' },
+        kidneyFailureCause: '',
+        address: '',
+        socialSituation: '',
+        financialSituation: '',
+        otherDiseases: '',
+        notes: '',
+      }),
+    );
+  });
+
   it('shows the translated message for a taken username', async () => {
     useCentreUser(['patients.create']);
     server.use(http.post('*/api/centres/c1/patients', () => HttpResponse.json({ error: 'username_taken' }, { status: 409 })));

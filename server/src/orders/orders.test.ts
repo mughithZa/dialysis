@@ -58,6 +58,9 @@ describe('doctor orders', () => {
     expect((await nurse.agent.post(`${base}/patients/${patient.id}/orders`).send({ text: 'x' })).status).toBe(403);
     expect((await doctor.agent.post(`${base}/patients/${patient.id}/orders`).send({ text: '   ' })).status).toBe(400);
     expect((await doctor.agent.post(`${base}/patients/${patient.id}/orders`).send({ text: 'x', from: 'nope' })).status).toBe(400);
+    for (const from of ['2026-02-31', '2026-13-01', '2026-04-31']) {
+      expect((await doctor.agent.post(`${base}/patients/${patient.id}/orders`).send({ text: 'x', from })).status, from).toBe(400);
+    }
     await doctor.agent.post(`${base}/patients/${patient.id}/orders`).send({ text: 'later', from: addDays(todayLocal(), 3) });
     const got = await nurse.agent.get(`${base}/sessions/${session.id}`);
     expect(got.body.orders).toEqual([]);

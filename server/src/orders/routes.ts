@@ -1,6 +1,7 @@
 import { Router, type Request } from 'express';
 import mongoose from 'mongoose';
 import { z } from 'zod';
+import { DateTime } from 'luxon';
 import { recordAudit } from '../audit/record.js';
 import { requirePerm } from '../auth/middleware.js';
 import { withTransaction } from '../db.js';
@@ -20,7 +21,7 @@ const createBody = z.object({
   from: z
     .string()
     .regex(/^\d{4}-\d{2}-\d{2}$/)
-    .refine((s) => !Number.isNaN(Date.parse(s)))
+    .refine((s) => DateTime.fromISO(s, { zone: 'utc' }).isValid) // rejects impossible dates like 2026-02-31
     .optional(),
 });
 

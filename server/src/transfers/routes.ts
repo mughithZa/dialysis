@@ -100,18 +100,23 @@ transfersRouter.get(
       const centreIds = transfers.map((t) => (incoming ? t.fromCentreId : t.toCentreId));
       const centres = await Centre.find({ _id: { $in: centreIds } });
       const nameOf = (id: unknown) => centres.find((c) => String(c._id) === String(id))?.name ?? '';
-      const patients = incoming ? await Patient.find({ _id: { $in: transfers.map((t) => t.patientId) } }) : [];
+      // Outgoing: only patients still in this centre are named (an accepted transfer's patient belongs to the target now).
+      const patients = await Patient.find({
+        _id: { $in: transfers.map((t) => t.patientId) },
+        ...(incoming ? {} : { centreId: centreOf(req) }),
+      });
       res.json(
         transfers.map((t) => {
           const base = { id: t.id as string, status: t.status, sentAt: t.sentAt, note: t.note ?? null };
+          const p = patients.find((x) => String(x._id) === String(t.patientId));
           if (!incoming) {
             return {
               ...base,
               toCentre: { id: String(t.toCentreId), name: nameOf(t.toCentreId) },
               rejectReason: t.rejectReason ?? null,
+              patient: p && t.status !== 'accepted' ? { id: p.id as string, name: p.name } : null,
             };
           }
-          const p = patients.find((x) => String(x._id) === String(t.patientId));
           return {
             ...base,
             fromCentre: { id: String(t.fromCentreId), name: nameOf(t.fromCentreId) },

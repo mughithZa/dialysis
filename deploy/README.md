@@ -37,7 +37,15 @@ curl https://YOUR-DOMAIN/api/health      # {"ok":true}
 
 MongoDB initiates its replica set by itself through its healthcheck, and the app waits until it is healthy. The first start can take a minute while the certificate is issued.
 
-The database starts empty. Create the first program manager account by seeding (below) or directly in MongoDB; there is no sign-up screen.
+The app creates the default roles on start, but there are no accounts and no sign-up screen. Create the first program manager once (the password needs at least 8 characters; the command refuses if a program manager already exists):
+
+```sh
+docker compose -f deploy/docker-compose.yml run --rm \
+  -e CREATE_PM_USERNAME=pm -e CREATE_PM_NAME="Program Manager" -e CREATE_PM_PASSWORD='choose-a-strong-one' \
+  app npm run create-pm -w server
+```
+
+Log in as that user and create the centres (each with its centre manager) from the Centres screen. For a demo server, seed demo data instead (below).
 
 ## Demo data
 
@@ -65,4 +73,9 @@ docker compose -f deploy/docker-compose.yml down        # keeps the data volumes
 
 ## Backups
 
-Not set up in this POC. Before holding real data, schedule `mongodump` of the `mongo-data` volume (for example `docker compose exec mongo mongodump --archive --gzip > backup.gz`) and copy it off the server.
+Not set up in this POC. Before holding real data, schedule a `mongodump` of the database running in the `mongo` container and copy the archive off the server, for example:
+
+```sh
+docker compose -f deploy/docker-compose.yml exec -T mongo mongodump --db dialysis --archive --gzip > backup-$(date +%F).gz
+# restore: docker compose -f deploy/docker-compose.yml exec -T mongo mongorestore --archive --gzip --drop < backup-YYYY-MM-DD.gz
+```

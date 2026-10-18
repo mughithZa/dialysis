@@ -12,6 +12,7 @@ import { Centre } from '../centres/centre.model.js';
 import { Role, type RoleDoc } from '../auth/role.model.js';
 import { User, type UserDoc } from '../auth/user.model.js';
 import { hashPassword } from '../auth/password.js';
+import { revokeSessions } from '../auth/revoke.js';
 import { Patient } from '../patients/patient.model.js';
 
 export const usersRouter = Router({ mergeParams: true });
@@ -60,9 +61,14 @@ async function findMember(centreId: string, id: unknown): Promise<UserDoc> {
   return user;
 }
 
+/** A staff user's home centre is the one that created them (their first membership). */
+const isHomeCentre = (user: UserDoc, centreId: string) => String(user.memberships[0]?.centreId) === centreId;
+const isShared = (user: UserDoc) => user.memberships.length > 1;
+
 /**
  * Target of a password reset: a patient of this centre, or a staff member of this centre whose
- * privileged permissions here are all held by the caller (no resetting a more powerful colleague).
+ * privileged permissions (in every centre they belong to) are all held by the caller here — no
+ * resetting a more powerful colleague. A staff user shared between centres is reset only by their home centre.
  */
 async function findResettable(centreId: string, id: unknown, callerPerms: Set<Permission>): Promise<UserDoc> {
   const user = validId(id) ? await User.findById(id) : null;
@@ -71,9 +77,11 @@ async function findResettable(centreId: string, id: unknown, callerPerms: Set<Pe
     return user;
   }
   const member = await findMember(centreId, id);
-  const held = await effectivePermissions(member, centreId);
-  for (const p of held) {
-    if (PRIVILEGED.has(p) && !callerPerms.has(p)) throw new HttpError(403, 'cannot_grant');
+  if (isShared(member) && !isHomeCentre(member, centreId)) throw new HttpError(403, 'not_home_centre');
+  for (const m of member.memberships) {
+    for (const p of await effectivePermissions(member, String(m.centreId))) {
+      if (PRIVILEGED.has(p) && !callerPerms.has(p)) throw new HttpError(403, 'cannot_grant');
+    }
   }
   return member;
 }
@@ -215,15 +223,25 @@ usersRouter.patch('/:id', requirePerm('users.edit'), validate(patchBody), async 
       assertCanGrant(req.perms!, roles);
       roleIds = roles.map((r) => r._id);
     }
+    if (b.active === false && user.id === req.user!.id) throw badRequest('cannot_deactivate_self');
+    // A user shared with other centres belongs to their home centre: other centres manage only their own membership.
+    const foreign = isShared(user) && !isHomeCentre(user, centreId);
+    if (foreign) {
+      const renames = (b.name !== undefined && b.name !== user.name) || (b.phone !== undefined && b.phone !== user.phone);
+      if (renames || (b.active === true && !user.active)) throw new HttpError(403, 'not_home_centre');
+    }
+    const unlink = foreign && b.active === false;
     if (b.name !== undefined) user.name = b.name;
     if (b.phone !== undefined) user.phone = b.phone;
-    if (b.active !== undefined) user.active = b.active;
+    if (b.active !== undefined && !foreign) user.active = b.active;
     if (roleIds) membership(user, centreId)!.roleIds = roleIds;
+    if (unlink) user.memberships.pull(membership(user, centreId)!);
     await withTransaction(async (session) => {
       await user.save({ session });
-      await recordAudit(req, 'user.edit', 'user', user.id, b, session);
+      await recordAudit(req, unlink ? 'user.unlink' : 'user.edit', 'user', user.id, b, session);
     });
-    res.json(userDto(user, centreId, await roleKeyMap()));
+    if (b.active === false && !foreign) await revokeSessions(user.id);
+    res.json(userDto(user, centreId, await roleKeyMap())); // after an unlink: roleKeys []
   } catch (e) {
     next(e);
   }
@@ -240,6 +258,7 @@ usersRouter.post('/:id/reset-password', requirePerm('users.resetPassword'), vali
       await user.save({ session });
       await recordAudit(req, 'user.resetPassword', 'user', user.id, undefined, session);
     });
+    await revokeSessions(user.id);
     res.json({ ok: true });
   } catch (e) {
     next(e);

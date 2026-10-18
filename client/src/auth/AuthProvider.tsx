@@ -29,6 +29,23 @@ export function resolveCentreId(me: MeDto | null, stored: string | null): string
   return me.centres[0]?.id ?? null;
 }
 
+/**
+ * Stops reminders to this device before logging out, so the next person to use it does not get them.
+ * Best effort: failures are ignored. getRegistration (not `ready`) so this never hangs without a service worker.
+ */
+async function dropPushSubscription(): Promise<void> {
+  try {
+    if (!('serviceWorker' in navigator)) return;
+    const reg = await navigator.serviceWorker.getRegistration();
+    const sub = await reg?.pushManager.getSubscription();
+    if (!sub) return;
+    await apiPost('/push/unsubscribe', { endpoint: sub.endpoint }).catch(() => {});
+    await sub.unsubscribe();
+  } catch {
+    /* ignore: logging out matters more */
+  }
+}
+
 interface AuthValue {
   me: MeDto | null;
   /** True until the initial session check finishes. */
@@ -73,6 +90,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   );
 
   const logout = useCallback(async () => {
+    await dropPushSubscription();
     await apiPost('/auth/logout');
     // Not qc.clear(): that detaches the mounted `me` observer from its query, so the UI would keep the old user.
     qc.setQueryData(ME_KEY, null);

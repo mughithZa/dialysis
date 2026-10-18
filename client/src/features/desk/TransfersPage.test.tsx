@@ -35,6 +35,23 @@ describe('TransfersPage', () => {
     await waitFor(() => expect(calls).toEqual(['accept']));
   });
 
+  it('outgoing shows the patient name linking to the patient page when present', async () => {
+    useCentreUser(['transfers.send']);
+    server.use(
+      http.get('*/api/centres/c1/transfers', () =>
+        HttpResponse.json([
+          { id: 'o1', status: 'pending', sentAt: '2026-10-10T08:00:00.000Z', note: null, toCentre: { id: 'c2', name: 'Aleppo' }, rejectReason: null, patient: { id: 'p1', name: 'Omar Said' } },
+          { id: 'o2', status: 'accepted', sentAt: '2026-10-09T08:00:00.000Z', note: null, toCentre: { id: 'c3', name: 'Homs' }, rejectReason: null, patient: null },
+        ]),
+      ),
+    );
+    renderApp(<TransfersPage />);
+    const link = await screen.findByRole('link', { name: 'Omar Said' });
+    expect(link.getAttribute('href')).toBe('/c/c1/patients/p1');
+    expect(screen.getByText('To Homs')).toBeTruthy();
+    expect(screen.getAllByRole('link')).toHaveLength(1);
+  });
+
   it('requires a reason to reject, then sends it', async () => {
     useCentreUser(['transfers.decide']);
     let body: unknown;

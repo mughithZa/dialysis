@@ -60,6 +60,43 @@ describe('UserForm', () => {
   });
 });
 
+describe('UserForm (edit)', () => {
+  const existing = { id: 'n1', username: 'nina', name: 'Nina', phone: '0911', active: true, roleKeys: ['nurse'] };
+
+  it('does not send roleKeys when the selection is unchanged', async () => {
+    useCentreUser(['users.edit', 'roles.assign']);
+    const bodies: unknown[] = [];
+    server.use(
+      http.patch('*/api/centres/c1/users/n1', async ({ request }) => {
+        bodies.push(await request.json());
+        return HttpResponse.json(existing);
+      }),
+    );
+    renderApp(<UserForm user={existing} onDone={() => {}} />);
+    await screen.findByLabelText('Nurse');
+    await userEvent.click(screen.getByRole('button', { name: 'Save' }));
+    await waitFor(() => expect(bodies).toEqual([{ name: 'Nina', phone: '0911', active: true }]));
+  });
+
+  it('requires at least one role when roles are shown', async () => {
+    useCentreUser(['users.edit', 'roles.assign']);
+    renderApp(<UserForm user={existing} onDone={() => {}} />);
+    await userEvent.click(await screen.findByLabelText('Nurse'));
+    expect(screen.getByRole('button', { name: 'Save' })).toBeDisabled();
+  });
+
+  it.each([
+    ['not_home_centre', 403, 'Only this person’s home centre can change that.'],
+    ['cannot_deactivate_self', 400, 'You cannot deactivate your own account.'],
+  ])('translates %s', async (code, status, message) => {
+    useCentreUser(['users.edit']);
+    server.use(http.patch('*/api/centres/c1/users/n1', () => HttpResponse.json({ error: code }, { status })));
+    renderApp(<UserForm user={existing} onDone={() => {}} />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Save' }));
+    expect(await screen.findByText(message)).toBeTruthy();
+  });
+});
+
 describe('SettingsPage', () => {
   it('blocks reminder hours outside 1-72 and saves a valid value', async () => {
     useCentreUser(['settings.centre']);

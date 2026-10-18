@@ -35,6 +35,20 @@ export function PatientForm({ patient, onDone }: Props) {
 
   const valid = name.trim().length > 0 && (patient !== null || (username.trim().length > 0 && password.length >= 8));
 
+  /** Editing sends every field; '' clears it on the server. */
+  const fullRecord = (): PatientRecord => ({
+    name: name.trim(),
+    phone: phone.trim(),
+    emergencyContact: { name: emName.trim(), phone: emPhone.trim(), relation: emRelation.trim() },
+    kidneyFailureCause: cause.trim(),
+    address: address.trim(),
+    socialSituation: social.trim(),
+    financialSituation: financial.trim(),
+    otherDiseases: diseases.trim(),
+    notes: notes.trim(),
+  });
+
+  /** Creating sends only the filled-in fields. */
   const record = (): PatientRecord => {
     const emergency = { name: clean(emName), phone: clean(emPhone), relation: clean(emRelation) };
     const hasEmergency = Object.values(emergency).some((v) => v !== undefined);
@@ -55,7 +69,7 @@ export function PatientForm({ patient, onDone }: Props) {
   const submit = () => {
     if (patient) {
       edit.mutate(
-        { id: patient.id, ...record() },
+        { id: patient.id, ...fullRecord() },
         {
           onSuccess: () => {
             notifications.show({ message: t('desk.patients.saved') });

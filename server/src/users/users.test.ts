@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import request from 'supertest';
+import mongoose from 'mongoose';
 import { seedRoles } from '../auth/roles.seed.js';
 import { User } from '../auth/user.model.js';
 import { Role } from '../auth/role.model.js';
@@ -202,6 +203,99 @@ describe('centre users', () => {
     expect(res.body).toEqual([]);
     expect((await fd.agent.post(`/api/centres/${centre.id}/users/${pt.id}/link`).send({ roleKeys: ['nurse'] })).status).toBe(404);
     expect((await fd.agent.post(`/api/centres/${centre.id}/users/${pm.id}/link`).send({ roleKeys: ['nurse'] })).status).toBe(404);
+  });
+
+  it('cross-centre takeover: front desk B links A\'s manager, then reset is refused', async () => {
+    const a = await makeCentre({ name: 'A' });
+    const b = await makeCentre({ name: 'B' });
+    const mgrA = await staffIn(a.centre.id, ['centre_manager'], 'mgra');
+    await User.updateOne({ _id: mgrA.user._id }, { phone: '0977' });
+    const fdB = await staffIn(b.centre.id, ['front_desk']);
+    const found = await fdB.agent.get(`/api/centres/${b.centre.id}/users/lookup`).query({ phone: '0977' });
+    expect(found.body).toEqual([{ id: mgrA.user.id, name: 'mgra' }]);
+    expect((await fdB.agent.post(`/api/centres/${b.centre.id}/users/${mgrA.user.id}/link`).send({ roleKeys: ['doctor'] })).status).toBe(200);
+    const res = await fdB.agent.post(`/api/centres/${b.centre.id}/users/${mgrA.user.id}/reset-password`).send({ password: 'hijacked1' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('not_home_centre');
+    await login('mgra');
+  });
+
+  it('privileged check spans every membership of the target', async () => {
+    const a = await makeCentre({ name: 'A' });
+    const b = await makeCentre({ name: 'B' });
+    // home centre B (plain doctor there), but manager in A
+    const target = await createUser({
+      username: 'dual',
+      memberships: [
+        { centreId: b.centre.id, roleKeys: ['doctor'] },
+        { centreId: a.centre.id, roleKeys: ['centre_manager'] },
+      ],
+    });
+    const fdB = await staffIn(b.centre.id, ['front_desk']);
+    const res = await fdB.agent.post(`/api/centres/${b.centre.id}/users/${target.id}/reset-password`).send({ password: 'hijacked1' });
+    expect(res.status).toBe(403);
+    expect(res.body.error).toBe('cannot_grant');
+  });
+
+  it('home centre manager resets its own linked front desk; the old session is logged out', async () => {
+    const a = await makeCentre({ name: 'A' });
+    const b = await makeCentre({ name: 'B' });
+    const mgrA = await staffIn(a.centre.id, ['centre_manager']);
+    const fdA = await staffIn(a.centre.id, ['front_desk'], 'fdhome');
+    const mgrB = await staffIn(b.centre.id, ['centre_manager']);
+    expect((await mgrB.agent.post(`/api/centres/${b.centre.id}/users/${fdA.user.id}/link`).send({ roleKeys: ['nurse'] })).status).toBe(200);
+    expect((await fdA.agent.get('/api/auth/me')).status).toBe(200);
+    const ok = await mgrA.agent.post(`/api/centres/${a.centre.id}/users/${fdA.user.id}/reset-password`).send({ password: 'brandnew1' });
+    expect(ok.status).toBe(200);
+    expect((await fdA.agent.get('/api/auth/me')).status).toBe(401);
+    expect((await mgrA.agent.get('/api/auth/me')).status).toBe(200);
+    await login('fdhome', 'brandnew1');
+  });
+
+  it('deactivation logs the user out at once (session removed from the store)', async () => {
+    const { centre } = await makeCentre();
+    const mgr = await staffIn(centre.id, ['centre_manager']);
+    const nurse = await staffIn(centre.id, ['nurse']);
+    const sessions = mongoose.connection.collection('sessions');
+    const count = () => sessions.countDocuments({ session: { $regex: `"userId":"${nurse.user.id}"` } });
+    expect(await count()).toBe(1);
+    expect((await mgr.agent.patch(`/api/centres/${centre.id}/users/${nurse.user.id}`).send({ active: false })).status).toBe(200);
+    expect(await count()).toBe(0);
+  });
+
+  it('shared user: a non-home centre cannot change name/phone and "deactivate" only unlinks', async () => {
+    const a = await makeCentre({ name: 'A' });
+    const b = await makeCentre({ name: 'B' });
+    const doc = await createUser({ username: 'shared', memberships: [{ centreId: a.centre.id, roleKeys: ['doctor'] }] });
+    const mgrB = await staffIn(b.centre.id, ['centre_manager']);
+    const mgrA = await staffIn(a.centre.id, ['centre_manager']);
+    expect((await mgrB.agent.post(`/api/centres/${b.centre.id}/users/${doc.id}/link`).send({ roleKeys: ['doctor'] })).status).toBe(200);
+    const url = `/api/centres/${b.centre.id}/users/${doc.id}`;
+    for (const change of [{ name: 'Other' }, { phone: '0999' }]) {
+      const res = await mgrB.agent.patch(url).send(change);
+      expect(res.status).toBe(403);
+      expect(res.body.error).toBe('not_home_centre');
+    }
+    // sending the unchanged name is fine (forms send every field)
+    expect((await mgrB.agent.patch(url).send({ name: 'shared', roleKeys: ['doctor', 'nurse'] })).status).toBe(200);
+    expect((await mgrB.agent.patch(url).send({ active: false })).status).toBe(200);
+    const after = await User.findById(doc._id);
+    expect(after!.active).toBe(true);
+    expect(after!.memberships.map((m) => String(m.centreId))).toEqual([a.centre.id]);
+    expect((await mgrB.agent.get(`/api/centres/${b.centre.id}/users`)).body.map((u: { id: string }) => u.id)).not.toContain(doc.id);
+    const me = await (await login('shared')).get('/api/auth/me');
+    expect(me.body.centres.map((c: { name: string }) => c.name)).toEqual(['A']);
+    // the home centre can still rename
+    expect((await mgrA.agent.patch(`/api/centres/${a.centre.id}/users/${doc.id}`).send({ name: 'Renamed' })).status).toBe(200);
+  });
+
+  it('refuses self-deactivation', async () => {
+    const { centre } = await makeCentre();
+    const mgr = await staffIn(centre.id, ['centre_manager']);
+    const res = await mgr.agent.patch(`/api/centres/${centre.id}/users/${mgr.user.id}`).send({ active: false });
+    expect(res.status).toBe(400);
+    expect(res.body.error).toBe('cannot_deactivate_self');
+    expect((await mgr.agent.get('/api/auth/me')).status).toBe(200);
   });
 
   it('requires auth and permission', async () => {

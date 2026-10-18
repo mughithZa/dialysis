@@ -157,6 +157,21 @@ describe('merge', () => {
     expect(list.body.map((i: { name: string }) => i.name)).toEqual(['Heparin']);
   });
 
+  it('a merged item stays retired: un-retiring it is 409 item_merged', async () => {
+    const { nurse, pm, cc } = await setup();
+    const from = (await addItem(nurse.agent, 'Heparine', cc.id)).body;
+    const into = (await addItem(pm.agent, 'Heparin', cc.id)).body;
+    expect((await pm.agent.post(`/api/catalog/items/${from.id}/merge`).send({ intoId: into.id })).status).toBe(200);
+    for (const status of ['approved', 'pending']) {
+      const res = await pm.agent.patch(`/api/catalog/items/${from.id}`).send({ status });
+      expect([res.status, res.body]).toEqual([409, { error: 'item_merged' }]);
+    }
+    expect((await Item.findById(from.id))!.status).toBe('retired');
+    // a plain retired (not merged) item can still come back
+    expect((await pm.agent.patch(`/api/catalog/items/${into.id}`).send({ status: 'retired' })).status).toBe(200);
+    expect((await pm.agent.patch(`/api/catalog/items/${into.id}`).send({ status: 'approved' })).status).toBe(200);
+  });
+
   it('different units -> 400 unit_mismatch and nothing changes', async () => {
     const { centre, pm, cc, iu } = await setup();
     const from = (await addItem(pm.agent, 'Heparin IU', iu.id)).body;

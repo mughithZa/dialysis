@@ -68,7 +68,10 @@
     "not_a_nurse": "That person is not a nurse in this centre.",
     "bad_status": "This session is not in a state that allows that.",
     "not_today": "Only today's sessions can be opened.",
-    "item_retired": "That item is no longer available. Choose another."
+    "item_retired": "That item is no longer available. Choose another.",
+    "item_merged": "This item was merged into another and stays retired.",
+    "not_home_centre": "Only this person’s home centre can change that.",
+    "cannot_deactivate_self": "You cannot deactivate your own account."
   },
   "nav": {
     "centres": "Centres",

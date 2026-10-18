@@ -75,6 +75,35 @@ describe('patients', () => {
     expect((await nurse.agent.get(url)).status).toBe(200);
   });
 
+  it('patch clears optional fields sent as "" or null (also the user phone and emergency contact parts)', async () => {
+    const { centre } = await makeCentre();
+    const fd = await staffIn(centre.id, ['front_desk']);
+    const { patient, user } = await makePatient(centre.id, {
+      phone: '0911',
+      notes: 'old',
+      address: 'Street 1',
+      emergencyContact: { name: 'Sara', phone: '0933', relation: 'wife' },
+    });
+    await User.updateOne({ _id: user._id }, { phone: '0911' });
+    const url = `/api/centres/${centre.id}/patients/${patient.id}`;
+    const res = await fd.agent
+      .patch(url)
+      .send({ phone: '', notes: null, address: '  ', emergencyContact: { phone: '', relation: null } });
+    expect(res.status).toBe(200);
+    expect(res.body).toMatchObject({
+      phone: null,
+      notes: null,
+      address: null,
+      emergencyContact: { name: 'Sara', phone: null, relation: null },
+    });
+    const stored = (await Patient.findById(patient.id))!.toObject();
+    expect(stored.notes).toBeUndefined();
+    expect(stored.emergencyContact?.phone).toBeUndefined();
+    expect((await User.findById(user._id))!.phone).toBeUndefined();
+    expect((await fd.agent.patch(url).send({ name: '' })).status).toBe(400);
+    expect((await fd.agent.patch(url).send({ name: null })).status).toBe(400);
+  });
+
   it('a patient of another centre is 404 for get and patch', async () => {
     const a = await makeCentre();
     const b = await makeCentre();

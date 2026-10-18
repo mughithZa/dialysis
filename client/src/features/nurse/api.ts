@@ -132,8 +132,8 @@ export function useAddUnit() {
   });
 }
 
-/** True when the usage lines include an item named "heparin" (case-insensitive, trimmed). */
-export const isHeparin = (name: string) => name.trim().toLowerCase() === 'heparin';
+/** True for any item whose name contains "heparin" (case-insensitive), e.g. "Heparin sodium". */
+export const isHeparin = (name: string) => name.trim().toLowerCase().includes('heparin');
 export const hasHeparin = (usage: UsageLineDto[]) => usage.some((u) => isHeparin(u.item.name));
 
 /** Up to 5 quick chips: Heparin first (when in the catalogue), then the items used most recently in this session. */

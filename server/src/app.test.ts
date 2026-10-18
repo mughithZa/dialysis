@@ -64,6 +64,15 @@ describe('serving the built client', () => {
     expect(asset.headers['cache-control']).toMatch(/max-age=31536000.*immutable/);
   });
 
+  it('missing assets and file-like paths are a plain 404, not the SPA shell', async () => {
+    const app = createApp({ clientDist: makeDist() });
+    for (const path of ['/assets/index-old999.js', '/assets/nested/thing', '/favicon.ico', '/c/1/logo.png']) {
+      const res = await request(app).get(path);
+      expect(res.status, path).toBe(404);
+      expect(res.text).not.toContain('app shell');
+    }
+  });
+
   it('keeps /api/* unknown routes as JSON 404, not the SPA shell', async () => {
     const app = createApp({ clientDist: makeDist() });
     const res = await request(app).get('/api/nope');

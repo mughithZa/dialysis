@@ -112,6 +112,8 @@ catalogRouter.patch('/items/:id', requirePermAnywhere('catalog.manage'), validat
     const id = String(req.params.id);
     const item = mongoose.isValidObjectId(id) ? await Item.findById(id) : null;
     if (!item) throw notFound();
+    // Merged items stay retired: their usage now lives on the merge target.
+    if (item.mergedInto && b.status !== undefined && b.status !== 'retired') throw conflict('item_merged');
     if (b.unitId !== undefined && b.unitId !== String(item.unitId)) {
       if (item.used) throw conflict('unit_locked');
       if (!(await Unit.exists({ _id: b.unitId }))) throw badRequest('unit_not_found');
