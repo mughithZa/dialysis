@@ -1,6 +1,7 @@
 import { useInfiniteQuery } from '@tanstack/react-query';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Group, Loader, Stack, Text } from '@mantine/core';
+import { Link } from 'react-router-dom';
+import { Alert, Anchor, Badge, Button, Card, Group, Loader, Stack, Text } from '@mantine/core';
 import { apiGet } from '../api';
 import { useCentreId } from '../features/centre/api';
 import { errorMessage } from '../i18n/errors';
@@ -45,7 +46,9 @@ export function SessionHistory({ patientId }: { patientId: string }) {
         <Card key={s.id} withBorder padding="sm">
           <Stack gap={4}>
             <Group justify="space-between" wrap="nowrap">
-              <Text fw={600}>{s.date}</Text>
+              <Anchor component={Link} to={`/c/${centreId}/sessions/${s.id}`} fw={600} mih={44} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                {s.date}
+              </Anchor>
               <Group gap="xs">
                 {s.kind === 'makeup' && <Badge variant="light">{t('sessions.history.kind.makeup')}</Badge>}
                 <Badge variant="light" color={s.status === 'missed' ? 'danger' : s.status === 'postponed' ? 'warning' : 'neutral'}>

@@ -68,6 +68,7 @@ function UsageRow({ sessionId, line, canEdit }: { sessionId: string; line: Usage
 
 function SessionView({ s }: { s: SessionDetail }) {
   const { t } = useTranslation();
+  const centreId = useCentreId();
   const action = useSessionAction(s.id);
   const canRun = useCan('sessions.run');
   const canPostpone = useCan('sessions.postpone');
@@ -81,7 +82,8 @@ function SessionView({ s }: { s: SessionDetail }) {
   const [historyOpen, setHistoryOpen] = useState(false);
 
   const recording = s.status === 'active' || s.status === 'completed';
-  const writable = s.status === 'active' || (s.status === 'completed' && canEditClosed);
+  // Active sessions need the record permission; completed ones are corrected with sessions.editClosed alone.
+  const may = (perm: boolean) => (s.status === 'active' ? perm : s.status === 'completed' && canEditClosed);
   const done = (key: string) => ({ onSuccess: () => notifications.show({ message: t(key) }) });
   const close = () => {
     setConfirmClose(false);
@@ -90,8 +92,8 @@ function SessionView({ s }: { s: SessionDetail }) {
 
   return (
     <Stack gap="md">
-      <Anchor component={Link} to="..">
-        {t('nav.today')}
+      <Anchor component={Link} to={canRun ? `/c/${centreId}/today` : `/c/${centreId}/patients/${s.patient.id}`} mih={44} style={{ display: 'inline-flex', alignItems: 'center' }}>
+        {t(canRun ? 'nav.today' : 'nurse.session.toPatient')}
       </Anchor>
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap">
@@ -143,9 +145,9 @@ function SessionView({ s }: { s: SessionDetail }) {
               <Title order={4}>{t('nurse.usage.title')}</Title>
               {s.usage.length === 0 && <Text c="dimmed">{t('nurse.usage.none')}</Text>}
               {s.usage.map((l) => (
-                <UsageRow key={l.id} sessionId={s.id} line={l} canEdit={writable && canUsage} />
+                <UsageRow key={l.id} sessionId={s.id} line={l} canEdit={may(canUsage)} />
               ))}
-              {writable && canUsage && (
+              {may(canUsage) && (
                 <Button size="lg" mih={56} onClick={() => setAdding(true)}>
                   {t('nurse.usage.add')}
                 </Button>
@@ -153,10 +155,10 @@ function SessionView({ s }: { s: SessionDetail }) {
             </Stack>
           </Card>
           <Card withBorder padding="sm">
-            <VitalsForm key={`${s.vitals.weightBefore}-${s.vitals.weightAfter}`} session={s} canEdit={writable && canVitals} />
+            <VitalsForm key={`${s.vitals.weightBefore}-${s.vitals.weightAfter}`} session={s} canEdit={may(canVitals)} />
           </Card>
           <Card withBorder padding="sm">
-            <NotesList session={s} canEdit={writable && canNotes} />
+            <NotesList session={s} canEdit={may(canNotes)} />
           </Card>
         </>
       )}

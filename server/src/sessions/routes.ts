@@ -134,7 +134,7 @@ const usageSnapshot = (itemId: unknown, itemName: string, amount: number) => ({ 
 
 sessionsRouter.post(
   '/sessions/:sid/usage',
-  requirePerm('sessions.recordUsage'),
+  requirePerm('sessions.view'),
   validate(usageBody),
   async (req, res, next) => {
     try {
@@ -143,7 +143,7 @@ sessionsRouter.post(
       const item = validId(b.itemId) ? await Item.findById(b.itemId) : null;
       if (!item) throw notFound();
       if (item.status === 'retired') throw conflict('item_retired');
-      const line = await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      const line = await withRecordable(session.id, req.perms!, 'sessions.recordUsage', async (tx, fresh, closed) => {
         const [created] = await UsageLine.create(
           [
             {
@@ -179,14 +179,14 @@ async function loadLine(sessionId: string, lineId: unknown) {
 
 sessionsRouter.patch(
   '/sessions/:sid/usage/:lineId',
-  requirePerm('sessions.recordUsage'),
+  requirePerm('sessions.view'),
   validate(amountBody),
   async (req, res, next) => {
     try {
       const b = req.body as z.infer<typeof amountBody>;
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
       const { line, itemName } = await loadLine(session.id, req.params.lineId);
-      await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      await withRecordable(session.id, req.perms!, 'sessions.recordUsage', async (tx, fresh, closed) => {
         const current = await UsageLine.findById(line._id, null, { session: tx });
         if (!current) throw notFound();
         const before = current.amount;
@@ -210,11 +210,11 @@ sessionsRouter.patch(
   },
 );
 
-sessionsRouter.delete('/sessions/:sid/usage/:lineId', requirePerm('sessions.recordUsage'), async (req, res, next) => {
+sessionsRouter.delete('/sessions/:sid/usage/:lineId', requirePerm('sessions.view'), async (req, res, next) => {
   try {
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
     const { line, itemName } = await loadLine(session.id, req.params.lineId);
-    await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+    await withRecordable(session.id, req.perms!, 'sessions.recordUsage', async (tx, fresh, closed) => {
       const current = await UsageLine.findById(line._id, null, { session: tx });
       if (!current) throw notFound();
       await UsageLine.deleteOne({ _id: line._id }, { session: tx });
@@ -234,13 +234,13 @@ const bpBody = z.object({ systolic: z.number().positive().finite(), diastolic: z
 
 sessionsRouter.patch(
   '/sessions/:sid/vitals',
-  requirePerm('sessions.recordVitals'),
+  requirePerm('sessions.view'),
   validate(vitalsBody),
   async (req, res, next) => {
     try {
       const b = req.body as z.infer<typeof vitalsBody>;
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
-      const updated = await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      const updated = await withRecordable(session.id, req.perms!, 'sessions.recordVitals', async (tx, fresh, closed) => {
         const set: Record<string, number> = {};
         const before: Record<string, number | null> = {};
         const after: Record<string, number> = {};
@@ -264,14 +264,14 @@ sessionsRouter.patch(
 
 sessionsRouter.post(
   '/sessions/:sid/vitals/bp',
-  requirePerm('sessions.recordVitals'),
+  requirePerm('sessions.view'),
   validate(bpBody),
   async (req, res, next) => {
     try {
       const b = req.body as z.infer<typeof bpBody>;
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
       const reading = { at: new Date(), systolic: b.systolic, diastolic: b.diastolic };
-      await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      await withRecordable(session.id, req.perms!, 'sessions.recordVitals', async (tx, fresh, closed) => {
         await Session.updateOne({ _id: fresh._id }, { $push: { 'vitals.bp': reading } }, { session: tx });
         if (closed) await recordChange(tx, fresh.id, req.user!._id, 'vitals.update', null, { bp: b });
         await recordAudit(req, 'vitals.update', 'session', fresh.id, { bp: b }, tx);
@@ -290,12 +290,12 @@ const noteIdOf = (req: Request) => {
   return id;
 };
 
-sessionsRouter.post('/sessions/:sid/notes', requirePerm('sessions.addNotes'), validate(noteBody), async (req, res, next) => {
+sessionsRouter.post('/sessions/:sid/notes', requirePerm('sessions.view'), validate(noteBody), async (req, res, next) => {
   try {
     const b = req.body as z.infer<typeof noteBody>;
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
     const note = { _id: new mongoose.Types.ObjectId(), at: new Date(), by: req.user!._id, text: b.text };
-    await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+    await withRecordable(session.id, req.perms!, 'sessions.addNotes', async (tx, fresh, closed) => {
       await Session.updateOne({ _id: fresh._id }, { $push: { notes: note } }, { session: tx });
       if (closed) await recordChange(tx, fresh.id, req.user!._id, 'note.add', null, { text: b.text });
       await recordAudit(req, 'note.add', 'session', fresh.id, undefined, tx);
@@ -308,14 +308,14 @@ sessionsRouter.post('/sessions/:sid/notes', requirePerm('sessions.addNotes'), va
 
 sessionsRouter.patch(
   '/sessions/:sid/notes/:noteId',
-  requirePerm('sessions.addNotes'),
+  requirePerm('sessions.view'),
   validate(noteBody),
   async (req, res, next) => {
     try {
       const b = req.body as z.infer<typeof noteBody>;
       const session = await loadSessionInCentre(centreOf(req), sidOf(req));
       const noteId = noteIdOf(req);
-      await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+      await withRecordable(session.id, req.perms!, 'sessions.addNotes', async (tx, fresh, closed) => {
         const note = fresh.notes.find((n) => String(n._id) === noteId);
         if (!note) throw notFound();
         const before = note.text;
@@ -330,11 +330,11 @@ sessionsRouter.patch(
   },
 );
 
-sessionsRouter.delete('/sessions/:sid/notes/:noteId', requirePerm('sessions.addNotes'), async (req, res, next) => {
+sessionsRouter.delete('/sessions/:sid/notes/:noteId', requirePerm('sessions.view'), async (req, res, next) => {
   try {
     const session = await loadSessionInCentre(centreOf(req), sidOf(req));
     const noteId = noteIdOf(req);
-    await withRecordable(session.id, req.perms!, async (tx, fresh, closed) => {
+    await withRecordable(session.id, req.perms!, 'sessions.addNotes', async (tx, fresh, closed) => {
       const note = fresh.notes.find((n) => String(n._id) === noteId);
       if (!note) throw notFound();
       await Session.updateOne({ _id: fresh._id }, { $pull: { notes: { _id: noteId } } }, { session: tx });

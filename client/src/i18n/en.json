@@ -502,7 +502,8 @@
       "goBack": "Go back",
       "noHeparin": "No heparin recorded. Close anyway?",
       "history": "Change history",
-      "notFound": "Session not found."
+      "notFound": "Session not found.",
+    "toPatient": "Back to patient"
     },
     "usage": {
       "title": "Medicines and supplies",
@@ -552,7 +553,12 @@
       "none": "No notes.",
       "add": "Add a note",
       "save": "Save note",
-      "added": "Note added."
+      "added": "Note added.",
+    "edit": "Change",
+    "remove": "Remove",
+    "removed": "Note removed.",
+    "updated": "Note updated.",
+    "saveEdit": "Save changes"
     },
     "history": {
       "title": "Change history",

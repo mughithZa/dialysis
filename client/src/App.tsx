@@ -1,10 +1,12 @@
 import { useEffect, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
+import type { Permission } from '@dialysis/shared';
 import { Center, Loader, Text } from '@mantine/core';
 import { AuthProvider, useAuth, useCentre } from './auth/AuthProvider';
 import { LoginPage } from './auth/LoginPage';
 import { AppShell } from './layout/AppShell';
+import { hasPerm } from './auth/useCan';
 import { landingPath, visibleNav } from './layout/nav';
 import { CatalogPage } from './features/pm/CatalogPage';
 import { CentresPage } from './features/pm/CentresPage';
@@ -75,7 +77,7 @@ function Home() {
 }
 
 /** Renders a screen only if the user may see its nav item; keeps the current centre in sync with the URL. */
-function Guard({ pattern, children }: { pattern: string; children: ReactElement }) {
+function Guard({ pattern, perm, children }: { pattern?: string; perm?: Permission; children: ReactElement }) {
   const { me } = useAuth();
   const { centreId, setCentreId } = useCentre();
   const urlCentre = useParams().centreId ?? null;
@@ -85,7 +87,7 @@ function Guard({ pattern, children }: { pattern: string; children: ReactElement 
     if (urlCentre && urlCentre !== centreId && me?.centres.some((c) => c.id === urlCentre)) setCentreId(urlCentre);
   }, [urlCentre, centreId, me, setCentreId]);
 
-  const allowed = visibleNav(me, scopeCentre).some((i) => i.path === pattern);
+  const allowed = perm ? hasPerm(me, perm, scopeCentre) : visibleNav(me, scopeCentre).some((i) => i.path === pattern);
   return allowed ? children : <Navigate to="/" replace />;
 }
 
@@ -93,7 +95,6 @@ function Guard({ pattern, children }: { pattern: string; children: ReactElement 
 const SUB_SCREENS: Record<string, [string, ReactElement]> = {
   '/c/:centreId/patients/:patientId': ['/c/:centreId/patients', <PatientPage />],
   '/c/:centreId/schedule/nurses': ['/c/:centreId/schedule', <AssignNursesPage />],
-  '/c/:centreId/sessions/:sessionId': ['/c/:centreId/today', <SessionPage />],
 };
 
 export function AppRoutes() {
@@ -108,6 +109,14 @@ export function AppRoutes() {
         {Object.entries(SUB_SCREENS).map(([path, [pattern, screen]]) => (
           <Route key={path} path={path} element={<Guard pattern={pattern}>{screen}</Guard>} />
         ))}
+        <Route
+          path="/c/:centreId/sessions/:sessionId"
+          element={
+            <Guard perm="sessions.view">
+              <SessionPage />
+            </Guard>
+          }
+        />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>
     </Routes>

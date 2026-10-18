@@ -25,12 +25,15 @@ export async function loadSessionInCentre(centreId: string, sid: unknown): Promi
 }
 
 /**
- * Single status check for usage, vitals and notes writes. `active` is open for recording;
- * `completed` needs `sessions.editClosed` and its edits are written to the change history
+ * Single status check for usage, vitals and notes writes. `active` needs the route's own permission
+ * (`activePerm`); `completed` needs `sessions.editClosed` alone (not the record permission) and its edits are written to the change history
  * (returns true); any other status is 409 `bad_status`.
  */
-export function assertRecordable(session: SessionDoc, perms: ReadonlySet<string>): boolean {
-  if (session.status === 'active') return false;
+export function assertRecordable(session: SessionDoc, perms: ReadonlySet<string>, activePerm: string): boolean {
+  if (session.status === 'active') {
+    if (!perms.has(activePerm)) throw forbidden();
+    return false;
+  }
   if (session.status !== 'completed') throw conflict('bad_status');
   if (!perms.has('sessions.editClosed')) throw forbidden();
   return true;
@@ -44,6 +47,7 @@ export function assertRecordable(session: SessionDoc, perms: ReadonlySet<string>
 export async function withRecordable<T>(
   sessionId: string,
   perms: ReadonlySet<string>,
+  activePerm: string,
   fn: (tx: ClientSession, session: SessionDoc, closed: boolean) => Promise<T>,
 ): Promise<T> {
   return withTransaction(async (tx) => {
@@ -53,7 +57,7 @@ export async function withRecordable<T>(
       { new: true, session: tx },
     );
     if (!fresh) throw conflict('bad_status');
-    return fn(tx, fresh, assertRecordable(fresh, perms));
+    return fn(tx, fresh, assertRecordable(fresh, perms, activePerm));
   });
 }
 

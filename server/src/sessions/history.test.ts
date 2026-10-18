@@ -118,6 +118,21 @@ describe('editing a closed session', () => {
     expect(await SessionChange.countDocuments()).toBe(0);
   });
 
+  it('a centre manager (editClosed, no recordUsage) can correct usage and notes on a completed session, with history; 403 while active', async () => {
+    const { s, session, nurse, heparin } = await setup();
+    const manager = await staffIn(session.centreId.toString(), ['centre_manager']);
+    const line = await nurse.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 5 });
+    const note = await nurse.agent.post(`${s}/notes`).send({ text: 'a' });
+    expect((await manager.agent.patch(`${s}/usage/${line.body.id}`).send({ amount: 2 })).status).toBe(403);
+    expect((await manager.agent.post(`${s}/notes`).send({ text: 'x' })).status).toBe(403);
+    await nurse.agent.post(`${s}/close`);
+    expect((await manager.agent.patch(`${s}/usage/${line.body.id}`).send({ amount: 2 })).status).toBe(200);
+    expect((await manager.agent.patch(`${s}/notes/${note.body.id}`).send({ text: 'b' })).status).toBe(200);
+    expect((await manager.agent.patch(`${s}/vitals`).send({ weightBefore: 71 })).status).toBe(200);
+    const hist = await manager.agent.get(`${s}/history`);
+    expect(hist.body.map((c: { kind: string }) => c.kind).sort()).toEqual(['note.update', 'usage.update', 'vitals.update']);
+  });
+
   it('a caller with the route permission but without editClosed gets 403', async () => {
     const { s, session, nurse, heparin } = await setup();
     await nurse.agent.post(`${s}/close`);

@@ -107,6 +107,9 @@ export const useSaveWeights = (id: string) =>
 export const useAddBp = (id: string) =>
   useSessionWrite<{ systolic: number; diastolic: number }>(id, (base, v) => apiPost(`${base}/vitals/bp`, v));
 export const useAddNote = (id: string) => useSessionWrite<string>(id, (base, text) => apiPost(`${base}/notes`, { text }));
+export const useUpdateNote = (id: string) =>
+  useSessionWrite<{ noteId: string; text: string }>(id, (base, v) => apiPatch(`${base}/notes/${v.noteId}`, { text: v.text }));
+export const useRemoveNote = (id: string) => useSessionWrite<string>(id, (base, noteId) => apiDelete(`${base}/notes/${noteId}`));
 
 // ---------- Catalogue (read for the picker; nurses may propose items) ----------
 

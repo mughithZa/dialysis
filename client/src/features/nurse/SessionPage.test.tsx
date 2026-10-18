@@ -202,4 +202,50 @@ describe('SessionPage', () => {
     await waitFor(() => expect(bp).toEqual([{ systolic: 120, diastolic: 80 }]));
     await waitFor(() => expect(notes).toEqual([{ text: 'Cramps' }]));
   });
+
+  const note = { id: 'n1', at: '2026-10-18T09:00:00Z', by: { id: 'u', name: 'Sara' }, text: 'Stable' };
+
+  it('a centre manager (view + editClosed + viewHistory, no run) sees edit controls and history on a completed session', async () => {
+    mount(detail({ status: 'completed', usage: [heparinLine], notes: [note] }), ['sessions.view', 'sessions.editClosed', 'sessions.viewHistory']);
+    expect(await screen.findByRole('button', { name: 'Add medicine/supply' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add reading' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Save note' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Change history' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Close session' })).toBeNull();
+    expect(screen.getByRole('link', { name: 'Back to patient' })).toHaveAttribute('href', '/c/c1/patients/p1');
+  });
+
+  it('a doctor (view + viewHistory) sees history but no edit controls', async () => {
+    mount(detail({ status: 'completed', usage: [heparinLine], notes: [note] }), ['sessions.view', 'sessions.viewHistory']);
+    expect(await screen.findByRole('button', { name: 'Change history' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Add medicine/supply' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Save note' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Change' })).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+  });
+
+  it('changes and removes a note', async () => {
+    const patched: unknown[] = [];
+    let deleted = 0;
+    server.use(
+      http.patch('*/api/centres/c1/sessions/s1/notes/n1', async ({ request }) => (patched.push(await request.json()), HttpResponse.json({}))),
+      http.delete('*/api/centres/c1/sessions/s1/notes/n1', () => (deleted++, new HttpResponse(null, { status: 204 }))),
+    );
+    mount(detail({ notes: [note] }));
+    await screen.findByText('Stable');
+    await userEvent.click(screen.getByRole('button', { name: 'Change' }));
+    const box = await screen.findByDisplayValue('Stable');
+    await userEvent.clear(box);
+    await userEvent.type(box, 'Cramping');
+    await userEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+    await waitFor(() => expect(patched).toEqual([{ text: 'Cramping' }]));
+    await userEvent.click(screen.getByRole('button', { name: 'Remove' }));
+    await waitFor(() => expect(deleted).toBe(1));
+  });
+
+  it('hides note Change/Remove on a completed session without editClosed', async () => {
+    mount(detail({ status: 'completed', notes: [note] }));
+    await screen.findByText('Stable');
+    expect(screen.queryByRole('button', { name: 'Remove' })).toBeNull();
+  });
 });
