@@ -1,10 +1,7 @@
-import { useEffect, useState } from 'react';
+import { useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, CloseButton, Group, Paper, Text } from '@mantine/core';
-
-interface InstallEvent extends Event {
-  prompt: () => Promise<void>;
-}
+import { clearInstallPrompt, getInstallPrompt, subscribeInstallPrompt } from './installEvent';
 
 const DISMISS_KEY = 'installPromptDismissed';
 
@@ -28,22 +25,8 @@ function wasDismissed() {
 /** Android: installs via the captured `beforeinstallprompt`. iOS Safari: how-to text. Hidden once installed. */
 export function InstallPrompt() {
   const { t } = useTranslation();
-  const [event, setEvent] = useState<InstallEvent | null>(null);
+  const event = useSyncExternalStore(subscribeInstallPrompt, getInstallPrompt);
   const [dismissed, setDismissed] = useState(wasDismissed);
-
-  useEffect(() => {
-    const onPrompt = (e: Event) => {
-      e.preventDefault();
-      setEvent(e as InstallEvent);
-    };
-    const onInstalled = () => setEvent(null);
-    window.addEventListener('beforeinstallprompt', onPrompt);
-    window.addEventListener('appinstalled', onInstalled);
-    return () => {
-      window.removeEventListener('beforeinstallprompt', onPrompt);
-      window.removeEventListener('appinstalled', onInstalled);
-    };
-  }, []);
 
   if (dismissed || isStandalone()) return null;
   const ios = isIosSafari();
@@ -60,7 +43,7 @@ export function InstallPrompt() {
   const install = async () => {
     if (!event) return;
     await event.prompt();
-    setEvent(null);
+    clearInstallPrompt();
   };
 
   return (

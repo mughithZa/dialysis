@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Alert, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
@@ -29,13 +30,28 @@ function SessionRow({ s }: { s: MiniSession }) {
 function Reminders() {
   const { t } = useTranslation();
   const { status, enable } = useNotifications();
+  const [failed, setFailed] = useState(false);
   if (status === 'loading' || status === 'hidden') return null;
   if (status === 'denied') return <Text size="sm" c="dimmed">{t('me.notify.denied')}</Text>;
   if (status === 'on') return <Text size="sm" fw={500}>{t('me.notify.on')}</Text>;
   return (
-    <Button variant="light" mih={44} onClick={() => void enable().catch(() => {})}>
-      {t('me.notify.enable')}
-    </Button>
+    <Stack gap="xs">
+      <Button
+        variant="light"
+        mih={44}
+        onClick={() => {
+          setFailed(false);
+          enable().catch(() => setFailed(true));
+        }}
+      >
+        {t('me.notify.enable')}
+      </Button>
+      {failed && (
+        <Text size="sm" c="danger" role="alert">
+          {t('me.notify.failed')}
+        </Text>
+      )}
+    </Stack>
   );
 }
 

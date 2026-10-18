@@ -10,6 +10,9 @@ import './i18n';
 import App from './App';
 import { ROUTER_FUTURE } from './routerFuture';
 import { theme } from './theme';
+import { captureInstallPrompt } from './features/patient/installEvent';
+
+captureInstallPrompt();
 
 const queryClient = new QueryClient({
   defaultOptions: { queries: { retry: false, refetchOnWindowFocus: false } },

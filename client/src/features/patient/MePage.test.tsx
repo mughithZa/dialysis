@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -93,5 +93,32 @@ describe('HistoryPage', () => {
     await userEvent.click(await screen.findByRole('button', { name: 'Load more' }));
     expect(await screen.findByText("Thursday, Oct 1")).toBeVisible();
     expect(befores[1]).toBe('2026-10-11');
+  });
+});
+
+describe('MePage reminders', () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    Reflect.deleteProperty(navigator, 'serviceWorker');
+  });
+
+  it('shows a hint when turning on notifications fails', async () => {
+    const reg = {
+      pushManager: {
+        getSubscription: vi.fn().mockResolvedValue(null),
+        subscribe: vi.fn().mockResolvedValue({ toJSON: () => ({ endpoint: 'https://p.example/x', keys: { p256dh: 'P', auth: 'A' } }) }),
+      },
+    };
+    Object.defineProperty(navigator, 'serviceWorker', { value: { ready: Promise.resolve(reg) }, configurable: true });
+    vi.stubGlobal('PushManager', class {});
+    vi.stubGlobal('Notification', Object.assign(function () {}, { permission: 'default', requestPermission: vi.fn().mockResolvedValue('granted') }));
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview())),
+      http.get('*/api/push/key', () => HttpResponse.json({ publicKey: 'AQAB' })),
+      http.post('*/api/push/subscribe', () => HttpResponse.json({ error: 'generic' }, { status: 500 })),
+    );
+    renderApp(<MePage />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Turn on reminders' }));
+    expect(await screen.findByText('Could not turn on notifications.')).toBeVisible();
   });
 });
