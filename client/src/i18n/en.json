@@ -1,5 +1,7 @@
 {
-  "app": { "name": "Dialysis Centre" },
+  "app": {
+    "name": "Dialysis Centre"
+  },
   "common": {
     "loading": "Loading...",
     "noAccess": "Your account has no access to any screens yet. Contact your manager.",
@@ -8,7 +10,19 @@
     "close": "Close",
     "logout": "Sign out",
     "centre": "Centre",
-    "navigation": "Main navigation"
+    "navigation": "Main navigation",
+    "save": "Save",
+    "cancel": "Cancel",
+    "create": "Create",
+    "edit": "Edit",
+    "view": "View",
+    "add": "Add",
+    "status": "Status",
+    "name": "Name",
+    "unit": "Unit",
+    "total": "Total",
+    "type": "Type",
+    "actions": "Actions"
   },
   "login": {
     "title": "Sign in",
@@ -22,7 +36,15 @@
     "unauthenticated": "Please sign in to continue.",
     "forbidden": "You do not have permission to do that.",
     "not_found": "Not found.",
-    "network": "Cannot reach the server. Check your connection."
+    "network": "Cannot reach the server. Check your connection.",
+    "has_active_patients": "This centre still has active patients. Discharge or transfer them before closing it.",
+    "username_taken": "That username is already taken.",
+    "validation": "Please check the values entered.",
+    "system_role_locked": "This role is built in and cannot be changed.",
+    "global_perm_in_centre_role": "Centre roles cannot hold global permissions.",
+    "unit_locked": "The unit cannot change because this item is already in use.",
+    "item_exists": "An item with that name already exists.",
+    "unit_not_found": "That unit no longer exists."
   },
   "nav": {
     "centres": "Centres",
@@ -39,5 +61,152 @@
     "audit": "Audit log",
     "stats": "Reports",
     "me": "My dialysis"
+  },
+  "pm": {
+    "centres": {
+      "title": "Centres",
+      "new": "New centre",
+      "name": "Centre name",
+      "active": "Active",
+      "closed": "Closed",
+      "close": "Close centre",
+      "reopen": "Reopen centre",
+      "managerSection": "Centre manager account",
+      "managerName": "Manager full name",
+      "managerUsername": "Manager username",
+      "managerPassword": "Manager password (min. 8 characters)",
+      "managerPhone": "Manager phone (optional)",
+      "managers": "Managers",
+      "resetPassword": "Reset password",
+      "newPassword": "New password (min. 8 characters)",
+      "passwordReset": "Password reset.",
+      "created": "Centre created.",
+      "closedOk": "Centre closed.",
+      "reopenedOk": "Centre reopened.",
+      "empty": "No centres yet.",
+      "noManagers": "No managers."
+    },
+    "roles": {
+      "title": "Roles",
+      "new": "New role",
+      "roleName": "Role name",
+      "global": "Global",
+      "centre": "Centre",
+      "locked": "This role is built in and read-only.",
+      "saved": "Role saved.",
+      "empty": "No roles."
+    },
+    "catalog": {
+      "title": "Catalogue",
+      "medicines": "Medicines",
+      "supplies": "Supplies",
+      "pendingOnly": "Pending review",
+      "pendingBadge": "Pending review: {{count}}",
+      "approve": "Approve",
+      "merge": "Merge",
+      "mergeTitle": "Merge \"{{name}}\" into",
+      "mergeHint": "Usage of this item moves to the item you pick. Only items with the same unit are listed.",
+      "mergeNone": "No other item with the same unit.",
+      "mergeInto": "Merge into",
+      "pending": "Pending",
+      "approved": "Approved",
+      "empty": "No items.",
+      "editTitle": "Edit item",
+      "itemName": "Item name",
+      "unitLocked": "The unit cannot change once the item has been used.",
+      "units": "Units",
+      "newUnit": "New unit",
+      "addUnit": "Add unit",
+      "saved": "Saved.",
+      "merged": "Items merged."
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "month": "Month",
+      "sessions": "Sessions",
+      "patients": "Patients",
+      "medicines": "Medicines",
+      "supplies": "Supplies",
+      "item": "Item",
+      "noUsage": "No usage recorded.",
+      "empty": "No centres."
+    }
+  },
+  "perm": {
+    "centres": {
+      "create": "Create centres",
+      "close": "Close and reopen centres"
+    },
+    "stats": {
+      "global": "View all-centre dashboard"
+    },
+    "managers": {
+      "manage": "Manage centre managers"
+    },
+    "users": {
+      "create": "Create staff accounts",
+      "edit": "Edit staff accounts",
+      "resetPassword": "Reset staff passwords"
+    },
+    "roles": {
+      "assign": "Assign roles",
+      "edit": "Edit roles"
+    },
+    "patients": {
+      "view": "View patients",
+      "create": "Register patients",
+      "edit": "Edit patients",
+      "discharge": "Discharge patients"
+    },
+    "transfers": {
+      "send": "Send transfers",
+      "decide": "Accept or reject transfers"
+    },
+    "schedule": {
+      "view": "View schedule",
+      "book": "Book sessions",
+      "makeup": "Book make-up sessions",
+      "setup": "Set up shifts and chairs",
+      "assignNurses": "Assign nurses"
+    },
+    "sessions": {
+      "view": "View sessions",
+      "run": "Run sessions",
+      "postpone": "Postpone sessions",
+      "recordUsage": "Record medicines and supplies",
+      "recordVitals": "Record vitals",
+      "addNotes": "Add session notes",
+      "editClosed": "Edit closed sessions",
+      "viewHistory": "View session history"
+    },
+    "orders": {
+      "view": "View doctor orders",
+      "write": "Write doctor orders"
+    },
+    "catalog": {
+      "view": "View medicine and supply list",
+      "add": "Add items to the list",
+      "manage": "Approve, edit and merge items"
+    },
+    "reports": {
+      "centre": "View centre reports"
+    },
+    "audit": {
+      "view": "View audit log"
+    },
+    "settings": {
+      "centre": "Edit centre settings"
+    }
+  },
+  "category": {
+    "Centres": "Centres",
+    "Users & roles": "Users & roles",
+    "Patients": "Patients",
+    "Schedule": "Schedule",
+    "Sessions": "Sessions",
+    "Doctor orders": "Doctor orders",
+    "Medicine & supply list": "Medicine & supply list",
+    "Reports & audit": "Reports & audit",
+    "Centre settings": "Centre settings"
   }
 }

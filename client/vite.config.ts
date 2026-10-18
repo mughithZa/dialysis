@@ -54,6 +54,14 @@ export default defineConfig({
       },
     }),
   ],
+  build: {
+    rolldownOptions: {
+      output: {
+        // Keep the UI kit out of the app chunk so neither crosses the 500 kB warning limit.
+        codeSplitting: { groups: [{ name: 'mantine', test: /node_modules[\\/]@mantine/ }] },
+      },
+    },
+  },
   server: { proxy: { '/api': 'http://localhost:3000' } },
   test: {
     environment: 'jsdom',
