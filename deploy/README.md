@@ -62,6 +62,12 @@ git pull
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
+When updating an existing deployment to scheduling v2, run the one-time data migration once, after the rebuild. It converts the old patient patterns, chair assignments and sessions, is safe to repeat (a second run changes nothing), and lists any record it had to skip:
+
+```sh
+docker compose -f deploy/docker-compose.yml run --rm app npm run migrate:v2 -w server
+```
+
 The data lives in the `dialysis_mongo-data` volume and survives rebuilds. Open sessions in browsers pick up the new version on the next reload.
 
 ## Logs and stopping

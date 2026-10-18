@@ -42,3 +42,15 @@ describe('doctor patient notes', () => {
     expect((await doctor.agent.post(`${url}/notes`).send({ text: 'a'.repeat(2001) })).status).toBe(400);
   });
 });
+
+describe('patient notes across centres', () => {
+  it('404s for a patient of another centre on both GET and POST, and writes nothing', async () => {
+    const { patient } = await setup();
+    const other = await makeCentre({ name: 'South' });
+    const southDoctor = await staffIn(other.centre.id, ['doctor']);
+    const foreign = `/api/centres/${other.centre.id}/patients/${patient.id}`;
+    expect((await southDoctor.agent.get(`${foreign}/notes`)).status).toBe(404);
+    expect((await southDoctor.agent.post(`${foreign}/notes`).send({ text: 'x' })).status).toBe(404);
+    expect(await PatientNote.countDocuments()).toBe(0);
+  });
+});

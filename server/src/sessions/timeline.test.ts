@@ -3,7 +3,8 @@ import { seedRoles } from '../auth/roles.seed.js';
 import { Item } from '../catalog/item.model.js';
 import { Unit } from '../catalog/unit.model.js';
 import { Centre } from '../centres/centre.model.js';
-import { addDays, todayLocal } from '../lib/dates.js';
+import { addDays, localDateTime, todayLocal } from '../lib/dates.js';
+import { PatientNote } from '../notes/patient-note.model.js';
 import { RosterEntry } from '../schedule/roster.model.js';
 import { UsageLine } from './usage.model.js';
 import { login, makeCentre, makePatient, makeSession, staffIn } from '../../test/factories.js';
@@ -55,6 +56,23 @@ describe('GET patients/:id/timeline', () => {
     expect(p2.body.upcoming).toEqual([]);
     expect(p2.body.today).toEqual([]);
     expect((await desk.agent.get(`${url}/timeline?limit=51`)).status).toBe(400);
+  });
+
+  it('windows notes by the page: page 2 holds only notes inside its own date span', async () => {
+    const { desk, doctor, patient, centre, mk, today, url } = await setup();
+    for (const n of [1, 2, 3, 4, 5]) await mk(addDays(today, -n), 'completed');
+    const note = (daysAgo: number, text: string) =>
+      PatientNote.create({ patientId: patient._id, centreId: centre._id, authorId: doctor.user._id, text, at: localDateTime(addDays(today, -daysAgo), '12:00') });
+    for (const [d, t] of [[1, 'd1'], [2, 'd2'], [3, 'd3'], [4, 'd4'], [5, 'd5'], [40, 'd40']] as const) await note(d, t);
+    const texts = (r: { body: { notes: { text: string }[] } }) => r.body.notes.map((n) => n.text);
+    const p1 = await desk.agent.get(`${url}/timeline?limit=2`);
+    expect(texts(p1)).toEqual(['d1', 'd2', 'd3', 'd4', 'd5']);
+    const p2 = await desk.agent.get(`${url}/timeline?limit=2&before=${addDays(today, -2)}`);
+    expect(p2.body.past.map((i: { date: string }) => i.date)).toEqual([addDays(today, -3), addDays(today, -4)]);
+    expect(texts(p2)).toEqual(['d3', 'd4']);
+    const p3 = await desk.agent.get(`${url}/timeline?limit=2&before=${addDays(today, -4)}`);
+    expect(p3.body.past.map((i: { date: string }) => i.date)).toEqual([addDays(today, -5)]);
+    expect(texts(p3)).toEqual(['d5', 'd40']);
   });
 
   it('names the nurse: runBy, else rosterNurseId, else the roster for future sessions', async () => {

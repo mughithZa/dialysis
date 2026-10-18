@@ -107,7 +107,10 @@ export async function buildTimeline(
   const [upcomingDocs, todayDocs, pastDocs] = await Promise.all([
     first ? Session.find({ patientId, status: 'scheduled', date: { $gte: addDays(today, 1), $lte: addDays(today, 13) } }) : [],
     first ? Session.find({ patientId, date: today }) : [],
-    Session.find({ patientId, date: { $lt: opts.before && opts.before < today ? opts.before : today } }),
+    // newest first; one extra row tells whether older history remains
+    Session.find({ patientId, date: { $lt: opts.before && opts.before < today ? opts.before : today } })
+      .sort({ date: -1, shiftStart: -1, _id: -1 })
+      .limit(limit + 1),
   ]);
   const [pastAll, upcoming, todayItems] = await Promise.all([
     toItems(pastDocs, viewer, today),
