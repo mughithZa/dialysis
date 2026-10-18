@@ -20,6 +20,7 @@ import { Patient } from '../patients/patient.model.js';
 import { bookPlan, changePlan, endPlans, type BookResult } from './booking.js';
 import { Plan, type PlanDoc } from './plan.model.js';
 import { freeMachines } from './slots.js';
+import { buildBoard } from './board.js';
 
 export const scheduleRouter = Router({ mergeParams: true });
 
@@ -241,6 +242,18 @@ scheduleRouter.get('/today', requirePerm('sessions.view'), async (req, res, next
       (nurseId === undefined ? out.unassigned : nurseId === String(req.user!._id) ? out.mine : out.others).push(card);
     }
     res.json(out);
+  } catch (e) {
+    next(e);
+  }
+});
+
+const boardQuery = z.object({ date: localDate.optional(), shiftId: z.string().min(1).optional() });
+
+scheduleRouter.get('/board', requirePerm('sessions.view'), async (req, res, next) => {
+  try {
+    const parsed = boardQuery.safeParse(req.query);
+    if (!parsed.success) throw badRequest('validation');
+    res.json(await buildBoard(centreOf(req), String(req.user!._id), parsed.data));
   } catch (e) {
     next(e);
   }
