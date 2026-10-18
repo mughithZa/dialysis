@@ -90,6 +90,20 @@ describe('weekly plan', () => {
     expect((await agent.get(`${base}/patients/${none.id}/plan`)).body).toEqual({ plan: null });
   });
 
+  it('GET plan prefers the plan in force today, else the next one to start', async () => {
+    const { centre, agent, base, item, weekly, change } = await setup();
+    const get = async (id: string) => (await agent.get(`${base}/patients/${id}/plan`)).body.plan;
+    const a = await makePatient(centre.id);
+    const first = (await weekly(a.patient.id, [item(MON, 0, 0)])).body.plan;
+    await change(a.patient.id, { items: [item(TUE, 0, 0)], from: addDays(today(), 7) });
+    expect(await get(a.patient.id)).toMatchObject({ id: first.id, to: addDays(today(), 6) });
+
+    const b = await makePatient(centre.id);
+    const soon = (await weekly(b.patient.id, [item(MON, 1, 1)], { from: addDays(today(), 3) })).body.plan;
+    await change(b.patient.id, { items: [item(TUE, 1, 1)], from: addDays(today(), 7) });
+    expect(await get(b.patient.id)).toMatchObject({ id: soon.id, from: addDays(today(), 3), to: addDays(today(), 6) });
+  });
+
   it('with an end date: the plan stops there and nothing is generated after it', async () => {
     const { centre, item, weekly } = await setup(ALL_DAYS);
     const { patient } = await makePatient(centre.id);
@@ -138,6 +152,39 @@ describe('weekly plan', () => {
     expect(rs.map((r) => r.status).sort()).toEqual([201, 409]);
     expect(rs.find((r) => r.status === 409)!.body.error).toBe('already_booked');
     expect(await Plan.countDocuments({ patientId: patient.id, to: null })).toBe(1);
+  });
+
+  it('concurrent end-dated weekly bookings for one patient on different slots: [201, 409], never overlapping plans', async () => {
+    const { centre, item, weekly } = await setup();
+    for (let round = 0; round < 3; round++) {
+      const { patient } = await makePatient(centre.id);
+      const to = addDays(today(), 30);
+      const rs = await Promise.all([
+        weekly(patient.id, [item(MON, 0, round)], { to }),
+        weekly(patient.id, [item(TUE, 1, round)], { to }),
+      ]);
+      expect(rs.map((r) => r.status).sort()).toEqual([201, 409]);
+      expect(rs.find((r) => r.status === 409)!.body.error).toBe('already_booked');
+      expect(await Plan.countDocuments({ patientId: patient.id })).toBe(1);
+    }
+  });
+
+  it('an end-dated booking racing a plan change for one patient never leaves overlapping plans', async () => {
+    const { centre, item, weekly, change } = await setup();
+    for (let round = 0; round < 3; round++) {
+      const { patient } = await makePatient(centre.id);
+      expect((await weekly(patient.id, [item(MON, 0, round)], { to: addDays(today(), 20) })).status).toBe(201);
+      await Promise.all([
+        // starts after the current plan ends, so alone it is fine; the change would make it overlap
+        weekly(patient.id, [item(TUE, 1, round)], { from: addDays(today(), 21), to: addDays(today(), 40) }),
+        change(patient.id, { items: [item(WED, 1, round)], from: addDays(today(), 7) }),
+      ]);
+      const plans = await Plan.find({ patientId: patient.id }).sort({ from: 1 });
+      for (let i = 1; i < plans.length; i++) {
+        const prev = plans[i - 1]!;
+        expect(prev.to != null && prev.to < plans[i]!.from).toBe(true);
+      }
+    }
   });
 });
 
@@ -308,6 +355,28 @@ describe('changing the weekly plan from a date', () => {
     expect(await AuditEntry.countDocuments({ action: 'plan.change' })).toBe(1);
   });
 
+  it('keeps a one-off the patient booked on their own plan slot beyond the generation window', async () => {
+    const { centre, item, weekly, once, change } = await setup();
+    const { patient } = await makePatient(centre.id);
+    await weekly(patient.id, [item(MON, 0, 0)]);
+    const far = await once(patient.id, [item(MON, 0, 0)], { from: addDays(today(), 21) });
+    expect(far.status).toBe(201);
+    expect((await Session.findById(far.body.sessions[0].id))!.oneOff).toBe(true);
+    expect((await change(patient.id, { items: [item(TUE, 0, 0)], from: addDays(today(), 7) })).status).toBe(200);
+    expect(await Session.exists({ _id: far.body.sessions[0].id })).not.toBeNull();
+  });
+
+  it('removes a legacy generated session (no planId, not a one-off) sitting on an old item', async () => {
+    const { centre, item, weekly, change } = await setup();
+    const { patient } = await makePatient(centre.id);
+    await weekly(patient.id, [item(MON, 0, 0)]);
+    const start = addDays(today(), 7);
+    const monday = nextWeekday(start, MON);
+    await Session.updateOne({ patientId: patient.id, date: monday }, { $unset: { planId: 1 } });
+    expect((await change(patient.id, { items: [item(TUE, 0, 0)], from: start })).status).toBe(200);
+    expect(await Session.exists({ patientId: patient.id, date: monday })).toBeNull();
+  });
+
   it('frees the old slots from the change date for another patient', async () => {
     const { centre, item, weekly, change } = await setup();
     const a = await makePatient(centre.id);
@@ -445,11 +514,12 @@ describe('legacy grid (kept for the current client until the calendar replaces i
     const slots = (grid.body.slots as { chairId: string; shiftId: string; weekday: number; patient: { id: string; name: string } }[])
       .map((x) => `${x.weekday}:${x.shiftId}:${x.chairId}:${x.patient.id}`)
       .sort();
+    // b's plan in force today (Sunday, ending before the change) wins over the Tuesday plan starting next week
     expect(slots).toEqual(
       [
         `${MON}:${shifts[1]!.id}:${chairs[2]!.id}:${a.patient.id}`,
         `${WED}:${shifts[0]!.id}:${chairs[5]!.id}:${a.patient.id}`,
-        `${TUE}:${shifts[0]!.id}:${chairs[0]!.id}:${b.patient.id}`,
+        `${SUN}:${shifts[0]!.id}:${chairs[0]!.id}:${b.patient.id}`,
       ].sort(),
     );
     expect(grid.body.slots.find((x: { patient: { id: string } }) => x.patient.id === a.patient.id).patient.name).toBe(a.patient.name);

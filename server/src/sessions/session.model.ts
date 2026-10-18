@@ -19,6 +19,8 @@ const sessionSchema = new Schema({
   chairLabel: { type: String, required: true },
   planId: { type: Schema.Types.ObjectId },
   detached: { type: Boolean, default: false },
+  /** Booked once ("just these sessions"), not generated from a plan: changing the plan never deletes it. */
+  oneOff: { type: Boolean, default: false },
   /**
    * Where a moved session originally sat (set by Move). The plan's slot at (movedFrom.date, movedFrom.shiftId)
    * is released for that date only; see schedule/slots.ts.

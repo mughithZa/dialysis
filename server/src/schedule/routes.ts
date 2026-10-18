@@ -99,12 +99,22 @@ scheduleRouter.put('/patients/:id/plan', requirePerm('schedule.book'), validate(
   }
 });
 
-/** The patient's plan holding now or later (the open one, else the latest-starting end-dated one), or null. */
+/**
+ * Of a patient's plans still holding (`to` empty or ≥ today), the one in force today (`from ≤ today`), else the
+ * next one to start.
+ */
+function planNow<T extends { from: string }>(plans: T[], today: string): T | undefined {
+  const inForce = plans.filter((p) => p.from <= today).sort((a, b) => b.from.localeCompare(a.from));
+  return inForce[0] ?? [...plans].sort((a, b) => a.from.localeCompare(b.from))[0];
+}
+
+/** The patient's plan in force today, else the next one to start, or null. */
 scheduleRouter.get('/patients/:id/plan', requirePerm('schedule.view'), async (req, res, next) => {
   try {
     const patient = await loadPatientInCentre(centreOf(req), req.params.id);
-    const plans = await Plan.find({ patientId: patient._id, $or: [{ to: null }, { to: { $gte: todayLocal() } }] }).sort({ from: -1 });
-    const plan = plans.find((p) => p.to === null) ?? plans[0];
+    const today = todayLocal();
+    const plans = await Plan.find({ patientId: patient._id, $or: [{ to: null }, { to: { $gte: today } }] });
+    const plan = planNow(plans, today);
     res.json({ plan: plan ? planDto(plan) : null });
   } catch (e) {
     next(e);
@@ -131,22 +141,20 @@ scheduleRouter.get('/schedule/free', requirePerm('schedule.view'), async (req, r
 
 /**
  * The weekly grid: each (machine, block, weekday) held by a current plan, with its patient. One plan per patient:
- * the open one, else the latest-starting plan that still holds (`to` ≥ today).
+ * the one in force today, else the next one to start (`planNow`).
  */
 scheduleRouter.get('/schedule/grid', requirePerm('schedule.view'), async (req, res, next) => {
   try {
     const centreId = centreOf(req);
+    const today = todayLocal();
     const [chairs, shifts, plans] = await Promise.all([
       Chair.find({ centreId }).sort({ label: 1 }),
       Shift.find({ centreId }).sort({ start: 1 }),
-      Plan.find({ centreId, $or: [{ to: null }, { to: { $gte: todayLocal() } }] }).sort({ from: -1 }).lean(),
+      Plan.find({ centreId, $or: [{ to: null }, { to: { $gte: today } }] }).lean(),
     ]);
-    const planOf = new Map<string, (typeof plans)[number]>();
-    for (const p of plans) {
-      const key = String(p.patientId);
-      const seen = planOf.get(key);
-      if (!seen || (seen.to !== null && p.to === null)) planOf.set(key, p);
-    }
+    const byPatient = new Map<string, (typeof plans)[number][]>();
+    for (const p of plans) byPatient.set(String(p.patientId), [...(byPatient.get(String(p.patientId)) ?? []), p]);
+    const planOf = new Map([...byPatient].map(([id, ps]) => [id, planNow(ps, today)!]));
     const patients = await Patient.find({ _id: { $in: [...planOf.keys()] } });
     const nameOf = new Map(patients.map((p) => [p.id as string, p.name]));
     res.json({

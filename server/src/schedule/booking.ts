@@ -1,4 +1,4 @@
-import type { ClientSession, Types } from 'mongoose';
+import mongoose, { type ClientSession, type Types } from 'mongoose';
 import { withTransaction } from '../db.js';
 import { badRequest, conflict } from '../lib/errors.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
@@ -6,6 +6,7 @@ import { loadPatientInCentre } from '../patients/load.js';
 import type { PatientDoc } from '../patients/patient.model.js';
 import { Session, type SessionDoc } from '../sessions/session.model.js';
 import { Plan, type PlanDoc } from './plan.model.js';
+import { PatientPlanLock } from './slot-lock.model.js';
 import { assertPlanItemsFree, firstOnOrAfter, isSlotFree, lockSlots, validatePlanItems } from './slots.js';
 import { deleteScheduledSessionsAfter, regenerateSessions } from './generate.js';
 
@@ -38,6 +39,21 @@ const holdingFrom = (patientId: Types.ObjectId | string, date: string) => ({
   patientId,
   $or: [{ to: null }, { to: { $gte: date } }],
 });
+
+/**
+ * Write-locks the patient's plans in the caller's transaction: concurrent plan writes for one patient conflict and
+ * the loser is retried by `withTransaction`, re-reading the winner's plan. Take it first, before any plan read.
+ */
+export async function lockPatientPlans(patientId: Types.ObjectId | string, session: ClientSession): Promise<void> {
+  await PatientPlanLock.init();
+  try {
+    await PatientPlanLock.updateOne({ patientId }, { $inc: { rev: 1 } }, { upsert: true, session });
+  } catch (e) {
+    // two first-time upserts race on the unique index: retry the loser like a write conflict
+    if (e instanceof mongoose.mongo.MongoServerError && e.code === 11000) e.addErrorLabel('TransientTransactionError');
+    throw e;
+  }
+}
 
 /** Patient of this centre who may be booked (409 otherwise) for a range starting today or later. */
 async function loadBookable(centreId: string, patientId: string, input: { from: string; to?: string | null }): Promise<PatientDoc> {
@@ -99,6 +115,7 @@ async function bookOnce(
         chairLabel: chair.label,
         kind: 'regular' as const,
         status: 'scheduled' as const,
+        oneOff: true,
       });
     }
     let sessions: SessionDoc[];
@@ -128,6 +145,7 @@ export async function bookPlan(
   if (input.repeat === 'once') return { sessions: await bookOnce(centreId, patient, input, audit) };
 
   const plan = await withTransaction(async (session) => {
+    await lockPatientPlans(patient._id, session);
     if (await Plan.exists(holdingFrom(patient._id, input.from)).session(session)) throw conflict('already_booked');
     const created = await insertPlan(centreId, patient, input, session);
     await audit?.({ plan: created }, session);
@@ -139,8 +157,8 @@ export async function bookPlan(
 
 /**
  * Deletes the patient's future scheduled sessions that belong to `plans` from `from` on: those generated from
- * them, plus older generated sessions without a `planId` sitting on one of their items. Detached (moved)
- * sessions, make-ups and one-offs are kept.
+ * them, plus legacy generated sessions (neither `planId` nor `oneOff`) sitting on one of their items. Detached
+ * (moved) sessions, make-ups and one-offs (`oneOff: true`) are always kept.
  */
 async function deletePlanSessionsFrom(
   patientId: Types.ObjectId,
@@ -151,7 +169,7 @@ async function deletePlanSessionsFrom(
   const planIds = new Set(plans.map((p) => String(p._id)));
   const itemKeys = new Set(plans.flatMap((p) => p.items.map((i) => `${i.weekday}:${String(i.shiftId)}:${String(i.chairId)}`)));
   const candidates = await Session.find(
-    { patientId, status: 'scheduled', detached: { $ne: true }, kind: 'regular', date: { $gte: from } },
+    { patientId, status: 'scheduled', detached: { $ne: true }, oneOff: { $ne: true }, kind: 'regular', date: { $gte: from } },
     { planId: 1, date: 1, shiftId: 1, chairId: 1 },
   )
     .session(session)
@@ -175,6 +193,7 @@ export async function changePlan(
 ): Promise<PlanDoc> {
   const patient = await loadBookable(centreId, patientId, input);
   const plan = await withTransaction(async (session) => {
+    await lockPatientPlans(patient._id, session);
     const current = await Plan.find(holdingFrom(patient._id, input.from)).session(session);
     if (!current.length) throw conflict('no_plan');
     const lastDay = addDays(input.from, -1);
@@ -201,6 +220,7 @@ export async function changePlan(
  * the patient is leaving the centre's care.
  */
 export async function endPlans(patientId: string, lastDate: string, session: ClientSession): Promise<void> {
+  await lockPatientPlans(patientId, session);
   const plans = await Plan.find({ patientId, $or: [{ to: null }, { to: { $gt: lastDate } }] }).session(session);
   for (const p of plans) {
     if (p.from > lastDate) {
