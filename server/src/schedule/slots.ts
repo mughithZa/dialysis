@@ -21,11 +21,12 @@ import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { LIVE_STATUSES, Session } from '../sessions/session.model.js';
 import { Plan, type PlanItem } from './plan.model.js';
+import { SlotLock } from './slot-lock.model.js';
 
 type Id = string | Types.ObjectId;
 
 export interface SlotOpts {
-  /** This patient's own sessions and plan never block them. */
+  /** This patient's own sessions and plan never block them. A malformed id is treated as "ignore nobody". */
   ignorePatientId?: Id;
   /** Read inside the caller's transaction. */
   session?: ClientSession;
@@ -38,16 +39,6 @@ const validId = (id: unknown): id is Id => (typeof id === 'string' || id instanc
 const isDate = (d: unknown): d is string =>
   typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && DateTime.fromISO(d, { zone: 'utc' }).isValid;
 const same = (a: unknown, b: unknown) => String(a) === String(b);
-
-/** One row per (chair, shift, weekday) ever booked; bumping it inside a transaction serialises bookings of it. */
-const slotLockSchema = new mongoose.Schema({
-  chairId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  shiftId: { type: mongoose.Schema.Types.ObjectId, required: true },
-  weekday: { type: Number, required: true },
-  rev: { type: Number, default: 0 },
-});
-slotLockSchema.index({ chairId: 1, shiftId: 1, weekday: 1 }, { unique: true });
-export const SlotLock = mongoose.model('SlotLock', slotLockSchema);
 
 /**
  * Write-locks (chair, shift, weekday) in the caller's transaction. Two transactions that lock the same key
@@ -67,9 +58,9 @@ export async function lockSlot(chairId: Id, shiftId: Id, weekday: number, sessio
 }
 
 /** Chair ids taken for (shift, date), optionally only looking at one chair. Assumes the date is a working day. */
-async function takenChairIds(shiftId: Id, date: string, opts: SlotOpts, chairId?: Id): Promise<Set<string>> {
+async function takenChairIds(centreId: Id, shiftId: Id, date: string, opts: SlotOpts, chairId?: Id): Promise<Set<string>> {
   const session = opts.session ?? null;
-  const notMe = opts.ignorePatientId ? { patientId: { $ne: opts.ignorePatientId } } : {};
+  const notMe = validId(opts.ignorePatientId) ? { patientId: { $ne: opts.ignorePatientId } } : {};
   const onChair = chairId ? { chairId } : {};
   const taken = new Set<string>();
 
@@ -83,6 +74,7 @@ async function takenChairIds(shiftId: Id, date: string, opts: SlotOpts, chairId?
   const weekday = weekdayOf(date);
   const plans = await Plan.find(
     {
+      centreId,
       items: { $elemMatch: { weekday, shiftId, ...onChair } },
       from: { $lte: date },
       $or: [{ to: null }, { to: { $gte: date } }],
@@ -132,7 +124,7 @@ export async function isSlotFree(centreId: Id, chairId: Id, shiftId: Id, date: s
   if (!chair || !same(chair.centreId, centreId) || !chair.active) return false;
   const shift = await Shift.findById(shiftId).session(session).lean();
   if (!shift || !same(shift.centreId, centreId) || !shift.active) return false;
-  const taken = await takenChairIds(shiftId, date, opts, chairId);
+  const taken = await takenChairIds(centreId, shiftId, date, opts, chairId);
   return !taken.has(String(chairId));
 }
 
@@ -155,7 +147,7 @@ export async function freeMachines(
   if (!shift || !same(shift.centreId, centreId)) throw notFound();
   if (!shift.active || !centre.workingDays.includes(weekdayOf(date))) return [];
   const chairs = await Chair.find({ centreId, active: true }).session(session).lean();
-  const taken = await takenChairIds(shiftId, date, opts);
+  const taken = await takenChairIds(centreId, shiftId, date, opts);
   return chairs
     .filter((c) => !taken.has(String(c._id)))
     .map((c) => ({ id: String(c._id), label: c.label }))
@@ -163,19 +155,59 @@ export async function freeMachines(
 }
 
 /** First date on or after `date` that falls on `weekday`. */
-function firstOnOrAfter(date: string, weekday: number): string {
+export function firstOnOrAfter(date: string, weekday: number): string {
   return addDays(date, (weekday - weekdayOf(date) + 7) % 7);
+}
+
+type ChairLean = { _id: Types.ObjectId; label: string };
+type ShiftLean = { _id: Types.ObjectId; start: string; end: string };
+export interface ValidatedItem {
+  weekday: number;
+  chair: ChairLean;
+  shift: ShiftLean;
+}
+
+/**
+ * Checks plan/booking items against the centre's setup, in item order:
+ *  - 404 for an unknown centre, or a machine/block that is not in the centre;
+ *  - 400 `not_working_day` when an item's weekday is not a working day of the centre;
+ *  - 400 `inactive_chair` / `inactive_shift`.
+ * Returns each item's machine and block (for snapshots).
+ */
+export async function validatePlanItems(centreId: Id, items: PlanItem[], session: ClientSession | null = null): Promise<ValidatedItem[]> {
+  const centre = validId(centreId) ? await Centre.findById(centreId).session(session).lean() : null;
+  if (!centre) throw notFound();
+  const out: ValidatedItem[] = [];
+  for (const item of items) {
+    if (!centre.workingDays.includes(item.weekday)) throw badRequest('not_working_day');
+    const chair = validId(item.chairId) ? await Chair.findById(item.chairId).session(session).lean() : null;
+    if (!chair || !same(chair.centreId, centreId)) throw notFound();
+    const shift = validId(item.shiftId) ? await Shift.findById(item.shiftId).session(session).lean() : null;
+    if (!shift || !same(shift.centreId, centreId)) throw notFound();
+    if (!chair.active) throw badRequest('inactive_chair');
+    if (!shift.active) throw badRequest('inactive_shift');
+    out.push({ weekday: item.weekday, chair, shift });
+  }
+  return out;
+}
+
+/** Lock key order: every writer takes locks in this one order. */
+const lockKey = (i: PlanItem) => `${String(i.chairId)}:${String(i.shiftId)}:${i.weekday}`;
+
+/** Locks each item's (chair, shift, weekday) in `chairId:shiftId:weekday` order. */
+export async function lockSlots(items: PlanItem[], session: ClientSession): Promise<void> {
+  const sorted = [...items].sort((a, b) => (lockKey(a) < lockKey(b) ? -1 : lockKey(a) > lockKey(b) ? 1 : 0));
+  for (const item of sorted) await lockSlot(item.chairId, item.shiftId, item.weekday, session);
 }
 
 /**
  * Refuses a weekly plan for `patientId` holding `items` from `from` to `to` (null = open) unless every item's
  * (chair, shift, weekday) is free over the whole range:
  *  - 400 `invalid_date` / `invalid_range` for a malformed or inverted range;
- *  - 400 `not_working_day` when an item's weekday is not a working day of the centre;
- *  - 404 when a machine/block is not in the centre; 400 `inactive_chair` / `inactive_shift`;
- *  - 409 `slot_taken` when another patient's plan item on the same (chair, shift, weekday) shares at least one
- *    such weekday with the range, or another patient has a scheduled/active/completed session on that chair and
- *    block on a matching weekday within the range.
+ *  - the `validatePlanItems` errors (404, `not_working_day`, `inactive_chair`, `inactive_shift`);
+ *  - 409 `slot_taken` when another patient's plan item (in this centre) on the same (chair, shift, weekday)
+ *    shares at least one such weekday with the range, or another patient has a scheduled/active/completed
+ *    session on that chair and block on a matching weekday within the range.
  * Runs inside the caller's transaction and locks each item's slot first, so concurrent bookings serialise.
  */
 export async function assertPlanItemsFree(
@@ -188,24 +220,13 @@ export async function assertPlanItemsFree(
 ): Promise<void> {
   if (!isDate(from) || (to !== null && !isDate(to))) throw badRequest('invalid_date');
   if (to !== null && to < from) throw badRequest('invalid_range');
-  const centre = validId(centreId) ? await Centre.findById(centreId).session(session).lean() : null;
-  if (!centre) throw notFound();
-
-  for (const item of items) {
-    if (!centre.workingDays.includes(item.weekday)) throw badRequest('not_working_day');
-    const chair = validId(item.chairId) ? await Chair.findById(item.chairId).session(session).lean() : null;
-    if (!chair || !same(chair.centreId, centreId)) throw notFound();
-    const shift = validId(item.shiftId) ? await Shift.findById(item.shiftId).session(session).lean() : null;
-    if (!shift || !same(shift.centreId, centreId)) throw notFound();
-    if (!chair.active) throw badRequest('inactive_chair');
-    if (!shift.active) throw badRequest('inactive_shift');
-  }
-
-  for (const item of items) await lockSlot(item.chairId, item.shiftId, item.weekday, session);
+  await validatePlanItems(centreId, items, session);
+  await lockSlots(items, session);
 
   for (const { chairId, shiftId, weekday } of items) {
     const plans = await Plan.find(
       {
+        centreId,
         patientId: { $ne: patientId },
         items: { $elemMatch: { chairId, shiftId, weekday } },
         $or: [{ to: null }, { to: { $gte: from } }],

@@ -54,10 +54,15 @@ export interface MakeCentreOpts {
   name?: string;
   chairs?: number;
   shifts?: { name: string; start: string; end: string }[];
+  /** Weekdays the centre runs; the model default is Sat–Thu (Friday off). */
+  workingDays?: number[];
 }
 
+/** Every weekday: tests that book "today" use it so they do not fail on the centre's day off. */
+export const ALL_DAYS = [0, 1, 2, 3, 4, 5, 6];
+
 export async function makeCentre(opts: MakeCentreOpts = {}) {
-  const centre = await Centre.create({ name: opts.name ?? 'Centre' });
+  const centre = await Centre.create({ name: opts.name ?? 'Centre', ...(opts.workingDays ? { workingDays: opts.workingDays } : {}) });
   const count = opts.chairs ?? 4;
   const chairs = (await Chair.create(
     Array.from({ length: count }, (_, i) => ({ centreId: centre._id, label: String(i + 1) })),

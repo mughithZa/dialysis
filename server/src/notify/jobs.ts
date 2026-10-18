@@ -5,15 +5,15 @@ import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { addDays, localDateTime, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Patient } from '../patients/patient.model.js';
-import { Pattern } from '../schedule/pattern.model.js';
+import { Plan } from '../schedule/plan.model.js';
 import { regenerateSessions } from '../schedule/generate.js';
 import { Session } from '../sessions/session.model.js';
 import { messages } from './messages.js';
 import { sendPush } from './push.js';
 
-/** Tops up scheduled sessions for every open pattern. */
+/** Tops up scheduled sessions for every patient with a plan still holding (open, or ending today or later). */
 export async function generateAll(today: string = todayLocal()): Promise<void> {
-  const patients = await Pattern.distinct('patientId', { to: null });
+  const patients = await Plan.distinct('patientId', { $or: [{ to: null }, { to: { $gte: today } }] });
   for (const patientId of patients) {
     await regenerateSessions(String(patientId), today);
   }

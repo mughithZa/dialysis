@@ -3,7 +3,7 @@ import request from 'supertest';
 import { getApp } from '../../test/factories.js';
 import { User } from '../auth/user.model.js';
 import { Patient } from '../patients/patient.model.js';
-import { Pattern } from '../schedule/pattern.model.js';
+import { Plan } from '../schedule/plan.model.js';
 import { Session } from '../sessions/session.model.js';
 import { Item } from '../catalog/item.model.js';
 import { UsageLine } from '../sessions/usage.model.js';
@@ -13,7 +13,7 @@ import { assertSeedAllowed, seedDemo } from './demo.js';
 const counts = async () => ({
   users: await User.countDocuments(),
   patients: await Patient.countDocuments(),
-  patterns: await Pattern.countDocuments(),
+  plans: await Plan.countDocuments({ to: null }),
   sessions: await Session.countDocuments(),
   items: await Item.countDocuments(),
   usage: await UsageLine.countDocuments(),
@@ -24,7 +24,7 @@ describe('seedDemo', () => {
     expect((await seedDemo()).created).toBe(true);
     const first = await counts();
     expect(first.patients).toBe(20);
-    expect(first.patterns).toBe(20);
+    expect(first.plans).toBe(20);
     expect(first.items).toBe(9);
     expect(first.sessions).toBeGreaterThan(0);
 

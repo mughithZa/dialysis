@@ -2,12 +2,12 @@ import mongoose, { type ClientSession } from 'mongoose';
 import { withTransaction } from '../db.js';
 import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
+import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { Patient } from '../patients/patient.model.js';
 import { loadPatientInCentre } from '../patients/load.js';
-import { Pattern } from '../schedule/pattern.model.js';
-import { Slot } from '../schedule/slot.model.js';
+import { isSlotFree, lockSlot } from '../schedule/slots.js';
 import { SessionChange, type ChangeKind } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
 
@@ -106,7 +106,11 @@ export interface MakeupInput {
   shiftId: string;
 }
 
-/** Creates a make-up session for an active patient within today..today+3 on a free chair/shift. */
+/**
+ * Creates a make-up session for an active patient within today..today+3 on a free machine/block. "Free" is
+ * `isSlotFree` (so a plan-held slot is refused unless its holder released that date), checked after locking the
+ * slot inside the transaction so a concurrent booking of it conflicts.
+ */
 export async function createMakeup(centreId: string, patientId: string, input: MakeupInput): Promise<SessionDoc> {
   const patient = await loadPatientInCentre(centreId, patientId);
   const today = todayLocal();
@@ -118,33 +122,35 @@ export async function createMakeup(centreId: string, patientId: string, input: M
   if (!shift || String(shift.centreId) !== String(centreId)) throw notFound();
   if (!chair.active) throw badRequest('inactive_chair');
   if (!shift.active) throw badRequest('inactive_shift');
+  const centre = await Centre.findById(centreId);
+  if (!centre?.workingDays.includes(weekdayOf(input.date))) throw badRequest('not_working_day');
 
-  const occupied = await Session.exists({
-    chairId: chair._id,
-    shiftId: shift._id,
-    date: input.date,
-    status: { $ne: 'postponed' },
+  return withTransaction(async (tx) => {
+    await lockSlot(chair._id, shift._id, weekdayOf(input.date), tx);
+    if (!(await isSlotFree(centreId, chair._id, shift._id, input.date, { session: tx, ignorePatientId: patient._id }))) {
+      throw conflict('slot_busy');
+    }
+    try {
+      const [created] = await Session.create(
+        [
+          {
+            centreId,
+            patientId: patient._id,
+            date: input.date,
+            chairId: chair._id,
+            shiftId: shift._id,
+            shiftStart: shift.start,
+            shiftEnd: shift.end,
+            chairLabel: chair.label,
+            kind: 'makeup',
+          },
+        ],
+        { session: tx },
+      );
+      return created!;
+    } catch (e) {
+      if ((e as { code?: number }).code === 11000) throw conflict('session_exists');
+      throw e;
+    }
   });
-  if (occupied) throw conflict('slot_busy');
-  const held = await Slot.findOne({ chairId: chair._id, shiftId: shift._id, weekday: weekdayOf(input.date) });
-  if (held) {
-    const pattern = await Pattern.findById(held.patternId);
-    if (!pattern || String(pattern.patientId) !== String(patient._id)) throw conflict('slot_busy');
-  }
-  try {
-    return await Session.create({
-      centreId,
-      patientId: patient._id,
-      date: input.date,
-      chairId: chair._id,
-      shiftId: shift._id,
-      shiftStart: shift.start,
-      shiftEnd: shift.end,
-      chairLabel: chair.label,
-      kind: 'makeup',
-    });
-  } catch (e) {
-    if ((e as { code?: number }).code === 11000) throw conflict('session_exists');
-    throw e;
-  }
 }

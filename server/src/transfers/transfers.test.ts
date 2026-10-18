@@ -3,10 +3,10 @@ import { seedRoles } from '../auth/roles.seed.js';
 import { AuditEntry } from '../audit/audit.model.js';
 import { Order } from '../orders/order.model.js';
 import { Patient } from '../patients/patient.model.js';
-import { Slot } from '../schedule/slot.model.js';
+import { Plan } from '../schedule/plan.model.js';
 import { Session } from '../sessions/session.model.js';
 import { todayLocal, weekdayOf, addDays } from '../lib/dates.js';
-import { makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
+import { ALL_DAYS, makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 import { Transfer } from './transfer.model.js';
 
 beforeAll(async () => {
@@ -15,7 +15,7 @@ beforeAll(async () => {
 beforeEach(seedRoles);
 
 async function setup() {
-  const a = await makeCentre({ name: 'Alpha' });
+  const a = await makeCentre({ name: 'Alpha', workingDays: ALL_DAYS });
   const b = await makeCentre({ name: 'Beta' });
   const deskA = await staffIn(a.centre.id, ['front_desk']);
   const deskB = await staffIn(b.centre.id, ['front_desk']);
@@ -29,8 +29,8 @@ async function setup() {
 
 async function book(s: Awaited<ReturnType<typeof setup>>, from = todayLocal()) {
   const res = await s.deskA.agent
-    .post(`${s.baseA}/patients/${s.patient.id}/pattern`)
-    .send({ chairId: s.a.chairs[0]!.id, shiftId: s.a.shifts[0]!.id, weekdays: [weekdayOf(from)], from });
+    .post(`${s.baseA}/patients/${s.patient.id}/plan`)
+    .send({ items: [{ weekday: weekdayOf(from), chairId: s.a.chairs[0]!.id, shiftId: s.a.shifts[0]!.id }], from, repeat: 'weekly' });
   expect(res.status).toBe(201);
 }
 
@@ -86,10 +86,10 @@ describe('sending', () => {
       .post(`${s.baseA}/patients/${s.patient.id}/discharge`)
       .send({ reason: 'moved', date: todayLocal() });
     expect([d.status, d.body]).toEqual([409, { error: 'transfer_pending' }]);
-    const pat = { chairId: s.a.chairs[1]!.id, shiftId: s.a.shifts[0]!.id, weekdays: [1], from: addDays(todayLocal(), 7) };
-    const p = await s.deskA.agent.post(`${s.baseA}/patients/${s.patient.id}/pattern`).send(pat);
+    const pat = { items: [{ weekday: 1, chairId: s.a.chairs[1]!.id, shiftId: s.a.shifts[0]!.id }], from: addDays(todayLocal(), 7) };
+    const p = await s.deskA.agent.post(`${s.baseA}/patients/${s.patient.id}/plan`).send({ ...pat, repeat: 'once' });
     expect([p.status, p.body]).toEqual([409, { error: 'transfer_pending' }]);
-    const c = await s.deskA.agent.put(`${s.baseA}/patients/${s.patient.id}/pattern`).send(pat);
+    const c = await s.deskA.agent.put(`${s.baseA}/patients/${s.patient.id}/plan`).send(pat);
     expect([c.status, c.body]).toEqual([409, { error: 'transfer_pending' }]);
     const nurse = await staffIn(s.a.centre.id, ['nurse']);
     const today = (await Session.findOne({ patientId: s.patient.id, date: todayLocal() }))!;
@@ -193,7 +193,15 @@ describe('accept', () => {
     const hist = await doctorB.agent.get(`${s.baseB}/patients/${s.patient.id}/sessions`);
     expect(hist.status).toBe(200);
     expect(hist.body.map((h: { centreName: string }) => h.centreName)).toEqual(['Alpha']);
-    expect(await Slot.countDocuments({ centreId: s.a.centre._id })).toBe(0);
+    // the plan ends today (slot free from tomorrow) and another patient can take it
+    expect((await Plan.find({ patientId: s.patient._id })).map((x) => x.to)).toEqual([todayLocal()]);
+    const next = await makePatient(s.a.centre.id);
+    const taken = await s.deskA.agent.post(`${s.baseA}/patients/${next.patient.id}/plan`).send({
+      items: [{ weekday: weekdayOf(todayLocal()), chairId: s.a.chairs[0]!.id, shiftId: s.a.shifts[0]!.id }],
+      from: addDays(todayLocal(), 1),
+      repeat: 'weekly',
+    });
+    expect(taken.status).toBe(201);
     expect(await Session.exists({ _id: future._id })).toBeNull();
     expect(await Session.exists({ _id: todayScheduled._id })).toBeNull();
     expect(await Session.exists({ _id: today._id })).not.toBeNull();
@@ -238,6 +246,6 @@ describe('accept', () => {
     const p = (await Patient.findById(s.patient.id))!;
     expect([String(p.centreId), p.status]).toEqual([s.a.centre.id, 'transferring']);
     expect((await Transfer.findById(t.id))!.status).toBe('pending');
-    expect(await Slot.countDocuments({ centreId: s.a.centre._id })).toBeGreaterThan(0);
+    expect((await Plan.find({ patientId: s.patient._id })).map((x) => x.to)).toEqual([null]);
   });
 });

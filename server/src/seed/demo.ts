@@ -9,9 +9,9 @@ import { Shift } from '../centres/shift.model.js';
 import { Unit } from '../catalog/unit.model.js';
 import { Item } from '../catalog/item.model.js';
 import { Patient } from '../patients/patient.model.js';
-import { bookPattern } from '../schedule/booking.js';
+import { bookPlan } from '../schedule/booking.js';
 import { ChairAssignment } from '../schedule/assignment.model.js';
-import { Pattern } from '../schedule/pattern.model.js';
+import { Plan } from '../schedule/plan.model.js';
 import { Session } from '../sessions/session.model.js';
 import { UsageLine } from '../sessions/usage.model.js';
 import { addDays, localDateTime, todayLocal, weekdayOf } from '../lib/dates.js';
@@ -100,16 +100,19 @@ export async function seedDemo(): Promise<{ created: boolean }> {
       const user = await User.create({ username: `patient${n}-${two(i + 1)}`, name, passwordHash, kind: 'patient' });
       const patient = await Patient.create({ centreId: centre._id, userId: user._id, name });
 
-      const group = i % 2; // Sun/Tue/Thu-style alternation: Mon-Wed-Fri or Tue-Thu-Sat
+      const group = i % 2; // alternation over the Sat–Thu working week: Sat-Mon-Wed or Sun-Tue-Thu
       const idx = Math.floor(i / 2);
       const chairIdx = Math.floor(idx / 2);
       const shift = shifts[idx % 2]!;
       const chair = chairs[chairIdx]!;
-      const weekdays = group === 0 ? [1, 3, 5] : [2, 4, 6];
-      const pattern = await bookPattern(centre.id, {
-        patientId: patient.id, chairId: chair.id, shiftId: shift.id, weekdays, from: today,
+      const weekdays = group === 0 ? [6, 1, 3] : [0, 2, 4];
+      const booked = await bookPlan(centre.id, patient.id, {
+        items: weekdays.map((weekday) => ({ weekday, chairId: chair.id, shiftId: shift.id })),
+        from: today,
+        repeat: 'weekly',
       });
-      await Pattern.updateOne({ _id: pattern._id }, { $set: { from: windowStart } }); // the history below belongs to it
+      if (!('plan' in booked)) throw new Error('weekly booking returned no plan');
+      await Plan.updateOne({ _id: booked.plan._id }, { $set: { from: windowStart } }); // the history below belongs to it
 
       const nurse = nurseOfChair(chairIdx);
       let k = 0;

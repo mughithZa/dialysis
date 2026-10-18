@@ -1,11 +1,11 @@
-import mongoose, { type ClientSession } from 'mongoose';
+import type { ClientSession } from 'mongoose';
 import { badRequest, conflict, notFound } from '../lib/errors.js';
 import { todayLocal, weekdayOf } from '../lib/dates.js';
 import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { Session } from '../sessions/session.model.js';
-import { Pattern } from './pattern.model.js';
+import { Plan } from './plan.model.js';
 
 export interface SetupDto {
   machines: { id: string; label: string; active: boolean }[];
@@ -50,35 +50,32 @@ export async function getSetup(centreId: string, session?: ClientSession): Promi
 
 interface Usage { chairIds: Set<string>; shiftIds: Set<string>; weekdays: Set<number> }
 
-/** What future (scheduled sessions from today, open plan items, open patterns) already uses. */
-async function loadUsage(centreId: string, today: string): Promise<Usage> {
+/**
+ * What the future already uses: scheduled or active sessions from today, and the items of every plan that still
+ * holds (`to` empty or ≥ today). Read inside the setup transaction.
+ */
+async function loadUsage(centreId: string, today: string, session: ClientSession): Promise<Usage> {
   const usage: Usage = { chairIds: new Set(), shiftIds: new Set(), weekdays: new Set() };
-  const sessions = await Session.find({ centreId, status: 'scheduled', date: { $gte: today } }, 'chairId shiftId date').lean();
+  const sessions = await Session.find(
+    { centreId, status: { $in: ['scheduled', 'active'] }, date: { $gte: today } },
+    'chairId shiftId date',
+  )
+    .session(session)
+    .lean();
   for (const s of sessions) {
     usage.chairIds.add(String(s.chairId));
     usage.shiftIds.add(String(s.shiftId));
     usage.weekdays.add(weekdayOf(s.date));
   }
-  // The Plan model arrives in a later task; read the raw collection only if it exists.
-  const db = mongoose.connection.db;
-  if (db && (await db.listCollections({ name: 'plans' }).hasNext())) {
-    const plans = await db
-      .collection('plans')
-      .find({ centreId: { $in: [new mongoose.Types.ObjectId(centreId), centreId] }, to: null })
-      .toArray();
-    for (const p of plans) {
-      for (const it of (p.items ?? []) as { weekday: number; shiftId: unknown; chairId: unknown }[]) {
-        usage.chairIds.add(String(it.chairId));
-        usage.shiftIds.add(String(it.shiftId));
-        usage.weekdays.add(it.weekday);
-      }
+  const plans = await Plan.find({ centreId, $or: [{ to: null }, { to: { $gte: today } }] }, 'items')
+    .session(session)
+    .lean();
+  for (const p of plans) {
+    for (const it of p.items) {
+      usage.chairIds.add(String(it.chairId));
+      usage.shiftIds.add(String(it.shiftId));
+      usage.weekdays.add(it.weekday);
     }
-  }
-  // The Pattern model stays live until the plan model replaces it.
-  for (const p of await Pattern.find({ centreId, to: null }).lean()) {
-    usage.chairIds.add(String(p.chairId));
-    usage.shiftIds.add(String(p.shiftId));
-    for (const w of p.weekdays) usage.weekdays.add(w);
   }
   return usage;
 }
@@ -98,7 +95,7 @@ export async function applySetup(centreId: string, input: SetupInput, session: C
     Chair.find({ centreId }).session(session),
     Shift.find({ centreId, active: true }).session(session),
   ]);
-  const usage = await loadUsage(centreId, todayLocal());
+  const usage = await loadUsage(centreId, todayLocal(), session);
 
   // machines: pick which active ones to retire / which labels to add
   const active = allChairs

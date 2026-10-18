@@ -5,9 +5,10 @@ import { Role } from '../auth/role.model.js';
 import { Item } from '../catalog/item.model.js';
 import { Unit } from '../catalog/unit.model.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
+import { Centre } from '../centres/centre.model.js';
 import { Session } from './session.model.js';
 import { UsageLine } from './usage.model.js';
-import { makeCentre, makePatient, programManager, staffIn, makeSession } from '../../test/factories.js';
+import { ALL_DAYS, makeCentre, makePatient, programManager, staffIn, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
   await Item.init();
@@ -16,7 +17,7 @@ beforeAll(async () => {
 beforeEach(seedRoles);
 
 async function setup() {
-  const { centre, chairs, shifts } = await makeCentre();
+  const { centre, chairs, shifts } = await makeCentre({ workingDays: ALL_DAYS });
   const base = `/api/centres/${centre.id}`;
   const nurse = await staffIn(centre.id, ['nurse']);
   const desk = await staffIn(centre.id, ['front_desk']);
@@ -29,8 +30,8 @@ async function setup() {
   const book = async (weekdays = [weekdayOf(todayLocal())], chair = 0) => {
     const { patient } = await makePatient(centre.id);
     const res = await desk.agent
-      .post(`${base}/patients/${patient.id}/pattern`)
-      .send({ chairId: chairs[chair]!.id, shiftId: shifts[0]!.id, weekdays, from: todayLocal() });
+      .post(`${base}/patients/${patient.id}/plan`)
+      .send({ items: weekdays.map((weekday) => ({ weekday, chairId: chairs[chair]!.id, shiftId: shifts[0]!.id })), from: todayLocal(), repeat: 'weekly' });
     expect(res.status).toBe(201);
     const session = await Session.findOne({ patientId: patient.id, date: todayLocal() });
     return { patient, session: session! };
@@ -199,5 +200,39 @@ describe('postpone and make-up', () => {
       .send({ date: todayLocal(), chairId: chairs[0]!.id, shiftId: shifts[0]!.id });
     expect(busy.status).toBe(409);
     expect(busy.body.error).toBe('slot_busy');
+  });
+
+  it('make-up onto a slot the holder freed for that date → 201; onto the holder\'s other date → 409', async () => {
+    const { base, desk, chairs, shifts, book } = await setup();
+    const d1 = addDays(todayLocal(), 1);
+    const d2 = addDays(todayLocal(), 2);
+    const holder = await book([weekdayOf(d1), weekdayOf(d2)], 2); // chair 3 / morning on both days
+    const held = (await Session.findOne({ patientId: holder.patient.id, date: d1 }))!;
+    expect((await desk.agent.post(`${base}/sessions/${held.id}/postpone`)).status).toBe(200);
+    const { patient } = await book([weekdayOf(todayLocal())], 0);
+    const slot = { chairId: chairs[2]!.id, shiftId: shifts[0]!.id };
+    const freed = await desk.agent.post(`${base}/patients/${patient.id}/makeup`).send({ date: d1, ...slot });
+    expect(freed.status).toBe(201);
+    const other = await desk.agent.post(`${base}/patients/${patient.id}/makeup`).send({ date: d2, ...slot });
+    expect([other.status, other.body.error]).toEqual([409, 'slot_busy']);
+  });
+
+  it('make-up beyond the generated sessions onto a plan-held slot → 409 (the plan holds, not only its sessions)', async () => {
+    const { base, desk, chairs, shifts, book } = await setup();
+    const d3 = addDays(todayLocal(), 3);
+    const holder = await book([weekdayOf(d3)], 2);
+    await Session.deleteMany({ patientId: holder.patient.id }); // no session materialised for that date
+    const { patient } = await book([weekdayOf(todayLocal())], 0);
+    const res = await desk.agent.post(`${base}/patients/${patient.id}/makeup`).send({ date: d3, chairId: chairs[2]!.id, shiftId: shifts[0]!.id });
+    expect([res.status, res.body.error]).toEqual([409, 'slot_busy']);
+  });
+
+  it('make-up on the centre\'s day off → 400 not_working_day', async () => {
+    const { centre, base, desk, chairs, shifts, book } = await setup();
+    const { patient } = await book();
+    const d1 = addDays(todayLocal(), 1);
+    await Centre.updateOne({ _id: centre._id }, { $set: { workingDays: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekdayOf(d1)) } });
+    const res = await desk.agent.post(`${base}/patients/${patient.id}/makeup`).send({ date: d1, chairId: chairs[1]!.id, shiftId: shifts[1]!.id });
+    expect([res.status, res.body.error]).toEqual([400, 'not_working_day']);
   });
 });

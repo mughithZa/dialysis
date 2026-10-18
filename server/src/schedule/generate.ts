@@ -1,45 +1,71 @@
 import type { ClientSession } from 'mongoose';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
+import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { Session } from '../sessions/session.model.js';
-import { Pattern } from './pattern.model.js';
+import { Plan } from './plan.model.js';
 
 /** How many days ahead (including today) scheduled sessions are materialised. */
 export const GENERATION_DAYS = 14;
 
 /**
- * Upserts the `scheduled` regular sessions a patient's open pattern implies for
- * `[max(today, pattern.from), today + 13]`. Existing sessions (any status) are left untouched,
- * so it is safe to run repeatedly and concurrently (the unique index is the guard).
+ * Upserts the `scheduled` regular sessions the patient's current plans imply: for each plan still holding
+ * (`to` empty or ≥ today), every working day in `[max(today, from), min(today + 13, to)]` and every item on that
+ * weekday. New sessions carry `planId` and the block/machine snapshots. A (patient, date, block) that already
+ * has a session (any status, detached included) or that a moved session came from is left alone, so it is safe
+ * to run repeatedly and concurrently (the unique index is the guard).
  */
 export async function regenerateSessions(patientId: string, today: string = todayLocal()): Promise<void> {
-  const pattern = await Pattern.findOne({ patientId, to: null });
-  if (!pattern) return;
-  const first = pattern.from > today ? pattern.from : today;
+  const plans = await Plan.find({ patientId, $or: [{ to: null }, { to: { $gte: today } }] }).lean();
+  if (!plans.length) return;
   const last = addDays(today, GENERATION_DAYS - 1);
-  const [chair, shift] = await Promise.all([Chair.findById(pattern.chairId), Shift.findById(pattern.shiftId)]);
-  if (!chair || !shift) return;
+  const items = plans.flatMap((p) => p.items);
+  const [centres, chairs, shifts, moved] = await Promise.all([
+    Centre.find({ _id: { $in: plans.map((p) => p.centreId) } }).lean(),
+    Chair.find({ _id: { $in: items.map((i) => i.chairId) } }).lean(),
+    Shift.find({ _id: { $in: items.map((i) => i.shiftId) } }).lean(),
+    Session.find({ patientId, 'movedFrom.date': { $gte: today, $lte: last } }, { movedFrom: 1 }).lean(),
+  ]);
+  const centreOf = new Map(centres.map((c) => [String(c._id), c]));
+  const chairOf = new Map(chairs.map((c) => [String(c._id), c]));
+  const shiftOf = new Map(shifts.map((s) => [String(s._id), s]));
+  const movedAway = new Set(moved.map((s) => `${s.movedFrom!.date}:${String(s.movedFrom!.shiftId)}`));
+
   const ops = [];
-  for (let date = first; date <= last; date = addDays(date, 1)) {
-    if (!pattern.weekdays.includes(weekdayOf(date))) continue;
-    ops.push({
-      updateOne: {
-        filter: { patientId: pattern.patientId, date, shiftId: pattern.shiftId },
-        update: {
-          $setOnInsert: {
-            centreId: pattern.centreId,
-            chairId: pattern.chairId,
-            shiftStart: shift.start,
-            shiftEnd: shift.end,
-            chairLabel: chair.label,
-            kind: 'regular' as const,
-            status: 'scheduled' as const,
+  for (const plan of plans) {
+    const centre = centreOf.get(String(plan.centreId));
+    if (!centre) continue;
+    const first = plan.from > today ? plan.from : today;
+    const end = plan.to && plan.to < last ? plan.to : last;
+    for (let date = first; date <= end; date = addDays(date, 1)) {
+      const weekday = weekdayOf(date);
+      if (!centre.workingDays.includes(weekday)) continue;
+      for (const item of plan.items) {
+        if (item.weekday !== weekday || movedAway.has(`${date}:${String(item.shiftId)}`)) continue;
+        const chair = chairOf.get(String(item.chairId));
+        const shift = shiftOf.get(String(item.shiftId));
+        if (!chair || !shift) continue;
+        ops.push({
+          updateOne: {
+            filter: { patientId: plan.patientId, date, shiftId: item.shiftId },
+            update: {
+              $setOnInsert: {
+                centreId: plan.centreId,
+                chairId: item.chairId,
+                planId: plan._id,
+                shiftStart: shift.start,
+                shiftEnd: shift.end,
+                chairLabel: chair.label,
+                kind: 'regular' as const,
+                status: 'scheduled' as const,
+              },
+            },
+            upsert: true,
           },
-        },
-        upsert: true,
-      },
-    });
+        });
+      }
+    }
   }
   if (!ops.length) return;
   try {

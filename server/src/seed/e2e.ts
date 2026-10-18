@@ -20,7 +20,8 @@ export async function seedE2e(): Promise<void> {
   const passwordHash = await hashPassword(E2E_PASSWORD);
 
   const pm = await User.create({ username: 'pm', name: 'Program Manager', passwordHash, kind: 'staff', globalRoleIds: [roles.get('program_manager')] });
-  const centre = await Centre.create({ name: 'E2E Centre' });
+  // open every day: the browser test books "today's weekday", which must be a working day whatever the date
+  const centre = await Centre.create({ name: 'E2E Centre', workingDays: [0, 1, 2, 3, 4, 5, 6] });
   await Chair.create(['1', '2', '3', '4'].map((label) => ({ centreId: centre._id, label })));
   await Shift.create([
     { centreId: centre._id, name: 'Morning', start: '07:00', end: '11:30' },

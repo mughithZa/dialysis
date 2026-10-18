@@ -1,17 +1,19 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import mongoose from 'mongoose';
 import { seedRoles } from '../auth/roles.seed.js';
 import { Role } from '../auth/role.model.js';
 import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
-import { Session } from '../sessions/session.model.js';
+import { withTransaction } from '../db.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { AuditEntry } from '../audit/audit.model.js';
 import { makePatient, makeCentre, staffIn, makeSession } from '../../test/factories.js';
-import { proposeBlocks } from './setup.js';
+import { Plan } from './plan.model.js';
+import { applySetup, proposeBlocks } from './setup.js';
 
 beforeEach(seedRoles);
+
+const WORKING = [0, 1, 2, 3, 4, 6];
 
 const blocks = [
   { name: 'Morning', start: '08:00', end: '12:00' },
@@ -112,41 +114,102 @@ describe('schedule setup', () => {
     expect((await agent.get(url)).body.machines).toHaveLength(8);
   });
 
-  it('removing a block or a working day in use -> 409; open plan items count', async () => {
+  /** First date after today that falls on a working day of the default centre (never a Friday). */
+  function nextWorkingDate(): string {
+    let d = addDays(todayLocal(), 1);
+    while (!WORKING.includes(weekdayOf(d))) d = addDays(d, 1);
+    return d;
+  }
+
+  it('removing a block or a working day used by a future session -> 409 in_use', async () => {
     const centre = await Centre.create({ name: 'C' });
     const { agent } = await staffIn(centre.id, ['front_desk']);
     const url = `/api/centres/${centre.id}/schedule/setup`;
     await agent.put(url).send(body());
     const setup = (await agent.get(url)).body;
-    const date = addDays(todayLocal(), 1);
+    const date = nextWorkingDate();
     await futureSession(centre.id, setup.machines[0].id, setup.blocks[1].id, date);
     const rb = await agent.put(url).send({ ...body(), blocks: [setup.blocks[0]] });
-    expect(rb.status).toBe(409);
+    expect([rb.status, rb.body.error]).toEqual([409, 'in_use']);
     const wd = weekdayOf(date);
-    const rw = await agent.put(url).send({
-      ...body(),
-      blocks: setup.blocks,
-      workingDays: [0, 1, 2, 3, 4, 6].filter((d) => d !== wd),
+    const rw = await agent.put(url).send({ ...body(), blocks: setup.blocks, workingDays: WORKING.filter((d) => d !== wd) });
+    expect([rw.status, rw.body.error]).toEqual([409, 'in_use']);
+  });
+
+  it('an active session today counts as in use', async () => {
+    const centre = await Centre.create({ name: 'C', workingDays: [0, 1, 2, 3, 4, 5, 6] });
+    const { agent } = await staffIn(centre.id, ['front_desk']);
+    const url = `/api/centres/${centre.id}/schedule/setup`;
+    await agent.put(url).send(body({ workingDays: [0, 1, 2, 3, 4, 5, 6] }));
+    const setup = (await agent.get(url)).body;
+    const { patient } = await makePatient(centre.id);
+    await makeSession({
+      centreId: centre.id, patientId: patient._id, date: todayLocal(),
+      chairId: setup.machines[7].id, shiftId: setup.blocks[1].id, status: 'active',
     });
-    // tomorrow may be a Friday (not a working day); only assert when it is one
-    if ([0, 1, 2, 3, 4, 6].includes(wd)) {
-      expect(rw.status).toBe(409);
-      expect(rw.body.error).toBe('in_use');
-    }
-    await Session.deleteMany({});
-    await mongoose.connection.db!.collection('plans').insertOne({
-      centreId: new mongoose.Types.ObjectId(centre.id),
-      to: null,
-      items: [
-        {
-          weekday: 6,
-          shiftId: new mongoose.Types.ObjectId(setup.blocks[1].id),
-          chairId: new mongoose.Types.ObjectId(setup.machines[0].id),
-        },
-      ],
-    });
-    expect((await agent.put(url).send({ ...body(), blocks: [setup.blocks[0]] })).status).toBe(409);
-    expect((await agent.put(url).send({ ...body(), blocks: setup.blocks, workingDays: [0, 1, 2, 3, 4] })).status).toBe(409);
+    const r = await agent.put(url).send({ ...body({ machineCount: 7, workingDays: [0, 1, 2, 3, 4, 5, 6] }), blocks: setup.blocks });
+    expect([r.status, r.body.error]).toEqual([409, 'in_use']);
+  });
+
+  async function planOn(centreId: string, chairId: string, shiftId: string, weekday: number, to: string | null = null) {
+    const { patient } = await makePatient(centreId);
+    return Plan.create({ centreId, patientId: patient._id, items: [{ weekday, shiftId, chairId }], from: todayLocal(), to });
+  }
+
+  it('retiring a machine used by an open plan item -> 409 in_use', async () => {
+    const centre = await Centre.create({ name: 'C' });
+    const { agent } = await staffIn(centre.id, ['front_desk']);
+    const url = `/api/centres/${centre.id}/schedule/setup`;
+    await agent.put(url).send(body());
+    const setup = (await agent.get(url)).body;
+    const m7 = setup.machines.find((m: { label: string }) => m.label === '7');
+    await planOn(centre.id, m7.id, setup.blocks[0].id, 6);
+    const r = await agent.put(url).send({ ...body({ machineCount: 6 }), blocks: setup.blocks });
+    expect([r.status, r.body.error]).toEqual([409, 'in_use']);
+    expect((await agent.get(url)).body.machines).toHaveLength(8);
+  });
+
+  it('plan items block removing their block or weekday while the plan holds (to empty or >= today); ended plans do not', async () => {
+    const centre = await Centre.create({ name: 'C' });
+    const { agent } = await staffIn(centre.id, ['front_desk']);
+    const url = `/api/centres/${centre.id}/schedule/setup`;
+    await agent.put(url).send(body());
+    const setup = (await agent.get(url)).body;
+    const dropBlock = () => agent.put(url).send({ ...body(), blocks: [setup.blocks[0]] });
+    const dropSaturday = () => agent.put(url).send({ ...body(), blocks: setup.blocks, workingDays: [0, 1, 2, 3, 4] });
+
+    const ended = await planOn(centre.id, setup.machines[0].id, setup.blocks[1].id, 6, addDays(todayLocal(), -1));
+    ended.from = addDays(todayLocal(), -30);
+    await ended.save();
+    expect((await dropSaturday()).status).toBe(200);
+    expect((await agent.put(url).send({ ...body(), blocks: setup.blocks })).status).toBe(200);
+
+    const endsLater = await planOn(centre.id, setup.machines[0].id, setup.blocks[1].id, 6, todayLocal());
+    expect((await dropBlock()).status).toBe(409);
+    expect((await dropSaturday()).status).toBe(409);
+    await endsLater.deleteOne();
+
+    await planOn(centre.id, setup.machines[0].id, setup.blocks[1].id, 6);
+    expect((await dropBlock()).status).toBe(409);
+    expect((await dropSaturday()).status).toBe(409);
+  });
+
+  it('reads usage inside the transaction (an uncommitted plan in the same transaction counts)', async () => {
+    const centre = await Centre.create({ name: 'C' });
+    const { agent } = await staffIn(centre.id, ['front_desk']);
+    const url = `/api/centres/${centre.id}/schedule/setup`;
+    await agent.put(url).send(body());
+    const setup = (await agent.get(url)).body;
+    const { patient } = await makePatient(centre.id);
+    await expect(
+      withTransaction(async (session) => {
+        await Plan.create(
+          [{ centreId: centre.id, patientId: patient._id, items: [{ weekday: 6, shiftId: setup.blocks[1].id, chairId: setup.machines[0].id }], from: todayLocal() }],
+          { session },
+        );
+        await applySetup(centre.id, { ...body(), blocks: [setup.blocks[0]] }, session);
+      }),
+    ).rejects.toMatchObject({ status: 409, code: 'in_use' });
   });
 
   it('editing a block keeps its id and retimes it', async () => {

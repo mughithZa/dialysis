@@ -3,7 +3,7 @@ import { conflict, notFound } from '../lib/errors.js';
 import { todayLocal } from '../lib/dates.js';
 import { Order } from '../orders/order.model.js';
 import { Patient } from '../patients/patient.model.js';
-import { endPatterns } from '../schedule/booking.js';
+import { endPlans } from '../schedule/booking.js';
 import { Session } from '../sessions/session.model.js';
 import { Transfer, type TransferDoc } from './transfer.model.js';
 
@@ -36,8 +36,8 @@ export async function decide(
 export async function moveToTarget(t: TransferDoc, session: ClientSession): Promise<void> {
   const today = todayLocal();
   if (await Session.exists({ patientId: t.patientId, status: 'active' }).session(session)) throw conflict('session_active');
-  await endPatterns(String(t.patientId), today, session);
-  // endPatterns keeps sessions up to and including today; today's still-scheduled one goes too
+  await endPlans(String(t.patientId), today, session);
+  // endPlans keeps sessions up to and including today; today's still-scheduled one goes too
   await Session.deleteMany({ patientId: t.patientId, status: 'scheduled', date: { $gte: today } }, { session });
   const moved = await Patient.updateOne(
     { _id: t.patientId, centreId: t.fromCentreId, status: 'transferring' },

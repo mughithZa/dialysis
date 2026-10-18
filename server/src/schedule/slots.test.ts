@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll } from 'vitest';
+import { describe, it, expect, beforeAll, vi } from 'vitest';
 import { Types } from 'mongoose';
 import { withTransaction } from '../db.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
@@ -8,6 +8,7 @@ import { Shift } from '../centres/shift.model.js';
 import { Session } from '../sessions/session.model.js';
 import { Plan, type PlanItem } from './plan.model.js';
 import { assertPlanItemsFree, freeMachines, isSlotFree, lockSlot } from './slots.js';
+import { SlotLock } from './slot-lock.model.js';
 import { makeCentre, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
@@ -451,6 +452,58 @@ describe('assertPlanItemsFree', () => {
       const results = await Promise.allSettled([plan(), oneOff()]);
       expect(results.filter((r) => r.status === 'fulfilled')).toHaveLength(1);
       expect((await Plan.countDocuments()) + (await Session.countDocuments())).toBe(1);
+    }
+  });
+});
+
+describe('slots hardening (Task 4)', () => {
+  it('holder postponed on the same date in a DIFFERENT block still holds this block', async () => {
+    const { c, m, s, monday } = await setup();
+    const holder = pid();
+    await makePlan({ centreId: c, patientId: holder, items: [{ weekday: MON, shiftId: s(0), chairId: m(0) }], from: monday });
+    // the holder's one-off in the afternoon block that day was postponed: it must not release the morning slot
+    await makeSession({ centreId: c, patientId: holder, chairId: m(1), shiftId: s(1), date: monday, status: 'postponed' });
+    expect(await isSlotFree(c, m(0), s(0), monday)).toBe(false);
+    expect((await freeMachines(c, s(0), monday)).map((x) => x.label)).toEqual(['2', '3', '4']);
+  });
+
+  it('a malformed ignorePatientId is treated as no ignore (never throws, errs on taken)', async () => {
+    const { c, m, s, monday } = await setup();
+    const p = pid();
+    await makeSession({ centreId: c, patientId: p, chairId: m(0), shiftId: s(0), date: monday, status: 'scheduled' });
+    expect(await isSlotFree(c, m(0), s(0), monday, { ignorePatientId: 'nope' })).toBe(false);
+    expect((await freeMachines(c, s(0), monday, { ignorePatientId: 'nope' })).map((x) => x.label)).toEqual(['2', '3', '4']);
+  });
+
+  it('plans are looked up within the centre only', async () => {
+    const { c, m, s, monday } = await setup();
+    const other = await makeCentre();
+    const item = { weekday: MON, shiftId: s(0), chairId: m(0) };
+    // a stray plan filed under another centre that names this centre's machine and block
+    await makePlan({ centreId: other.centre.id, patientId: pid(), items: [item], from: monday });
+    expect(await isSlotFree(c, m(0), s(0), monday)).toBe(true);
+    await expect(withTransaction((session) => assertPlanItemsFree(c, [item], monday, null, pid(), session))).resolves.toBeUndefined();
+  });
+
+  it('locks items in chairId:shiftId:weekday order whatever order they are given in', async () => {
+    const { c, m, s, monday } = await setup();
+    const items = [
+      { weekday: 3, shiftId: s(1), chairId: m(3) },
+      { weekday: MON, shiftId: s(0), chairId: m(0) },
+      { weekday: TUE, shiftId: s(1), chairId: m(0) },
+      { weekday: MON, shiftId: s(1), chairId: m(0) },
+    ];
+    const spy = vi.spyOn(SlotLock, 'updateOne');
+    try {
+      await withTransaction((session) => assertPlanItemsFree(c, items, monday, null, pid(), session));
+      const keys = spy.mock.calls.map(([f]) => {
+        const k = f as { chairId: unknown; shiftId: unknown; weekday: number };
+        return `${String(k.chairId)}:${String(k.shiftId)}:${k.weekday}`;
+      });
+      expect(keys).toHaveLength(4);
+      expect(keys).toEqual([...keys].sort());
+    } finally {
+      spy.mockRestore();
     }
   });
 });

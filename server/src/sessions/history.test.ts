@@ -8,7 +8,7 @@ import { todayLocal, weekdayOf } from '../lib/dates.js';
 import { SessionChange } from './change.model.js';
 import { Session } from './session.model.js';
 import { UsageLine } from './usage.model.js';
-import { makeCentre, makePatient, programManager, staffIn } from '../../test/factories.js';
+import { ALL_DAYS, makeCentre, makePatient, programManager, staffIn } from '../../test/factories.js';
 
 beforeAll(async () => {
   await Item.init();
@@ -17,7 +17,7 @@ beforeAll(async () => {
 beforeEach(seedRoles);
 
 async function setup() {
-  const { centre, chairs, shifts } = await makeCentre();
+  const { centre, chairs, shifts } = await makeCentre({ workingDays: ALL_DAYS });
   const base = `/api/centres/${centre.id}`;
   const nurse = await staffIn(centre.id, ['nurse']);
   const desk = await staffIn(centre.id, ['front_desk']);
@@ -33,8 +33,8 @@ async function setup() {
   const gauze = await mk('Gauze', 'supply');
   const { patient } = await makePatient(centre.id);
   const res = await desk.agent
-    .post(`${base}/patients/${patient.id}/pattern`)
-    .send({ chairId: chairs[0]!.id, shiftId: shifts[0]!.id, weekdays: [weekdayOf(todayLocal())], from: todayLocal() });
+    .post(`${base}/patients/${patient.id}/plan`)
+    .send({ items: [{ weekday: weekdayOf(todayLocal()), chairId: chairs[0]!.id, shiftId: shifts[0]!.id }], from: todayLocal(), repeat: 'weekly' });
   expect(res.status).toBe(201);
   const session = (await Session.findOne({ patientId: patient.id, date: todayLocal() }))!;
   const s = `${base}/sessions/${session.id}`;
