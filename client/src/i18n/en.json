@@ -1,0 +1,43 @@
+{
+  "app": { "name": "Dialysis Centre" },
+  "common": {
+    "loading": "Loading...",
+    "noAccess": "Your account has no access to any screens yet. Contact your manager.",
+    "comingSoon": "This screen is coming soon.",
+    "more": "More",
+    "close": "Close",
+    "logout": "Sign out",
+    "centre": "Centre",
+    "navigation": "Main navigation"
+  },
+  "login": {
+    "title": "Sign in",
+    "username": "Username",
+    "password": "Password",
+    "submit": "Sign in"
+  },
+  "errors": {
+    "generic": "Something went wrong. Please try again.",
+    "bad_credentials": "Incorrect username or password.",
+    "unauthenticated": "Please sign in to continue.",
+    "forbidden": "You do not have permission to do that.",
+    "not_found": "Not found.",
+    "network": "Cannot reach the server. Check your connection."
+  },
+  "nav": {
+    "centres": "Centres",
+    "roles": "Roles",
+    "catalog": "Catalogue",
+    "dashboard": "Dashboard",
+    "today": "Today",
+    "patients": "Patients",
+    "schedule": "Schedule",
+    "transfers": "Transfers",
+    "users": "Users",
+    "setup": "Shifts & chairs",
+    "settings": "Settings",
+    "audit": "Audit log",
+    "stats": "Reports",
+    "me": "My dialysis"
+  }
+}

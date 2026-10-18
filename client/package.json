@@ -1,0 +1,43 @@
+{
+  "name": "@dialysis/client",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json"
+  },
+  "dependencies": {
+    "@dialysis/shared": "*",
+    "@mantine/core": "7.17.8",
+    "@mantine/hooks": "7.17.8",
+    "@mantine/notifications": "7.17.8",
+    "@tanstack/react-query": "5.104.4",
+    "i18next": "26.5.2",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "react-i18next": "17.1.0",
+    "react-router-dom": "6.30.6",
+    "workbox-precaching": "7.4.1"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.3",
+    "@testing-library/user-event": "14.6.8",
+    "@types/react": "18.3.31",
+    "@types/react-dom": "18.3.7",
+    "@vitejs/plugin-react": "4.7.0",
+    "jsdom": "29.1.1",
+    "msw": "2.15.0",
+    "postcss": "8.5.30",
+    "postcss-preset-mantine": "1.18.0",
+    "postcss-simple-vars": "7.0.1",
+    "typescript": "5.9.3",
+    "vite": "5.4.21",
+    "vite-plugin-pwa": "2.0.0",
+    "vitest": "2.1.9",
+    "workbox-build": "7.4.1",
+    "workbox-window": "7.4.1"
+  }
+}
