@@ -23,7 +23,7 @@ import { SettingsPage } from './features/centre/SettingsPage';
 import { SetupPage } from './features/desk/SetupPage';
 import { CentreStatsPage } from './features/centre/CentreStatsPage';
 import { SessionPage } from './features/nurse/SessionPage';
-import { TodayPage } from './features/nurse/TodayPage';
+import { BoardPage } from './features/board/BoardPage';
 import { TransfersPage } from './features/desk/TransfersPage';
 import { UsersPage } from './features/centre/UsersPage';
 
@@ -33,7 +33,7 @@ const SCREENS: Record<string, ReactElement> = {
   '/roles': <RolesPage />,
   '/catalog': <CatalogPage />,
   '/dashboard': <DashboardPage />,
-  '/c/:centreId/today': <TodayPage />,
+  '/c/:centreId/today': <BoardPage />,
   '/c/:centreId/patients': <PatientsPage />,
   '/c/:centreId/schedule': <CalendarPage />,
   '/c/:centreId/transfers': <TransfersPage />,

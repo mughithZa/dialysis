@@ -14,7 +14,7 @@ export const NAV_ITEMS: NavItem[] = [
   { path: '/roles', labelKey: 'nav.roles', perm: 'roles.edit' },
   { path: '/catalog', labelKey: 'nav.catalog', perm: 'catalog.manage' },
   { path: '/dashboard', labelKey: 'nav.dashboard', perm: 'stats.global' },
-  { path: '/c/:centreId/today', labelKey: 'nav.today', perm: 'sessions.run' },
+  { path: '/c/:centreId/today', labelKey: 'nav.today', perm: 'sessions.view' },
   { path: '/c/:centreId/patients', labelKey: 'nav.patients', perm: 'patients.view' },
   { path: '/c/:centreId/schedule', labelKey: 'nav.schedule', perm: 'schedule.view' },
   { path: '/c/:centreId/transfers', labelKey: 'nav.transfers', perm: ['transfers.send', 'transfers.decide'] },

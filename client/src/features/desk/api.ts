@@ -268,20 +268,6 @@ export function useDeleteRoster() {
 
 // ---------- Sessions ----------
 
-export const useDaySessions = (date: string) => {
-  const centreId = useCentreId();
-  return useQuery({
-    queryKey: key(centreId, 'day', date),
-    queryFn: async () => {
-      const r = await apiGet<{ mine: SessionCardDto[]; unassigned: SessionCardDto[]; others: SessionCardDto[] }>(
-        `${base(centreId)}/today?date=${date}`,
-      );
-      return [...r.mine, ...r.unassigned, ...r.others];
-    },
-    enabled: !!centreId && /^\d{4}-\d{2}-\d{2}$/.test(date),
-  });
-};
-
 export function usePostpone() {
   const centreId = useCentreId();
   const invalidate = useInvalidateDesk();

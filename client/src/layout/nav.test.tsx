@@ -24,6 +24,10 @@ describe('visibleNav', () => {
     expect(p).not.toContain('/c/c1/users');
   });
 
+  it('shows today to anyone who can view sessions, e.g. a doctor', () => {
+    expect(paths(staff(['sessions.view', 'patients.view']), 'c1')).toContain('/c/c1/today');
+  });
+
   it('does not give a front desk user today just for sessions.recordUsage', () => {
     const p = paths(staff(['patients.view', 'schedule.view', 'sessions.recordUsage']), 'c1');
     expect(p).not.toContain('/c/c1/today');
@@ -56,6 +60,12 @@ describe('landingPath', () => {
   });
   it('sends nurse-like users to today', () => {
     expect(landingPath(staff(NURSE), 'c1')).toBe('/c/c1/today');
+  });
+  it('sends a doctor or front desk user with sessions.view to today', () => {
+    expect(landingPath(staff(['sessions.view', 'patients.view']), 'c1')).toBe('/c/c1/today');
+  });
+  it('keeps no-centre users on their current landing', () => {
+    expect(landingPath(staff([], ['centres.create']), null)).toBe('/centres');
   });
   it('sends others to the first visible item', () => {
     expect(landingPath(staff(['users.create', 'patients.view']), 'c1')).toBe('/c/c1/patients');

@@ -9,7 +9,6 @@ import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
 import { OrdersPanel } from '../doctor/OrdersPanel';
 import {
-  useDaySessions,
   usePatient,
   usePatientTimeline,
   usePlan,
@@ -33,19 +32,20 @@ import { PatientForm } from './PatientForm';
 function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: () => void }) {
   const { t } = useTranslation();
   const [date, setDate] = useState(todayLocal());
-  const day = useDaySessions(date);
+  const timeline = usePatientTimeline(patientId, true);
   const postpone = usePostpone();
-  const mine = (day.data ?? []).filter((s) => s.patient.id === patientId && (s.status === 'scheduled' || s.status === 'missed'));
+  const rows = timeline.data ? [...timeline.data.upcoming, ...timeline.data.today, ...timeline.data.past] : [];
+  const mine = rows.filter((s) => s.date === date && (s.status === 'scheduled' || s.status === 'missed'));
   return (
     <Stack gap="sm">
       <TextInput label={t('desk.postpone.date')} type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} />
-      {day.isPending && <Loader size="sm" />}
-      {day.isError && <Alert color="danger">{errorMessage(t, day.error)}</Alert>}
-      {day.data && mine.length === 0 && <Text c="dimmed">{t('desk.postpone.none')}</Text>}
+      {timeline.isPending && <Loader size="sm" />}
+      {timeline.isError && <Alert color="danger">{errorMessage(t, timeline.error)}</Alert>}
+      {timeline.data && mine.length === 0 && <Text c="dimmed">{t('desk.postpone.none')}</Text>}
       {mine.map((s) => (
         <Group key={s.id} justify="space-between" wrap="nowrap">
           <Text>
-            {s.shift.name} · {s.chair.label}
+            {s.block} · {s.chairLabel}
           </Text>
           <Button
             mih={44}

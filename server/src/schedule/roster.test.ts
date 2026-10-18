@@ -133,8 +133,8 @@ describe('roster snapshot on final status', () => {
     await markMissed(new Date('2026-10-18T12:00:00Z'));
     expect(String((await Session.findById(s.session._id))!.rosterNurseId)).toBe(s.ali.user.id);
     await s.desk.agent.delete(`${s.base}/roster/${s.entry.body[0].id}`);
-    const today = await s.desk.agent.get(`${s.base}/today?date=2026-10-05`);
-    const card = [...today.body.mine, ...today.body.others, ...today.body.unassigned][0];
+    const board = await s.desk.agent.get(`${s.base}/board?date=2026-10-05&shiftId=${s.shifts[0]!.id}`);
+    const card = board.body.other[0];
     expect(card.nurse).toEqual({ id: s.ali.user.id, name: s.ali.user.name });
   });
 
@@ -156,56 +156,5 @@ describe('roster snapshot on final status', () => {
     expect(String((await Session.findById(b._id))!.rosterNurseId)).toBe(s.rana.user.id);
     await postponeSession(s.session);
     expect(String((await Session.findById(s.session._id))!.rosterNurseId)).toBe(s.ali.user.id);
-  });
-});
-
-describe('today view', () => {
-  it('splits sessions into mine / unassigned / others using the roster', async () => {
-    const { centre, chairs, shifts, base, desk, rana, ali, post } = await setup();
-    const date = '2026-10-19';
-    const mk = async (chair: number, shift: number) => {
-      const { patient } = await makePatient(centre.id);
-      return makeSession({
-        centreId: centre.id, patientId: patient.id, chairId: chairs[chair]!.id, shiftId: shifts[shift]!.id,
-        date, kind: 'regular', status: 'scheduled',
-      });
-    };
-    const m1 = await mk(0, 0);
-    const m2 = await mk(1, 0);
-    const a1 = await mk(0, 1);
-    const free = await mk(2, 0);
-    await post({ nurseId: rana.user.id, from: date, to: date, chairIds: [chairs[0]!.id, chairs[1]!.id] });
-    await post({ nurseId: ali.user.id, shiftIds: [shifts[1]!.id], from: date, to: date, chairIds: [chairs[0]!.id, chairs[1]!.id] });
-    const res = await rana.agent.get(`${base}/today?date=${date}`);
-    expect(res.status).toBe(200);
-    const ids = (k: string) => res.body[k].map((c: { id: string }) => c.id).sort();
-    expect(ids('mine')).toEqual([m1.id, m2.id].sort());
-    expect(ids('unassigned')).toEqual([free.id]);
-    expect(ids('others')).toEqual([a1.id]);
-    const card = res.body.mine.find((c: { id: string }) => c.id === m1.id);
-    expect(card).toMatchObject({
-      date, status: 'scheduled', kind: 'regular', hasActiveOrders: false,
-      chair: { id: chairs[0]!.id, label: '1' },
-      shift: { id: shifts[0]!.id, name: 'Morning', start: '07:00', end: '11:30' },
-      nurse: { id: rana.user.id, name: rana.user.name },
-    });
-    const none = await desk.agent.get(`${base}/today?date=${date}`);
-    expect(none.body.mine).toEqual([]);
-    expect(none.body.others).toHaveLength(3);
-    expect(none.body.unassigned).toHaveLength(1);
-  });
-
-  it('validates date, defaults to today, and ignores other centres', async () => {
-    const { base, rana } = await setup();
-    expect((await rana.agent.get(`${base}/today?date=19-10-2026`)).status).toBe(400);
-    expect((await rana.agent.get(`${base}/today`)).status).toBe(200);
-    const other = await makeCentre();
-    const { patient } = await makePatient(other.centre.id);
-    await makeSession({
-      centreId: other.centre.id, patientId: patient.id, chairId: other.chairs[0]!.id, shiftId: other.shifts[0]!.id,
-      date: '2026-10-19', kind: 'regular', status: 'scheduled',
-    });
-    const res = await rana.agent.get(`${base}/today?date=2026-10-19`);
-    expect(res.body).toEqual({ mine: [], unassigned: [], others: [] });
   });
 });

@@ -224,25 +224,6 @@ scheduleRouter.get('/schedule/calendar', requirePerm('schedule.view'), async (re
   }
 });
 
-const dateQuery = z.object({ date: localDate.optional() });
-
-scheduleRouter.get('/today', requirePerm('sessions.view'), async (req, res, next) => {
-  try {
-    const centreId = centreOf(req);
-    const parsed = dateQuery.safeParse(req.query);
-    if (!parsed.success) throw badRequest('validation');
-    const date = parsed.data.date ?? todayLocal();
-    const sessions = await Session.find({ centreId, date });
-    const out = { mine: [] as object[], unassigned: [] as object[], others: [] as object[] };
-    for (const { card, nurseId } of await toSessionCards(centreId, sessions)) {
-      (nurseId === undefined ? out.unassigned : nurseId === String(req.user!._id) ? out.mine : out.others).push(card);
-    }
-    res.json(out);
-  } catch (e) {
-    next(e);
-  }
-});
-
 const boardQuery = z.object({ date: localDate.optional(), shiftId: z.string().min(1).optional() });
 
 scheduleRouter.get('/board', requirePerm('sessions.view'), async (req, res, next) => {

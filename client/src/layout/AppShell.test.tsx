@@ -11,7 +11,7 @@ const nurse = (centres: { id: string; name: string }[]) => ({
   name: 'Nurse',
   kind: 'staff',
   globalPermissions: [],
-  centres: centres.map((c) => ({ ...c, permissions: ['sessions.run', 'patients.view'] })),
+  centres: centres.map((c) => ({ ...c, permissions: ['sessions.view', 'sessions.run', 'patients.view'] })),
 });
 
 describe('AppShell', () => {

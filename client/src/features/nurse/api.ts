@@ -1,7 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiDelete, apiGet, apiPatch, apiPost } from '../../api';
 import { useCentreId } from '../centre/api';
-import { todayLocal } from '../desk/dates';
 import type { ItemDto, ItemType, UnitDto } from '../pm/api';
 
 export type SessionStatus = 'scheduled' | 'active' | 'completed' | 'postponed' | 'missed';
@@ -15,11 +14,6 @@ export interface SessionCard {
   shift: { id: string; name: string; start: string; end: string };
   patient: { id: string; name: string };
   hasActiveOrders: boolean;
-}
-export interface TodayDto {
-  mine: SessionCard[];
-  unassigned: SessionCard[];
-  others: SessionCard[];
 }
 export interface UsageLineDto {
   id: string;
@@ -57,16 +51,6 @@ export interface ChangeDto {
 
 const ROOT = 'nurse';
 const CATALOG = 'nurse-catalog';
-
-export function useToday() {
-  const centreId = useCentreId();
-  const date = todayLocal();
-  return useQuery({
-    queryKey: [ROOT, centreId, 'today', date],
-    queryFn: () => apiGet<TodayDto>(`/centres/${centreId}/today?date=${date}`),
-    enabled: !!centreId,
-  });
-}
 
 export function useSession(id: string) {
   const centreId = useCentreId();

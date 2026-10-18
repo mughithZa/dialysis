@@ -44,7 +44,7 @@ describe('LoginPage', () => {
       name: 'Nurse',
       kind: 'staff',
       globalPermissions: [],
-      centres: [{ id: 'c1', name: 'One', permissions: ['sessions.run'] }],
+      centres: [{ id: 'c1', name: 'One', permissions: ['sessions.view', 'sessions.run'] }],
     };
     server.use(
       unauthenticated,

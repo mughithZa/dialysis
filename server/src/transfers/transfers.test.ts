@@ -213,7 +213,7 @@ describe('accept', () => {
     expect(await AuditEntry.countDocuments({ action: 'transfer.accept' })).toBe(1);
   });
 
-  it('old centre loses session access and /today omits the patient', async () => {
+  it('old centre loses session access and /board omits the patient', async () => {
     const s = await setup();
     await book(s);
     const nurseA = await staffIn(s.a.centre.id, ['nurse']);
@@ -222,7 +222,8 @@ describe('accept', () => {
     await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/open`);
     await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/close`);
     const t = (await s.send()).body as { id: string };
-    const before = await nurseA.agent.get(`${s.baseA}/today`);
+    const boardUrl = `${s.baseA}/board?date=${todayLocal()}&shiftId=${s.a.shifts[0]!.id}`;
+    const before = await nurseA.agent.get(boardUrl);
     expect(JSON.stringify(before.body)).toContain(s.patient.id);
     expect((await s.deskB.agent.post(`${s.baseB}/transfers/${t.id}/accept`)).status).toBe(200);
     for (const who of [s.deskA, nurseA, doctorA]) {
@@ -230,7 +231,7 @@ describe('accept', () => {
     }
     expect((await nurseA.agent.get(`${s.baseA}/sessions/${today.id}/history`)).status).toBe(404);
     expect((await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/notes`).send({ text: 'x' })).status).toBe(404);
-    const after = await nurseA.agent.get(`${s.baseA}/today`);
+    const after = await nurseA.agent.get(boardUrl);
     expect(JSON.stringify(after.body)).not.toContain(s.patient.id);
   });
 

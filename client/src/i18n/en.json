@@ -206,7 +206,7 @@
     "sessions": {
       "view": "View sessions",
       "run": "Run sessions",
-      "postpone": "Postpone sessions",
+      "postpone": "Postpone, cancel, did not come",
       "recordUsage": "Record medicines and supplies",
       "recordVitals": "Record vitals",
       "addNotes": "Add session notes",
@@ -595,14 +595,6 @@
     }
   },
   "nurse": {
-    "today": {
-      "mine": "My chairs",
-      "unassigned": "Unassigned",
-      "others": "Other chairs",
-      "none": "No sessions.",
-      "chair": "{{chair}}",
-      "orders": "Orders"
-    },
     "session": {
       "orders": "Doctor orders",
       "ordersBy": "{{name}}",
@@ -722,5 +714,29 @@
       "denied": "Notifications are blocked. Allow them in your browser settings to get reminders.",
       "failed": "Could not turn on notifications."
     }
+  },
+  "board": {
+    "block": "Session block",
+    "machine": "Machine {{label}}",
+    "noNurse": "No nurse",
+    "started": "started {{time}}",
+    "orders": "Orders",
+    "open": "Open",
+    "start": "Start",
+    "didNotCome": "Did not come",
+    "postpone": "Postpone",
+    "mine": "My machines",
+    "hidden_one": "{{count}} other machine hidden.",
+    "hidden_other": "{{count}} other machines hidden.",
+    "active_one": "Active now ({{count}})",
+    "active_other": "Active now ({{count}})",
+    "waiting_one": "Waiting ({{count}})",
+    "waiting_other": "Waiting ({{count}})",
+    "none": "None.",
+    "noBlocks": "No session blocks set up yet.",
+    "closed": "Centre closed today",
+    "summary": "Done {{done}} · Did not come {{didNotCome}} · Postponed or cancelled {{other}}",
+    "empty": "Empty machines: {{machines}}",
+    "noneEmpty": "none"
   }
 }
