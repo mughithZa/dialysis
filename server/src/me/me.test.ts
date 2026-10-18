@@ -8,7 +8,7 @@ import { addDays, todayLocal } from '../lib/dates.js';
 import { Order } from '../orders/order.model.js';
 import { Session } from '../sessions/session.model.js';
 import { UsageLine } from '../sessions/usage.model.js';
-import { getApp, login, makeCentre, makePatient, staffIn } from '../../test/factories.js';
+import { getApp, login, makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
   await Item.init();
@@ -21,7 +21,7 @@ async function setup() {
   const { patient, user } = await makePatient(centre.id, { name: 'Pat' });
   const agent = await login(user.username);
   const mk = (date: string, status: string, shift = 0) =>
-    Session.create({ centreId: centre._id, patientId: patient._id, date, chairId: chairs[0]!._id, shiftId: shifts[shift]!._id, status });
+    makeSession({ centreId: centre._id, patientId: patient._id, date, chairId: chairs[0]!._id, shiftId: shifts[shift]!._id, status });
   return { centre, chairs, shifts, patient, user, agent, mk };
 }
 
@@ -75,7 +75,7 @@ describe('GET /api/me/sessions', () => {
     const unit = await Unit.create({ name: 'cc' });
     const item = await Item.create({ name: 'Heparin', type: 'medicine', unitId: unit._id, createdBy: staff.user._id, status: 'approved' });
     await UsageLine.create({ sessionId: s1._id, centreId: centre._id, patientId: patient._id, date: s1.date, itemId: item._id, amount: 5, by: staff.user._id });
-    await Session.create({ centreId: centre._id, patientId: other.patient._id, date: addDays(today, -4), chairId: s1.chairId, shiftId: s1.shiftId, status: 'completed' });
+    await makeSession({ centreId: centre._id, patientId: other.patient._id, date: addDays(today, -4), chairId: s1.chairId, shiftId: s1.shiftId, status: 'completed' });
 
     const res = await agent.get('/api/me/sessions');
     expect(res.status).toBe(200);

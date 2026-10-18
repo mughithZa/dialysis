@@ -8,7 +8,7 @@ import { Shift } from '../centres/shift.model.js';
 import { Session } from '../sessions/session.model.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { AuditEntry } from '../audit/audit.model.js';
-import { makePatient, makeCentre, staffIn } from '../../test/factories.js';
+import { makePatient, makeCentre, staffIn, makeSession } from '../../test/factories.js';
 import { proposeBlocks } from './setup.js';
 
 beforeEach(seedRoles);
@@ -95,7 +95,7 @@ describe('schedule setup', () => {
 
   async function futureSession(centreId: string, chairId: string, shiftId: string, date: string) {
     const { patient } = await makePatient(centreId);
-    return Session.create({ centreId, patientId: patient._id, date, chairId, shiftId, status: 'scheduled' });
+    return makeSession({ centreId, patientId: patient._id, date, chairId, shiftId, status: 'scheduled' });
   }
 
   it('lowering count with a future scheduled session on machine 7 -> 409 in_use', async () => {

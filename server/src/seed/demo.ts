@@ -121,6 +121,7 @@ export async function seedDemo(): Promise<{ created: boolean }> {
         const closed = localDateTime(date, shift.end);
         const session = await Session.create({
           centreId: centre._id, patientId: patient._id, date, chairId: chair._id, shiftId: shift._id,
+          shiftStart: shift.start, shiftEnd: shift.end, chairLabel: chair.label,
           status: 'completed', openedAt: opened, openedBy: nurse._id, closedAt: closed, closedBy: nurse._id,
           vitals: {
             weightBefore: 70 + i, weightAfter: 68 + i,

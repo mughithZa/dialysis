@@ -1,5 +1,6 @@
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
+import { User } from '../auth/user.model.js';
 import { Patient } from '../patients/patient.model.js';
 import { ChairAssignment } from '../schedule/assignment.model.js';
 import { withActiveOrders } from '../orders/service.js';
@@ -14,6 +15,14 @@ export interface SessionCard {
   shift: { id: string; name: string; start: string; end: string };
   patient: { id: string; name: string };
   hasActiveOrders: boolean;
+  /** Snapshot times (fall back to the shift for sessions created before snapshots existed). */
+  start: string;
+  end: string;
+  chairLabel: string;
+  /** Rostered nurse; filled once the roster exists. */
+  nurse: { id: string; name: string } | null;
+  /** Who ran the session (set when it is opened). */
+  runBy: { id: string; name: string } | null;
 }
 
 /** Builds display cards (and the nurse assigned to each chair/shift) for sessions of one centre. */
@@ -23,13 +32,15 @@ export async function toSessionCards(
   /** Sessions whose patient has since moved to another centre are skipped unless `includeMoved`. */
   { includeMoved = false }: { includeMoved?: boolean } = {},
 ): Promise<{ card: SessionCard; nurseId: string | undefined }[]> {
-  const [assignments, chairs, shifts, patients, ordered] = await Promise.all([
+  const [assignments, chairs, shifts, patients, ordered, runners] = await Promise.all([
     ChairAssignment.find({ centreId }),
     Chair.find({ centreId }),
     Shift.find({ centreId }),
     Patient.find({ _id: { $in: sessions.map((s) => s.patientId) } }),
     withActiveOrders(sessions),
+    User.find({ _id: { $in: sessions.map((s) => s.runBy).filter(Boolean) } }),
   ]);
+  const runnerById = new Map(runners.map((u) => [u.id as string, u]));
   const nurseOf = new Map(assignments.map((a) => [`${a.chairId}:${a.shiftId}`, String(a.nurseId)]));
   const chairById = new Map(chairs.map((c) => [c.id as string, c]));
   const shiftById = new Map(shifts.map((s) => [s.id as string, s]));
@@ -39,6 +50,7 @@ export async function toSessionCards(
     const chair = chairById.get(String(s.chairId));
     const shift = shiftById.get(String(s.shiftId));
     const patient = patientById.get(String(s.patientId));
+    const runner = s.runBy ? runnerById.get(String(s.runBy)) : undefined;
     if (!chair || !shift || !patient || (!includeMoved && String(patient.centreId) !== String(centreId))) continue;
     out.push({
       card: {
@@ -50,6 +62,11 @@ export async function toSessionCards(
         shift: { id: shift.id as string, name: shift.name, start: shift.start, end: shift.end },
         patient: { id: patient.id as string, name: patient.name },
         hasActiveOrders: ordered.has(`${s.patientId}:${s.date}`),
+        start: s.shiftStart ?? shift.start,
+        end: s.shiftEnd ?? shift.end,
+        chairLabel: s.chairLabel ?? chair.label,
+        nurse: null,
+        runBy: runner ? { id: runner.id as string, name: runner.name } : null,
       },
       nurseId: nurseOf.get(`${s.chairId}:${s.shiftId}`),
     });

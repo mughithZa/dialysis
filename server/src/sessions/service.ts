@@ -91,7 +91,7 @@ export async function transition(
 export async function openSession(session: SessionDoc, userId: string, tx?: ClientSession): Promise<SessionDoc> {
   if (session.status !== 'scheduled') throw conflict('bad_status');
   if (session.date !== todayLocal()) throw conflict('not_today');
-  return transition(session.id, ['scheduled'], { status: 'active', openedAt: new Date(), openedBy: userId }, tx);
+  return transition(session.id, ['scheduled'], { status: 'active', openedAt: new Date(), openedBy: userId, runBy: userId }, tx);
 }
 
 export const closeSession = (session: SessionDoc, userId: string, tx?: ClientSession) =>
@@ -138,6 +138,9 @@ export async function createMakeup(centreId: string, patientId: string, input: M
       date: input.date,
       chairId: chair._id,
       shiftId: shift._id,
+      shiftStart: shift.start,
+      shiftEnd: shift.end,
+      chairLabel: chair.label,
       kind: 'makeup',
     });
   } catch (e) {

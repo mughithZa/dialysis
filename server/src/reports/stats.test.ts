@@ -6,7 +6,7 @@ import { Unit } from '../catalog/unit.model.js';
 import { addDays, todayLocal } from '../lib/dates.js';
 import { Session } from '../sessions/session.model.js';
 import { UsageLine } from '../sessions/usage.model.js';
-import { makeCentre, makePatient, programManager, staffIn } from '../../test/factories.js';
+import { makeCentre, makePatient, programManager, staffIn, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
   await Item.init();
@@ -34,12 +34,12 @@ async function setup() {
 }
 type S = Awaited<ReturnType<typeof setup>>;
 
-function sess(c: S['a'], patientId: Types.ObjectId, status: string, date = day) {
-  return Session.create({
+function sess(c: S['a'], patientId: Types.ObjectId, status: string, date = day, chair = 0) {
+  return makeSession({
     centreId: c.centre._id,
     patientId,
     date,
-    chairId: c.chairs[0]!._id,
+    chairId: c.chairs[chair]!._id,
     shiftId: c.shifts[0]!._id,
     status,
   });
@@ -58,7 +58,7 @@ describe('aggregation', () => {
     const p2 = (await makePatient(s.a.centre.id)).patient;
     const s1 = await sess(s.a, p1._id, 'completed', day);
     const s2 = await sess(s.a, p1._id, 'completed', `${month}-11`);
-    const s3 = await sess(s.a, p2._id, 'completed', day);
+    const s3 = await sess(s.a, p2._id, 'completed', day, 1); // other chair: one live session per chair, shift and date
     const missed = await sess(s.a, p2._id, 'missed', `${month}-12`);
     await sess(s.a, p2._id, 'postponed', `${month}-13`);
     const other = await sess(s.a, p2._id, 'completed', `${addDays(day, 40).slice(0, 7)}-10`);

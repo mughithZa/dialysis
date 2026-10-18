@@ -6,7 +6,7 @@ import { localDateTime } from '../lib/dates.js';
 import { Session } from '../sessions/session.model.js';
 import { sendDueReminders } from './jobs.js';
 import { PushSubscription } from './subscription.model.js';
-import { getApp, login, makeCentre, makePatient } from '../../test/factories.js';
+import { getApp, login, makeCentre, makePatient, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
   await PushSubscription.init();
@@ -19,7 +19,7 @@ async function setup(reminderHours?: number, status = 'scheduled') {
   const { centre, chairs, shifts } = await makeCentre();
   if (reminderHours) await Centre.updateOne({ _id: centre._id }, { $set: { 'settings.reminderHours': reminderHours } });
   const { patient, user } = await makePatient(centre.id);
-  const s = await Session.create({
+  const s = await makeSession({
     centreId: centre._id, patientId: patient._id, chairId: chairs[2]!._id, shiftId: shifts[0]!._id,
     date: '2026-10-19', status,
   });

@@ -7,7 +7,7 @@ import { Unit } from '../catalog/unit.model.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Session } from './session.model.js';
 import { UsageLine } from './usage.model.js';
-import { makeCentre, makePatient, programManager, staffIn } from '../../test/factories.js';
+import { makeCentre, makePatient, programManager, staffIn, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
   await Item.init();
@@ -124,7 +124,7 @@ describe('running a session', () => {
   it('opening a session dated tomorrow is 409 not_today', async () => {
     const { base, nurse, centre, chairs, shifts } = await setup();
     const { patient } = await makePatient(centre.id);
-    const s = await Session.create({
+    const s = await makeSession({
       centreId: centre.id,
       patientId: patient.id,
       date: addDays(todayLocal(), 1),

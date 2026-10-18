@@ -1,6 +1,9 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
 
-export const SESSION_STATUSES = ['scheduled', 'active', 'completed', 'postponed', 'missed'] as const;
+export const SESSION_STATUSES = ['scheduled', 'active', 'completed', 'postponed', 'missed', 'did_not_come', 'cancelled'] as const;
+export const FINAL_STATUSES = ['completed', 'postponed', 'missed', 'did_not_come', 'cancelled'] as const;
+/** Statuses that occupy a chair for a shift and date. */
+export const LIVE_STATUSES = ['scheduled', 'active', 'completed'] as const;
 export const SESSION_KINDS = ['regular', 'makeup'] as const;
 
 const sessionSchema = new Schema({
@@ -10,6 +13,15 @@ const sessionSchema = new Schema({
   date: { type: String, required: true },
   chairId: { type: Schema.Types.ObjectId, ref: 'Chair', required: true },
   shiftId: { type: Schema.Types.ObjectId, ref: 'Shift', required: true },
+  /** Snapshots taken when the session is created, so later setup changes do not rewrite history. */
+  shiftStart: { type: String, required: true },
+  shiftEnd: { type: String, required: true },
+  chairLabel: { type: String, required: true },
+  planId: { type: Schema.Types.ObjectId },
+  detached: { type: Boolean, default: false },
+  runBy: { type: Schema.Types.ObjectId, ref: 'User' },
+  rosterNurseId: { type: Schema.Types.ObjectId, ref: 'User' },
+  statusReason: String,
   kind: { type: String, enum: SESSION_KINDS, default: 'regular' },
   status: { type: String, enum: SESSION_STATUSES, default: 'scheduled' },
   openedAt: Date,
@@ -52,6 +64,11 @@ const sessionSchema = new Schema({
   rev: { type: Number, default: 0 },
 });
 sessionSchema.index({ patientId: 1, date: 1, shiftId: 1 }, { unique: true });
+// hard double-booking guard: one live session per chair, shift and date
+sessionSchema.index(
+  { chairId: 1, shiftId: 1, date: 1 },
+  { unique: true, partialFilterExpression: { status: { $in: [...LIVE_STATUSES] } } },
+);
 sessionSchema.index({ centreId: 1, date: 1 });
 sessionSchema.index({ status: 1, date: 1 });
 

@@ -1,13 +1,13 @@
 import { describe, it, expect } from 'vitest';
 import { Session } from '../sessions/session.model.js';
 import { markMissed } from './jobs.js';
-import { makeCentre, makePatient } from '../../test/factories.js';
+import { makeCentre, makePatient, makeSession } from '../../test/factories.js';
 
 async function setup() {
   const { centre, chairs, shifts } = await makeCentre();
   const mk = async (date: string, status = 'scheduled') => {
     const { patient } = await makePatient(centre.id);
-    return Session.create({
+    return makeSession({
       centreId: centre.id, patientId: patient.id, chairId: chairs[0]!.id, shiftId: shifts[0]!.id,
       date, kind: 'regular', status,
     });

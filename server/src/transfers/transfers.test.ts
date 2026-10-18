@@ -6,7 +6,7 @@ import { Patient } from '../patients/patient.model.js';
 import { Slot } from '../schedule/slot.model.js';
 import { Session } from '../sessions/session.model.js';
 import { todayLocal, weekdayOf, addDays } from '../lib/dates.js';
-import { makeCentre, makePatient, staffIn } from '../../test/factories.js';
+import { makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 import { Transfer } from './transfer.model.js';
 
 beforeAll(async () => {
@@ -166,11 +166,11 @@ describe('accept', () => {
     const today = (await Session.findOne({ patientId: s.patient.id, date: todayLocal() }))!;
     expect((await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/open`)).status).toBe(200);
     expect((await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/close`)).status).toBe(200);
-    const future = await Session.create({
+    const future = await makeSession({
       centreId: s.a.centre._id, patientId: s.patient._id, date: addDays(todayLocal(), 7),
       chairId: s.a.chairs[0]!._id, shiftId: s.a.shifts[1]!._id, status: 'scheduled',
     });
-    const todayScheduled = await Session.create({
+    const todayScheduled = await makeSession({
       centreId: s.a.centre._id, patientId: s.patient._id, date: todayLocal(),
       chairId: s.a.chairs[1]!._id, shiftId: s.a.shifts[1]!._id, status: 'scheduled',
     });

@@ -8,6 +8,7 @@ import { Centre } from '../src/centres/centre.model.js';
 import { Chair, type ChairDoc } from '../src/centres/chair.model.js';
 import { Shift, type ShiftDoc } from '../src/centres/shift.model.js';
 import { Patient, type PatientData } from '../src/patients/patient.model.js';
+import { Session, type SessionData, type SessionDoc } from '../src/sessions/session.model.js';
 
 let sharedApp: ReturnType<typeof createApp> | undefined;
 export const getApp = () => (sharedApp ??= createApp());
@@ -94,6 +95,29 @@ export async function makePatient(
   });
   const patient = await Patient.create({ name: user.name, ...fields, centreId, userId: user._id });
   return { user, patient };
+}
+
+/**
+ * Creates a Session, filling the shift/chair snapshots (shiftStart, shiftEnd, chairLabel) from the
+ * given chair and shift unless overridden.
+ */
+export async function makeSession(
+  overrides: Partial<Omit<SessionData, 'chairId' | 'shiftId' | 'patientId' | 'centreId' | 'status'>> & {
+    status?: string;
+    centreId: string | Types.ObjectId;
+    patientId: string | Types.ObjectId;
+    chairId: string | Types.ObjectId;
+    shiftId: string | Types.ObjectId;
+    date: string;
+  },
+): Promise<SessionDoc> {
+  const [chair, shift] = await Promise.all([Chair.findById(overrides.chairId), Shift.findById(overrides.shiftId)]);
+  return Session.create({
+    chairLabel: chair?.label ?? '?',
+    shiftStart: shift?.start ?? '00:00',
+    shiftEnd: shift?.end ?? '00:00',
+    ...overrides,
+  });
 }
 
 export async function programManager() {

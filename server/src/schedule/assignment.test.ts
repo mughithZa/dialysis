@@ -3,7 +3,7 @@ import { seedRoles } from '../auth/roles.seed.js';
 import { AuditEntry } from '../audit/audit.model.js';
 import { Session } from '../sessions/session.model.js';
 import { ChairAssignment } from './assignment.model.js';
-import { makeCentre, makePatient, staffIn } from '../../test/factories.js';
+import { makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 
 beforeEach(seedRoles);
 
@@ -53,7 +53,7 @@ describe('today view', () => {
     const date = '2026-10-19';
     const mk = async (chair: number, shift: number) => {
       const { patient } = await makePatient(centre.id);
-      return Session.create({
+      return makeSession({
         centreId: centre.id, patientId: patient.id, chairId: chairs[chair]!.id, shiftId: shifts[shift]!.id,
         date, kind: 'regular', status: 'scheduled',
       });
@@ -93,7 +93,7 @@ describe('today view', () => {
     expect((await x.agent.get(`${base}/today`)).status).toBe(200);
     const other = await makeCentre();
     const { patient } = await makePatient(other.centre.id);
-    await Session.create({
+    await makeSession({
       centreId: other.centre.id, patientId: patient.id, chairId: other.chairs[0]!.id, shiftId: other.shifts[0]!.id,
       date: '2026-10-19', kind: 'regular', status: 'scheduled',
     });

@@ -1,10 +1,11 @@
+import type { Types } from 'mongoose';
 import { describe, it, expect, beforeEach } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { AuditEntry } from '../audit/audit.model.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Patient } from '../patients/patient.model.js';
 import { Session } from '../sessions/session.model.js';
-import { createUser, login, makeCentre, makePatient, staffIn } from '../../test/factories.js';
+import { createUser, login, makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 
 beforeEach(seedRoles);
 
@@ -93,8 +94,8 @@ describe('patient session history', () => {
   it('follows the patient across centres, newest first, excludes scheduled, paginates', async () => {
     const { centre, chairs, shifts, base, doctor, desk, patient } = await setup();
     const other = await makeCentre({ name: 'Beta' });
-    const mk = (centreId: unknown, chairId: unknown, shiftId: unknown, date: string, status: string) =>
-      Session.create({ centreId, patientId: patient._id, date, chairId, shiftId, status });
+    const mk = (centreId: string | Types.ObjectId, chairId: string | Types.ObjectId, shiftId: string | Types.ObjectId, date: string, status: string) =>
+      makeSession({ centreId, patientId: patient._id, date, chairId, shiftId, status });
     await mk(other.centre._id, other.chairs[0]!._id, other.shifts[0]!._id, '2026-01-01', 'completed');
     await mk(centre._id, chairs[0]!._id, shifts[1]!._id, '2026-01-03', 'completed');
     await mk(centre._id, chairs[0]!._id, shifts[0]!._id, '2026-01-03', 'missed');

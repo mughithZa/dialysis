@@ -1,5 +1,7 @@
 import type { ClientSession } from 'mongoose';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
+import { Chair } from '../centres/chair.model.js';
+import { Shift } from '../centres/shift.model.js';
 import { Session } from '../sessions/session.model.js';
 import { Pattern } from './pattern.model.js';
 
@@ -16,6 +18,8 @@ export async function regenerateSessions(patientId: string, today: string = toda
   if (!pattern) return;
   const first = pattern.from > today ? pattern.from : today;
   const last = addDays(today, GENERATION_DAYS - 1);
+  const [chair, shift] = await Promise.all([Chair.findById(pattern.chairId), Shift.findById(pattern.shiftId)]);
+  if (!chair || !shift) return;
   const ops = [];
   for (let date = first; date <= last; date = addDays(date, 1)) {
     if (!pattern.weekdays.includes(weekdayOf(date))) continue;
@@ -26,6 +30,9 @@ export async function regenerateSessions(patientId: string, today: string = toda
           $setOnInsert: {
             centreId: pattern.centreId,
             chairId: pattern.chairId,
+            shiftStart: shift.start,
+            shiftEnd: shift.end,
+            chairLabel: chair.label,
             kind: 'regular' as const,
             status: 'scheduled' as const,
           },

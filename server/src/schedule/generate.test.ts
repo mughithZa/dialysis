@@ -5,7 +5,7 @@ import { Session } from '../sessions/session.model.js';
 import { regenerateSessions } from './generate.js';
 import { generateAll } from '../notify/jobs.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
-import { makeCentre, makePatient, staffIn } from '../../test/factories.js';
+import { makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 
 beforeEach(seedRoles);
 
@@ -53,7 +53,7 @@ describe('regenerateSessions', () => {
 
   it('never touches non-scheduled sessions', async () => {
     const { patient, centre, chairs, shifts } = await openPattern();
-    await Session.create({
+    await makeSession({
       centreId: centre.id, patientId: patient.id, chairId: chairs[1]!.id, shiftId: shifts[0]!.id,
       date: '2026-10-19', kind: 'regular', status: 'completed',
     });
