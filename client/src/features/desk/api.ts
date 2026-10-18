@@ -34,11 +34,6 @@ export interface PatientRecord {
   otherDiseases?: string;
   notes?: string;
 }
-export interface GridDto {
-  chairs: { id: string; label: string; active: boolean }[];
-  shifts: { id: string; name: string; start: string; end: string; active: boolean }[];
-  slots: { chairId: string; shiftId: string; weekday: number; patient: { id: string; name: string } }[];
-}
 export interface SessionCardDto {
   id: string;
   date: string;
@@ -73,12 +68,6 @@ export interface OutgoingTransfer {
   rejectReason: string | null;
   /** null once accepted: the patient then belongs to the other centre. */
   patient: { id: string; name: string } | null;
-}
-export interface PatternBody {
-  chairId: string;
-  shiftId: string;
-  weekdays: number[];
-  from: string;
 }
 
 const base = (centreId: string) => `/centres/${centreId}`;
@@ -164,23 +153,68 @@ export const useOrders = (patientId: string, enabled: boolean) => {
 
 // ---------- Schedule ----------
 
-export const useGrid = (enabled = true) => {
+export interface PlanItem {
+  weekday: number;
+  shiftId: string;
+  chairId: string;
+}
+export interface PlanDto {
+  id: string;
+  patientId: string;
+  items: PlanItem[];
+  from: string;
+  to: string | null;
+  repeat: 'once' | 'weekly';
+}
+export interface PlanBody {
+  items: PlanItem[];
+  from: string;
+  to?: string | null;
+}
+
+/** The patient's plan in force today, else the next one to start (null when none). */
+export const usePlan = (patientId: string, enabled = true) => {
   const centreId = useCentreId();
   return useQuery({
-    queryKey: key(centreId, 'grid'),
-    queryFn: () => apiGet<GridDto>(`${base(centreId)}/schedule/grid`),
-    enabled: enabled && !!centreId,
+    queryKey: key(centreId, 'plan', patientId),
+    queryFn: async () => (await apiGet<{ plan: PlanDto | null }>(`${base(centreId)}/patients/${patientId}/plan`)).plan,
+    enabled: enabled && !!centreId && !!patientId,
   });
 };
 
-/** Creates the patient's pattern, or replaces it when `change` is true. */
-export function useBookPattern() {
+/** Machines free in a block on a date; with `patientId` that patient's own holds count as free. */
+export const useFreeMachines = (date: string, shiftId: string | null, patientId?: string) => {
+  const centreId = useCentreId();
+  const valid = /^\d{4}-\d{2}-\d{2}$/.test(date) && !!shiftId;
+  return useQuery({
+    queryKey: key(centreId, 'free', date, shiftId, patientId ?? null),
+    queryFn: () => {
+      const qs = new URLSearchParams({ date, shiftId: shiftId ?? '', ...(patientId ? { patientId } : {}) });
+      return apiGet<{ id: string; label: string }[]>(`${base(centreId)}/schedule/free?${qs}`);
+    },
+    enabled: !!centreId && valid,
+  });
+};
+
+/** Books a plan: weekly (`repeat: 'weekly'`) or one-off sessions (`'once'`). */
+export function useBookPlan() {
   const centreId = useCentreId();
   const invalidate = useInvalidateDesk();
   return useMutation({
-    mutationFn: ({ patientId, change, ...body }: PatternBody & { patientId: string; change: boolean }) =>
-      (change ? apiPut : apiPost)(`${base(centreId)}/patients/${patientId}/pattern`, body),
-    // Always refresh: on a 409 the grid the user acted on is stale.
+    mutationFn: ({ patientId, ...body }: PlanBody & { patientId: string; repeat: 'once' | 'weekly' }) =>
+      apiPost(`${base(centreId)}/patients/${patientId}/plan`, body),
+    // Always refresh: on a 409 the free lists the user acted on are stale.
+    onSettled: invalidate,
+  });
+}
+
+/** Replaces the weekly plan from a date. */
+export function useChangePlan() {
+  const centreId = useCentreId();
+  const invalidate = useInvalidateDesk();
+  return useMutation({
+    mutationFn: ({ patientId, ...body }: PlanBody & { patientId: string }) =>
+      apiPut(`${base(centreId)}/patients/${patientId}/plan`, body),
     onSettled: invalidate,
   });
 }
@@ -369,3 +403,55 @@ export const useCalendar = (from: string, to: string) => {
     enabled: !!centreId,
   });
 };
+
+// ---------- Front-desk timeline actions ----------
+
+export interface TimelineRow {
+  id: string;
+  date: string;
+  block: string;
+  chairLabel: string;
+  centreId: string;
+  status: string;
+  kind: string;
+  linkable?: boolean;
+}
+
+export const usePatientTimeline = (patientId: string, enabled: boolean) => {
+  const centreId = useCentreId();
+  return useQuery({
+    queryKey: key(centreId, 'timeline', patientId),
+    queryFn: () => apiGet<{ upcoming: TimelineRow[]; today: TimelineRow[]; past: TimelineRow[] }>(`${base(centreId)}/patients/${patientId}/timeline`),
+    enabled: enabled && !!centreId && !!patientId,
+  });
+};
+
+export function useMoveSession() {
+  const centreId = useCentreId();
+  const invalidate = useInvalidateDesk();
+  return useMutation({
+    mutationFn: ({ sessionId, ...body }: { sessionId: string; date: string; shiftId: string; chairId: string }) =>
+      apiPost(`${base(centreId)}/sessions/${sessionId}/move`, body),
+    onSettled: invalidate,
+  });
+}
+
+export function useCancelSession() {
+  const centreId = useCentreId();
+  const invalidate = useInvalidateDesk();
+  return useMutation({
+    mutationFn: ({ sessionId, reason }: { sessionId: string; reason: string }) =>
+      apiPost(`${base(centreId)}/sessions/${sessionId}/cancel`, { reason }),
+    onSettled: invalidate,
+  });
+}
+
+export function useDidNotCome() {
+  const centreId = useCentreId();
+  const invalidate = useInvalidateDesk();
+  return useMutation({
+    mutationFn: ({ sessionId, reason }: { sessionId: string; reason?: string }) =>
+      apiPost(`${base(centreId)}/sessions/${sessionId}/did-not-come`, reason ? { reason } : {}),
+    onSettled: invalidate,
+  });
+}

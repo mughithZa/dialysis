@@ -9,8 +9,8 @@ import { useCentreUser } from '../../test/auth';
 
 describe('MakeupDialog', () => {
   it('limits the date to today through the 3-day make-up window', async () => {
-    useCentreUser(['schedule.makeup']);
-    server.use(http.get('*/api/centres/c1/schedule/grid', () => HttpResponse.json({ chairs: [], shifts: [], slots: [] })));
+    useCentreUser(['schedule.makeup', 'schedule.view']);
+    server.use(http.get('*/api/centres/c1/schedule/setup', () => HttpResponse.json({ machines: [], blocks: [], workingDays: [] })));
     renderApp(<MakeupDialog patientId="p1" onDone={() => {}} />);
     const date = screen.getByLabelText('Date');
     expect(date).toHaveAttribute('min', todayLocal());

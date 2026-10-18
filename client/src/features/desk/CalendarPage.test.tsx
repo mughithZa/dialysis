@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { CalendarPage } from './CalendarPage';
@@ -62,14 +62,8 @@ describe('CalendarPage', () => {
     server.use(
       http.get('*/api/centres/c1/schedule/setup', () => HttpResponse.json(setup)),
       http.get('*/api/centres/c1/schedule/calendar', () => HttpResponse.json(calendar)),
-      http.get('*/api/centres/c1/schedule/grid', () =>
-        HttpResponse.json({
-          chairs: setup.machines,
-          shifts: setup.blocks.map((b) => ({ ...b, active: true })),
-          slots: [],
-        }),
-      ),
       http.get('*/api/centres/c1/patients', () => HttpResponse.json([])),
+      http.get('*/api/centres/c1/schedule/free', () => HttpResponse.json([{ id: 'm2', label: '2' }])),
     );
     renderApp(<CalendarPage />);
 
@@ -81,9 +75,10 @@ describe('CalendarPage', () => {
 
     await userEvent.click(screen.getByRole('button', { name: 'Empty: machine 2, Morning, 2026-10-19' }));
     const dialog = await screen.findByRole('dialog');
-    expect(within(dialog).getByLabelText('Chair')).toHaveValue('2');
-    expect(within(dialog).getByLabelText('Shift')).toHaveValue('Morning');
-    expect(within(dialog).getByRole('checkbox', { name: 'Mon' })).toBeChecked();
+    const row = within(dialog).getByRole('group', { name: 'Day 1' });
+    expect(within(row).getByLabelText('Weekday')).toHaveValue('Mon');
+    expect(within(row).getByLabelText('Block')).toHaveValue('Morning');
+    await waitFor(() => expect(within(row).getByLabelText('Machine')).toHaveValue('Machine 2'));
     expect(within(dialog).getByLabelText('Starting from')).toHaveValue('2026-10-19');
   });
 

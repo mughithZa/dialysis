@@ -6,7 +6,7 @@ import { useMediaQuery } from '@mantine/hooks';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
-import { useCalendar, useGrid, useSetup, type CalendarDto, type SetupDto } from './api';
+import { useCalendar, useSetup, type CalendarDto, type SetupDto } from './api';
 import { BookDialog, type BookInitial } from './BookDialog';
 import { parseLocal as parse, shiftDate as shift, todayLocal, weekStartSat as weekStart } from './dates';
 
@@ -43,7 +43,6 @@ export function CalendarPage() {
   const to = desktop ? shift(from, 6) : anchor;
   const setup = useSetup();
   const calendar = useCalendar(from, to);
-  const grid = useGrid(canBook);
   const step = desktop ? 7 : 1;
 
   const machines = setup.data?.machines ?? [];
@@ -103,8 +102,6 @@ export function CalendarPage() {
         variant="default"
         size="compact-md"
         mih={44}
-        loading={canBook && grid.isPending}
-        disabled={!grid.data}
         aria-label={t('desk.calendar.emptyCell', { label: labelOf(c.chairId), block: name, date: day.date })}
         onClick={() => setPicked({ date: day.date, shiftId: block.shiftId, chairId: c.chairId })}
       >
@@ -117,7 +114,10 @@ export function CalendarPage() {
   const ready = !!setup.data && !!calendar.data;
   const blocks = (setup.data as SetupDto | undefined)?.blocks ?? [];
 
-  const initial: BookInitial | null = picked && { chairId: picked.chairId, shiftId: picked.shiftId, weekday: parse(picked.date).getDay(), date: picked.date };
+  const initial: BookInitial | null = picked && {
+    date: picked.date,
+    items: [{ weekday: parse(picked.date).getDay(), shiftId: picked.shiftId, chairId: picked.chairId }],
+  };
 
   return (
     <Stack gap="md">
@@ -148,7 +148,6 @@ export function CalendarPage() {
       {(setup.isPending || calendar.isPending) && <Loader />}
       {setup.isError && <Alert color="danger">{errorMessage(t, setup.error)}</Alert>}
       {calendar.isError && <Alert color="danger">{errorMessage(t, calendar.error)}</Alert>}
-      {grid.isError && <Alert color="danger">{errorMessage(t, grid.error)}</Alert>}
       {ready && blocks.length === 0 && <Text c="dimmed">{t('desk.calendar.noBlocks')}</Text>}
 
       {ready && !desktop &&
@@ -218,7 +217,7 @@ export function CalendarPage() {
         ))}
 
       <Modal opened={initial !== null} onClose={() => setPicked(null)} title={t('desk.book.title')}>
-        {initial && grid.data && <BookDialog key={`${initial.chairId}:${initial.shiftId}:${initial.date}`} grid={grid.data} initial={initial} onDone={() => setPicked(null)} />}
+        {initial && picked && <BookDialog key={`${picked.chairId}:${picked.shiftId}:${picked.date}`} initial={initial} onDone={() => setPicked(null)} />}
       </Modal>
     </Stack>
   );

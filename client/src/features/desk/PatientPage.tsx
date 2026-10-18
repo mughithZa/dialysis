@@ -10,19 +10,24 @@ import { useCentreId } from '../centre/api';
 import { OrdersPanel } from '../doctor/OrdersPanel';
 import {
   useDaySessions,
-  useGrid,
   usePatient,
+  usePatientTimeline,
+  usePlan,
   usePostpone,
   useResetPatientPassword,
   useSendTransfer,
+  useSetup,
   useTransferTargets,
   type PatientDto,
+  type TimelineRow,
 } from './api';
 import { BookDialog } from './BookDialog';
+import { CancelDialog, DidNotComeDialog } from './CancelDialog';
 import { todayLocal } from './dates';
 import { WEEKDAY_ORDER } from './weekdays';
 import { DischargeDialog } from './DischargeDialog';
 import { MakeupDialog } from './MakeupDialog';
+import { MoveDialog } from './MoveDialog';
 import { PatientForm } from './PatientForm';
 
 function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: () => void }) {
@@ -143,13 +148,16 @@ function Field({ label, value }: { label: string; value: string | null }) {
   );
 }
 
-type Dialog = 'edit' | 'book' | 'postpone' | 'makeup' | 'discharge' | 'transfer' | 'reset';
+type Dialog = 'edit' | 'book' | 'changePlan' | 'postpone' | 'makeup' | 'discharge' | 'transfer' | 'reset' | 'move' | 'cancel' | 'dnc';
 
 function PatientDetails({ patient }: { patient: PatientDto }) {
   const { t } = useTranslation();
-  const canGrid = useCan('schedule.view');
-  const grid = useGrid(canGrid);
+  const centreId = useCentreId();
+  const canView = useCan('schedule.view');
+  const plan = usePlan(patient.id, canView);
+  const setup = useSetup();
   const canHistory = useCan('sessions.view');
+  const timeline = usePatientTimeline(patient.id, canHistory);
   const can = {
     edit: useCan('patients.edit'),
     book: useCan('schedule.book'),
@@ -160,19 +168,33 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
     reset: useCan('users.resetPassword'),
   };
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  const [target, setTarget] = useState<TimelineRow | null>(null);
   const close = () => setDialog(null);
+  const act = (d: Dialog, row: TimelineRow) => {
+    setTarget(row);
+    setDialog(d);
+  };
 
   const active = patient.status === 'active';
-  const slots = (grid.data?.slots ?? []).filter((s) => s.patient.id === patient.id);
-  const first = slots[0];
-  const chair = grid.data?.chairs.find((c) => c.id === first?.chairId);
-  const shift = grid.data?.shifts.find((s) => s.id === first?.shiftId);
-  const days = WEEKDAY_ORDER.filter((d) => slots.some((s) => s.weekday === d)).map((d) => t(`desk.weekdays.${d}`));
-  const hasPattern = slots.length > 0;
+  const current = plan.data ?? null;
+  const hasPattern = current !== null;
+  const blockName = (id: string) => setup.data?.blocks.find((b) => b.id === id)?.name ?? '';
+  const machineLabel = (id: string) => setup.data?.machines.find((m) => m.id === id)?.label ?? '';
+  const planItems = WEEKDAY_ORDER.flatMap((d) => (current?.items ?? []).filter((i) => i.weekday === d));
+
+  const today = todayLocal();
+  const rows = [...(timeline.data?.upcoming ?? []), ...(timeline.data?.today ?? []), ...(timeline.data?.past ?? [])]
+    .filter((r) => r.centreId === centreId && (r.status === 'scheduled' || (r.status === 'missed' && r.date <= today)))
+    .sort((x, y) => x.date.localeCompare(y.date));
+  const canActOnSessions = active && (can.book || can.postpone);
 
   const titles: Record<Dialog, string> = {
     edit: t('desk.patients.editTitle'),
-    book: t(hasPattern ? 'desk.book.changeTitle' : 'desk.book.title'),
+    book: t('desk.book.title'),
+    changePlan: t('desk.book.changeTitle'),
+    move: t('desk.move.title'),
+    cancel: t('desk.cancel.title'),
+    dnc: t('desk.didNotCome.title'),
     postpone: t('desk.postpone.title'),
     makeup: t('desk.makeup.title'),
     discharge: t('desk.discharge.title'),
@@ -213,13 +235,20 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
       <Card withBorder padding="sm">
         <Stack gap="xs">
           <Text fw={600}>{t('desk.patient.pattern')}</Text>
-          {canGrid && grid.isPending && <Loader size="sm" />}
-          {grid.isError && <Alert color="danger">{errorMessage(t, grid.error)}</Alert>}
-          {grid.data && !hasPattern && <Text c="dimmed">{t('desk.patient.noPattern')}</Text>}
-          {hasPattern && (
+          {canView && plan.isPending && <Loader size="sm" />}
+          {plan.isError && <Alert color="danger">{errorMessage(t, plan.error)}</Alert>}
+          {plan.isSuccess && !hasPattern && <Text c="dimmed">{t('desk.patient.noPattern')}</Text>}
+          {current && (
             <>
-              <Text>{t('desk.patient.chairShift', { chair: chair?.label ?? '', shift: shift?.name ?? '' })}</Text>
-              <Text c="dimmed">{days.join(', ')}</Text>
+              {planItems.map((i) => (
+                <Text key={`${i.weekday}:${i.shiftId}`}>
+                  {t('desk.patient.planLine', { day: t(`desk.weekdays.${i.weekday}`), block: blockName(i.shiftId), chair: machineLabel(i.chairId) })}
+                </Text>
+              ))}
+              <Text c="dimmed">
+                {t('desk.patient.planFrom', { date: current.from })}
+                {current.to ? `, ${t('desk.patient.planUntil', { date: current.to })}` : ''}
+              </Text>
             </>
           )}
         </Stack>
@@ -235,8 +264,8 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
               </Button>
             )}
             {active && can.book && (
-              <Button mih={44} variant="default" disabled={!grid.data} onClick={() => setDialog('book')}>
-                {t(hasPattern ? 'desk.patient.changePattern' : 'desk.patient.bookPattern')}
+              <Button mih={44} variant="default" disabled={!plan.isSuccess || !setup.data} onClick={() => setDialog(hasPattern ? 'changePlan' : 'book')}>
+                {t(hasPattern ? 'desk.patient.changePlan' : 'desk.patient.bookPattern')}
               </Button>
             )}
             {active && can.postpone && (
@@ -268,6 +297,42 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
         </Stack>
       )}
 
+      {canActOnSessions && (
+        <Stack gap="xs">
+          <Text fw={600}>{t('desk.patient.sessions')}</Text>
+          {timeline.isPending && <Loader size="sm" />}
+          {timeline.isError && <Alert color="danger">{errorMessage(t, timeline.error)}</Alert>}
+          {timeline.data && rows.length === 0 && <Text c="dimmed">{t('desk.patient.noSessions')}</Text>}
+          {rows.map((r) => {
+            const future = r.date >= today;
+            return (
+              <Card key={r.id} withBorder padding="xs">
+                <Stack gap="xs">
+                  <Text>{t('desk.patient.sessionLine', { date: r.date, block: r.block, chair: r.chairLabel })}</Text>
+                  <Group gap="xs">
+                    {can.book && future && r.status === 'scheduled' && (
+                      <Button mih={44} variant="default" onClick={() => act('move', r)}>
+                        {t('desk.patient.move')}
+                      </Button>
+                    )}
+                    {can.postpone && future && r.status === 'scheduled' && (
+                      <Button mih={44} variant="default" onClick={() => act('cancel', r)}>
+                        {t('desk.patient.cancel')}
+                      </Button>
+                    )}
+                    {can.postpone && r.date <= today && (
+                      <Button mih={44} variant="default" onClick={() => act('dnc', r)}>
+                        {t('desk.patient.didNotCome')}
+                      </Button>
+                    )}
+                  </Group>
+                </Stack>
+              </Card>
+            );
+          })}
+        </Stack>
+      )}
+
       <OrdersPanel patientId={patient.id} />
 
       {canHistory && (
@@ -279,9 +344,18 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
 
       <Modal opened={dialog !== null} onClose={close} title={dialog ? titles[dialog] : ''} fullScreen={dialog === 'edit'}>
         {dialog === 'edit' && <PatientForm key={patient.id} patient={patient} onDone={close} />}
-        {dialog === 'book' && grid.data && (
-          <BookDialog key="book" grid={grid.data} initial={{ chairId: first?.chairId ?? null, shiftId: first?.shiftId ?? null, weekday: null, patientId: patient.id }} onDone={close} />
+        {dialog === 'book' && <BookDialog key="book" initial={{ patientId: patient.id }} onDone={close} />}
+        {dialog === 'changePlan' && current && (
+          <BookDialog
+            key="changePlan"
+            mode="change"
+            initial={{ patientId: patient.id, items: current.items.map(({ weekday, shiftId, chairId }) => ({ weekday, shiftId, chairId })) }}
+            onDone={close}
+          />
         )}
+        {dialog === 'move' && target && <MoveDialog key={target.id} sessionId={target.id} date={target.date} onDone={close} />}
+        {dialog === 'cancel' && target && <CancelDialog key={target.id} sessionId={target.id} onDone={close} />}
+        {dialog === 'dnc' && target && <DidNotComeDialog key={target.id} sessionId={target.id} onDone={close} />}
         {dialog === 'postpone' && <PostponeDialog key="postpone" patientId={patient.id} onDone={() => setDialog(can.makeup ? 'makeup' : null)} />}
         {dialog === 'makeup' && <MakeupDialog key="makeup" patientId={patient.id} onDone={close} />}
         {dialog === 'discharge' && <DischargeDialog key="discharge" patientId={patient.id} onDone={close} />}
