@@ -54,6 +54,14 @@ function RequireAuth() {
   return <AppShell />;
 }
 
+function LoginRoute() {
+  const { me, loading } = useAuth();
+  const { centreId } = useCentre();
+  if (loading) return <Spinner />;
+  if (me) return <Navigate to={landingPath(me, centreId)} replace />;
+  return <LoginPage />;
+}
+
 function Home() {
   const { me } = useAuth();
   const { centreId } = useCentre();
@@ -81,7 +89,7 @@ function Guard({ pattern, children }: { pattern: string; children: ReactElement 
 export function AppRoutes() {
   return (
     <Routes>
-      <Route path="/login" element={<LoginPage />} />
+      <Route path="/login" element={<LoginRoute />} />
       <Route element={<RequireAuth />}>
         <Route index element={<Home />} />
         {Object.entries(SCREENS).map(([pattern, screen]) => (

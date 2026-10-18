@@ -46,4 +46,22 @@ describe('AppShell', () => {
     renderApp(<AppRoutes />);
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeTruthy();
   });
+
+  it('shows a translated error and stays signed in when logout fails', async () => {
+    server.use(
+      http.get('*/api/auth/me', () => HttpResponse.json(nurse([{ id: 'c1', name: 'Damascus' }]))),
+      http.post('*/api/auth/logout', () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
+    );
+    renderApp(<AppRoutes />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
+  });
+
+  it('redirects an already signed-in user from /login to their landing page', async () => {
+    server.use(http.get('*/api/auth/me', () => HttpResponse.json(nurse([{ id: 'c1', name: 'Damascus' }]))));
+    renderApp(<AppRoutes />, '/login');
+    expect(await screen.findByRole('heading', { name: 'Today' })).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
+  });
 });

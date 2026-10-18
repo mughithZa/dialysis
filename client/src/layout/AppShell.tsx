@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import {
+  Alert,
   AppShell as MantineAppShell,
   Box,
   Button,
@@ -13,6 +14,7 @@ import {
   UnstyledButton,
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+import { errorMessage } from '../i18n/errors';
 import { useAuth, useCentre } from '../auth/AuthProvider';
 import { visibleNav, type VisibleNavItem } from './nav';
 
@@ -27,6 +29,7 @@ export function AppShell() {
   const location = useLocation();
   const isPhone = useMediaQuery('(max-width: 48em)') ?? false;
   const [moreOpen, setMoreOpen] = useState(false);
+  const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const items = visibleNav(me, centreId);
   const tabs = items.slice(0, TAB_COUNT);
@@ -42,8 +45,13 @@ export function AppShell() {
 
   const onLogout = async () => {
     setMoreOpen(false);
-    await logout();
-    navigate('/login', { replace: true });
+    setLogoutError(null);
+    try {
+      await logout();
+      navigate('/login', { replace: true });
+    } catch (err) {
+      setLogoutError(errorMessage(t, err));
+    }
   };
 
   const switcher = centres.length > 1 && (
@@ -91,6 +99,11 @@ export function AppShell() {
       </MantineAppShell.Navbar>
 
       <MantineAppShell.Main>
+        {logoutError && (
+          <Alert color="danger" role="alert" mb="md" withCloseButton onClose={() => setLogoutError(null)}>
+            {logoutError}
+          </Alert>
+        )}
         <Outlet />
       </MantineAppShell.Main>
 

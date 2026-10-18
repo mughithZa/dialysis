@@ -25,7 +25,7 @@ describe('LoginPage', () => {
     );
     renderApp(<LoginPage />);
     await submit('pm', 'wrong');
-    expect(await screen.findByText('Incorrect username or password.')).toBeTruthy();
+    expect(await screen.findByText('Incorrect username or password.')).toBeInTheDocument();
   });
 
   it('falls back to the generic message for unknown error codes', async () => {
@@ -35,7 +35,7 @@ describe('LoginPage', () => {
     );
     renderApp(<LoginPage />);
     await submit('pm', 'x');
-    expect(await screen.findByText('Something went wrong. Please try again.')).toBeTruthy();
+    expect(await screen.findByText('Something went wrong. Please try again.')).toBeInTheDocument();
   });
 
   it('redirects a nurse to today after login', async () => {
@@ -57,6 +57,6 @@ describe('LoginPage', () => {
       </Routes>,
     );
     await submit('nurse', 'pw');
-    await waitFor(() => expect(screen.getByText('TODAY PAGE')).toBeTruthy());
+    await waitFor(() => expect(screen.getByText('TODAY PAGE')).toBeInTheDocument());
   });
 });

@@ -1,7 +1,29 @@
+import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
 import { THEME_COLOR } from './src/theme.ts';
+
+/**
+ * vite-plugin-pwa 2.0 still passes the Rollup-era `output.inlineDynamicImports` to its service-worker
+ * sub-build, which Vite 8 (Rolldown) reports as deprecated. Swap it for the Rolldown equivalent.
+ * Remove once the plugin stops setting it.
+ */
+function swSingleChunk(): Plugin {
+  return {
+    name: 'sw-single-chunk',
+    config(config) {
+      const build = config.build as Record<string, any> | undefined;
+      for (const key of ['rollupOptions', 'rolldownOptions']) {
+        const output = build?.[key]?.output;
+        if (output?.inlineDynamicImports) {
+          delete output.inlineDynamicImports;
+          output.codeSplitting = false;
+        }
+      }
+    },
+  };
+}
 
 export default defineConfig({
   plugins: [
@@ -26,18 +48,20 @@ export default defineConfig({
           { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
-      injectManifest: { globPatterns: ['**/*.{js,css,html,png,svg,ico}'] },
+      injectManifest: {
+        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+        buildPlugins: { vite: [swSingleChunk()] },
+      },
     }),
   ],
-  build: { target: 'es2022' },
   server: { proxy: { '/api': 'http://localhost:3000' } },
   test: {
     environment: 'jsdom',
     globals: true,
     setupFiles: ['./src/test/setup.ts'],
     css: false,
-    // Node >= 22 ships an experimental global localStorage that shadows jsdom's and warns.
-    pool: 'forks',
-    poolOptions: { forks: { execArgv: ['--no-experimental-webstorage'] } },
+    // Node >= 25 ships an experimental global localStorage that shadows jsdom's and warns
+    // before any setup file runs, so it can only be switched off with a worker Node flag.
+    execArgv: ['--no-experimental-webstorage'],
   },
 });

@@ -7,7 +7,7 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json"
+    "typecheck": "tsc --noEmit && tsc --noEmit -p tsconfig.sw.json && tsc --noEmit -p tsconfig.node.json"
   },
   "dependencies": {
     "@dialysis/shared": "*",
@@ -23,20 +23,21 @@
     "workbox-precaching": "7.4.1"
   },
   "devDependencies": {
+    "@testing-library/jest-dom": "6.9.1",
     "@testing-library/react": "16.3.3",
     "@testing-library/user-event": "14.6.8",
     "@types/react": "18.3.31",
     "@types/react-dom": "18.3.7",
-    "@vitejs/plugin-react": "4.7.0",
+    "@vitejs/plugin-react": "6.1.2",
     "jsdom": "29.1.1",
     "msw": "2.15.0",
     "postcss": "8.5.30",
     "postcss-preset-mantine": "1.18.0",
     "postcss-simple-vars": "7.0.1",
     "typescript": "5.9.3",
-    "vite": "5.4.21",
+    "vite": "8.3.4",
     "vite-plugin-pwa": "2.0.0",
-    "vitest": "2.1.9",
+    "vitest": "4.1.12",
     "workbox-build": "7.4.1",
     "workbox-window": "7.4.1"
   }
