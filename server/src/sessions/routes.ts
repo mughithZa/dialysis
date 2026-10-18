@@ -19,9 +19,12 @@ import { toSessionCards } from './card.js';
 import { SessionChange } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
 import {
+  cancelSession,
   closeSession,
   createMakeup,
+  didNotCome,
   loadSessionInCentre,
+  moveSession,
   openSession,
   postponeSession,
   recordChange,
@@ -123,6 +126,68 @@ sessionsRouter.post('/sessions/:sid/postpone', requirePerm('sessions.postpone'),
       return p;
     });
     res.json(await cardOf(postponed));
+  } catch (e) {
+    next(e);
+  }
+});
+
+const reasonBody = z.object({ reason: z.string().trim().min(1).max(200).optional() }).strict();
+const cancelBody = z.object({ reason: z.string().trim().min(1).max(200) });
+const moveBody = z.object({
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine((s) => DateTime.fromISO(s, { zone: 'utc' }).isValid),
+  shiftId: z.string().min(1),
+  chairId: z.string().min(1),
+});
+
+sessionsRouter.post(
+  '/sessions/:sid/did-not-come',
+  requirePerm('sessions.postpone'),
+  validate(reasonBody),
+  async (req, res, next) => {
+    try {
+      const b = req.body as z.infer<typeof reasonBody>;
+      const session = await loadSessionInCentre(centreOf(req), sidOf(req));
+      const updated = await withTransaction(async (tx) => {
+        const u = await didNotCome(session, b.reason, tx);
+        await recordAudit(req, 'session.did_not_come', 'session', u.id, b.reason ? { reason: b.reason } : undefined, tx);
+        return u;
+      });
+      res.json(await cardOf(updated));
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+sessionsRouter.post('/sessions/:sid/cancel', requirePerm('sessions.postpone'), validate(cancelBody), async (req, res, next) => {
+  try {
+    const b = req.body as z.infer<typeof cancelBody>;
+    const session = await loadSessionInCentre(centreOf(req), sidOf(req));
+    const updated = await withTransaction(async (tx) => {
+      const u = await cancelSession(session, b.reason, tx);
+      await recordAudit(req, 'session.cancel', 'session', u.id, { reason: b.reason }, tx);
+      return u;
+    });
+    res.json(await cardOf(updated));
+  } catch (e) {
+    next(e);
+  }
+});
+
+sessionsRouter.post('/sessions/:sid/move', requirePerm('schedule.book'), validate(moveBody), async (req, res, next) => {
+  try {
+    const b = req.body as z.infer<typeof moveBody>;
+    const session = await loadSessionInCentre(centreOf(req), sidOf(req));
+    const from = { date: session.date, shiftId: String(session.shiftId), chairId: String(session.chairId) };
+    const moved = await withTransaction(async (tx) => {
+      const m = await moveSession(centreOf(req), session.id, b, tx);
+      await recordAudit(req, 'session.move', 'session', m.id, { from, to: b }, tx);
+      return m;
+    });
+    res.json(await cardOf(moved));
   } catch (e) {
     next(e);
   }

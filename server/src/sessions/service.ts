@@ -107,6 +107,79 @@ export async function postponeSession(session: SessionDoc, tx?: ClientSession): 
   return postponed;
 }
 
+/** Records that the patient did not come: from `scheduled` or `missed`, never for a future date. Snapshot is atomic with the status. */
+export async function didNotCome(session: SessionDoc, reason: string | undefined, tx: ClientSession): Promise<SessionDoc> {
+  if (session.date > todayLocal()) throw conflict('not_yet');
+  const updated = await transition(
+    session.id,
+    ['scheduled', 'missed'],
+    { status: 'did_not_come', ...(reason ? { statusReason: reason } : {}) },
+    tx,
+  );
+  await finaliseSnapshot(updated, tx);
+  return updated;
+}
+
+export async function cancelSession(session: SessionDoc, reason: string, tx: ClientSession): Promise<SessionDoc> {
+  const updated = await transition(session.id, ['scheduled'], { status: 'cancelled', statusReason: reason }, tx);
+  await finaliseSnapshot(updated, tx);
+  return updated;
+}
+
+export interface MoveInput {
+  date: string;
+  chairId: string;
+  shiftId: string;
+}
+
+/**
+ * Moves one scheduled session to another free slot (today or later), detaching it from its plan. Runs in the caller's
+ * transaction: locks the target slot, then asks `isSlotFree` (the patient's own slot never blocks them). `movedFrom`
+ * keeps the FIRST original slot across re-moves, so regeneration never recreates it.
+ */
+export async function moveSession(centreId: string, sessionId: string, input: MoveInput, tx: ClientSession): Promise<SessionDoc> {
+  if (input.date < todayLocal()) throw badRequest('move_in_past');
+  const current = await Session.findById(sessionId, null, { session: tx });
+  if (!current || String(current.centreId) !== String(centreId)) throw notFound();
+  if (current.status !== 'scheduled') throw conflict('bad_status');
+  const chair = validId(input.chairId) ? await Chair.findById(input.chairId, null, { session: tx }) : null;
+  if (!chair || String(chair.centreId) !== String(centreId)) throw notFound();
+  const shift = validId(input.shiftId) ? await Shift.findById(input.shiftId, null, { session: tx }) : null;
+  if (!shift || String(shift.centreId) !== String(centreId)) throw notFound();
+  if (!chair.active) throw badRequest('inactive_chair');
+  if (!shift.active) throw badRequest('inactive_shift');
+  const centre = await Centre.findById(centreId, null, { session: tx });
+  if (!centre?.workingDays.includes(weekdayOf(input.date))) throw badRequest('not_working_day');
+  if (
+    current.date === input.date &&
+    String(current.shiftId) === String(shift._id) &&
+    String(current.chairId) === String(chair._id)
+  ) {
+    throw badRequest('same_slot');
+  }
+
+  await lockSlot(chair._id, shift._id, weekdayOf(input.date), tx);
+  if (!(await isSlotFree(centreId, chair._id, shift._id, input.date, { session: tx, ignorePatientId: current.patientId }))) {
+    throw conflict('slot_taken');
+  }
+  const set: Record<string, unknown> = {
+    date: input.date,
+    shiftId: shift._id,
+    chairId: chair._id,
+    shiftStart: shift.start,
+    shiftEnd: shift.end,
+    chairLabel: chair.label,
+    detached: true,
+  };
+  if (!current.movedFrom) set.movedFrom = { date: current.date, shiftId: current.shiftId, chairId: current.chairId };
+  try {
+    return await transition(current.id, ['scheduled'], set, tx);
+  } catch (e) {
+    if ((e as { code?: number }).code === 11000) throw conflict('session_exists');
+    throw e;
+  }
+}
+
 export interface MakeupInput {
   date: string;
   chairId: string;

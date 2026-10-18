@@ -103,7 +103,15 @@ describe('roster routes', () => {
     expect((await post({ ...ok, shiftIds: [] })).status).toBe(400);
     const denied = await rana.agent.post(`${base}/roster`).send({ ...ok, shiftIds: [shifts[0]!.id], chairIds: [] });
     expect(denied.status).toBe(403);
-    expect((await desk.agent.delete(`${base}/roster/${other.centre.id}`)).status).toBe(404);
+    // a real entry that belongs to another centre is not reachable from this one
+    const otherDesk = await staffIn(other.centre.id, ['front_desk']);
+    const otherNurse = await staffIn(other.centre.id, ['nurse']);
+    const foreign = await otherDesk.agent
+      .post(`/api/centres/${other.centre.id}/roster`)
+      .send({ nurseId: otherNurse.user.id, shiftIds: [other.shifts[0]!.id], from: '2026-11-02', to: '2026-11-08', chairIds: [] });
+    expect(foreign.status).toBe(201);
+    expect((await desk.agent.delete(`${base}/roster/${foreign.body[0].id}`)).status).toBe(404);
+    expect(await RosterEntry.countDocuments({ centreId: other.centre.id })).toBe(1);
   });
 });
 

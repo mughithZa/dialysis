@@ -1,5 +1,6 @@
 import cron from 'node-cron';
 import { config } from '../config.js';
+import { withTransaction } from '../db.js';
 import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
@@ -25,10 +26,13 @@ export async function markMissed(now: Date = new Date()): Promise<number> {
   const due = await Session.find({ status: 'scheduled', date: { $lt: todayLocal(now) } }, { _id: 1 }).lean();
   let count = 0;
   for (const { _id } of due) {
-    const done = await Session.findOneAndUpdate({ _id, status: 'scheduled' }, { $set: { status: 'missed' } }, { new: true });
-    if (!done) continue;
-    await finaliseSnapshot(done);
-    count++;
+    const ok = await withTransaction(async (tx) => {
+      const done = await Session.findOneAndUpdate({ _id, status: 'scheduled' }, { $set: { status: 'missed' } }, { new: true, session: tx });
+      if (!done) return false;
+      await finaliseSnapshot(done, tx);
+      return true;
+    });
+    if (ok) count++;
   }
   return count;
 }
