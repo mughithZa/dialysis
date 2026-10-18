@@ -4,7 +4,7 @@ import { Alert, Button, Loader, Select, Stack, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '../../i18n/errors';
 import { useGrid, useMakeup } from './api';
-import { todayLocal } from './dates';
+import { addDaysLocal, MAKEUP_WINDOW_DAYS, todayLocal } from './dates';
 
 /** Book a one-off make-up session. Mount with a `key` so each open starts fresh. */
 export function MakeupDialog({ patientId, onDone }: { patientId: string; onDone: () => void }) {
@@ -36,7 +36,7 @@ export function MakeupDialog({ patientId, onDone }: { patientId: string; onDone:
     >
       {grid.isPending && <Loader size="sm" />}
       {grid.isError && <Alert color="danger">{errorMessage(t, grid.error)}</Alert>}
-      <TextInput label={t('desk.makeup.date')} type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} />
+      <TextInput label={t('desk.makeup.date')} type="date" min={todayLocal()} max={addDaysLocal(MAKEUP_WINDOW_DAYS)} value={date} onChange={(e) => setDate(e.currentTarget.value)} />
       <Select
         label={t('desk.makeup.chair')}
         value={chairId}

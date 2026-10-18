@@ -58,7 +58,7 @@
     "inactive_shift": "That shift is not in use.",
     "no_pattern": "This patient has no schedule yet.",
     "slot_busy": "That chair is already taken at that time.",
-    "makeup_out_of_window": "Make-up sessions must be within the next 14 days.",
+    "makeup_out_of_window": "Make-up sessions must be within the next 3 days.",
     "session_exists": "This patient already has a session at that time.",
     "bad_target": "Choose a different centre to transfer to.",
     "not_pending": "This transfer has already been decided.",

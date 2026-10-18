@@ -1,4 +1,4 @@
-import { createTheme, type MantineColorsTuple } from '@mantine/core';
+import { Chip, createTheme, SegmentedControl, type MantineColorsTuple } from '@mantine/core';
 
 /** Browser/OS chrome colour (PWA manifest `theme_color`, `<meta name="theme-color">`). */
 export const THEME_COLOR = '#2b3a4a';
@@ -25,4 +25,13 @@ export const theme = createTheme({
   fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif',
   headings: { fontFamily: 'system-ui, -apple-system, "Segoe UI", Roboto, sans-serif' },
   defaultRadius: 'md',
+  components: {
+    // Touch targets must be at least 44 px tall (global constraint).
+    Chip: Chip.extend({
+      styles: { label: { minBlockSize: 44, display: 'inline-flex', alignItems: 'center', justifyContent: 'center' } },
+    }),
+    SegmentedControl: SegmentedControl.extend({
+      styles: { label: { minBlockSize: 44, display: 'flex', alignItems: 'center', justifyContent: 'center' } },
+    }),
+  },
 });
