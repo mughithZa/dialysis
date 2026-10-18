@@ -282,3 +282,66 @@ export function useTransferAction() {
     onSettled: invalidate,
   });
 }
+
+// ---------- Schedule setup and calendar ----------
+
+export interface SetupDto {
+  machines: { id: string; label: string; active: boolean }[];
+  blocks: { id: string; name: string; start: string; end: string }[];
+  workingDays: number[];
+}
+export interface SetupBody {
+  machineCount: number;
+  blocks: { id?: string; name: string; start: string; end: string }[];
+  workingDays: number[];
+}
+export interface CalendarCard extends Omit<SessionCardDto, 'status'> {
+  status: SessionCardDto['status'] | 'did_not_come' | 'cancelled';
+}
+export interface CalendarDto {
+  days: {
+    date: string;
+    working: boolean;
+    blocks: {
+      shiftId: string;
+      nurseByChair: Record<string, { id: string; name: string } | null>;
+      cells: { chairId: string; session: CalendarCard | null; heldBy: { patientId: string; name: string } | null }[];
+    }[];
+  }[];
+}
+
+export const useSetup = () => {
+  const centreId = useCentreId();
+  return useQuery({
+    queryKey: key(centreId, 'setup'),
+    queryFn: () => apiGet<SetupDto>(`${base(centreId)}/schedule/setup`),
+    enabled: !!centreId,
+  });
+};
+
+export function useSaveSetup() {
+  const centreId = useCentreId();
+  const invalidate = useInvalidateDesk();
+  return useMutation({
+    mutationFn: (body: SetupBody) => apiPut<SetupDto>(`${base(centreId)}/schedule/setup`, body),
+    onSettled: invalidate,
+  });
+}
+
+export function useRenameMachine() {
+  const centreId = useCentreId();
+  const invalidate = useInvalidateDesk();
+  return useMutation({
+    mutationFn: ({ id, label }: { id: string; label: string }) => apiPatch(`${base(centreId)}/chairs/${id}`, { label }),
+    onSuccess: invalidate,
+  });
+}
+
+export const useCalendar = (from: string, to: string) => {
+  const centreId = useCentreId();
+  return useQuery({
+    queryKey: key(centreId, 'calendar', from, to),
+    queryFn: () => apiGet<CalendarDto>(`${base(centreId)}/schedule/calendar?from=${from}&to=${to}`),
+    enabled: !!centreId,
+  });
+};

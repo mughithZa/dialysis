@@ -57,20 +57,15 @@ export async function lockSlot(chairId: Id, shiftId: Id, weekday: number, sessio
   }
 }
 
-/** Chair ids taken for (shift, date), optionally only looking at one chair. Assumes the date is a working day. */
-async function takenChairIds(centreId: Id, shiftId: Id, date: string, opts: SlotOpts, chairId?: Id): Promise<Set<string>> {
+/**
+ * Machines held by a weekly plan for (shift, date), chair id -> holding patient id (rule 2 above, exceptions applied).
+ * Assumes the date is a working day.
+ */
+export async function planHolds(centreId: Id, shiftId: Id, date: string, opts: SlotOpts = {}, chairId?: Id): Promise<Map<string, string>> {
   const session = opts.session ?? null;
   const notMe = validId(opts.ignorePatientId) ? { patientId: { $ne: opts.ignorePatientId } } : {};
   const onChair = chairId ? { chairId } : {};
-  const taken = new Set<string>();
-
-  // rule 1: live sessions
-  const live = await Session.find({ shiftId, date, status: { $in: [...LIVE_STATUSES] }, ...onChair, ...notMe }, { chairId: 1 })
-    .session(session)
-    .lean();
-  for (const s of live) taken.add(String(s.chairId));
-
-  // rule 2: weekly plan items covering the date
+  const holds = new Map<string, string>();
   const weekday = weekdayOf(date);
   const plans = await Plan.find(
     {
@@ -84,7 +79,7 @@ async function takenChairIds(centreId: Id, shiftId: Id, date: string, opts: Slot
   )
     .session(session)
     .lean();
-  if (!plans.length) return taken;
+  if (!plans.length) return holds;
 
   // exceptions: the holder released this one date (postponed/cancelled there, or moved away from it)
   const released = await Session.find(
@@ -104,9 +99,29 @@ async function takenChairIds(centreId: Id, shiftId: Id, date: string, opts: Slot
   for (const plan of plans) {
     if (releasedBy.has(String(plan.patientId))) continue;
     for (const item of plan.items) {
-      if (item.weekday === weekday && same(item.shiftId, shiftId)) taken.add(String(item.chairId));
+      if (item.weekday === weekday && same(item.shiftId, shiftId) && (!chairId || same(item.chairId, chairId))) {
+        holds.set(String(item.chairId), String(plan.patientId));
+      }
     }
   }
+  return holds;
+}
+
+/** Chair ids taken for (shift, date), optionally only looking at one chair. Assumes the date is a working day. */
+async function takenChairIds(centreId: Id, shiftId: Id, date: string, opts: SlotOpts, chairId?: Id): Promise<Set<string>> {
+  const session = opts.session ?? null;
+  const notMe = validId(opts.ignorePatientId) ? { patientId: { $ne: opts.ignorePatientId } } : {};
+  const onChair = chairId ? { chairId } : {};
+  const taken = new Set<string>();
+
+  // rule 1: live sessions
+  const live = await Session.find({ shiftId, date, status: { $in: [...LIVE_STATUSES] }, ...onChair, ...notMe }, { chairId: 1 })
+    .session(session)
+    .lean();
+  for (const s of live) taken.add(String(s.chairId));
+
+  // rule 2: weekly plan items covering the date
+  for (const id of (await planHolds(centreId, shiftId, date, opts, chairId)).keys()) taken.add(id);
   return taken;
 }
 

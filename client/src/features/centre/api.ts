@@ -12,18 +12,6 @@ export interface UserRow {
   active: boolean;
   roleKeys: string[];
 }
-export interface Chair {
-  id: string;
-  label: string;
-  active: boolean;
-}
-export interface Shift {
-  id: string;
-  name: string;
-  start: string;
-  end: string;
-  active: boolean;
-}
 export interface CentreSettings {
   patientsSeeNotes: boolean;
   reminderHours: number;
@@ -107,37 +95,6 @@ export function useLinkDoctor() {
     mutationFn: ({ id, roleKeys }: { id: string; roleKeys: string[] }) =>
       apiPost<UserRow>(`${base(centreId)}/users/${id}/link`, { roleKeys }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['users', centreId] }),
-  });
-}
-
-// ---------- Chairs & shifts ----------
-
-export const useChairs = () => {
-  const centreId = useCentreId();
-  return useQuery({ queryKey: ['chairs', centreId], queryFn: () => apiGet<Chair[]>(`${base(centreId)}/chairs`), enabled: !!centreId });
-};
-export const useShifts = () => {
-  const centreId = useCentreId();
-  return useQuery({ queryKey: ['shifts', centreId], queryFn: () => apiGet<Shift[]>(`${base(centreId)}/shifts`), enabled: !!centreId });
-};
-
-export function useSaveChair() {
-  const centreId = useCentreId();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...body }: { id?: string; label?: string; active?: boolean }) =>
-      id ? apiPatch<Chair>(`${base(centreId)}/chairs/${id}`, body) : apiPost<Chair>(`${base(centreId)}/chairs`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['chairs', centreId] }),
-  });
-}
-
-export function useSaveShift() {
-  const centreId = useCentreId();
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: ({ id, ...body }: { id?: string; name?: string; start?: string; end?: string; active?: boolean }) =>
-      id ? apiPatch<Shift>(`${base(centreId)}/shifts/${id}`, body) : apiPost<Shift>(`${base(centreId)}/shifts`, body),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['shifts', centreId] }),
   });
 }
 

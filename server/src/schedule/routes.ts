@@ -19,7 +19,11 @@ import { Shift } from '../centres/shift.model.js';
 import { Patient } from '../patients/patient.model.js';
 import { bookPlan, changePlan, endPlans, type BookResult } from './booking.js';
 import { Plan, type PlanDoc } from './plan.model.js';
-import { freeMachines } from './slots.js';
+import { freeMachines, planHolds } from './slots.js';
+import { resolveRoster } from './roster.js';
+import { Centre } from '../centres/centre.model.js';
+import { addDays, weekdayOf } from '../lib/dates.js';
+import { LIVE_STATUSES } from '../sessions/session.model.js';
 import { buildBoard } from './board.js';
 
 export const scheduleRouter = Router({ mergeParams: true });
@@ -132,6 +136,89 @@ scheduleRouter.get('/schedule/free', requirePerm('schedule.view'), async (req, r
     const { date, shiftId, patientId } = parsed.data;
     const patient = patientId === undefined ? null : await loadPatientInCentre(centreId, patientId);
     res.json(await freeMachines(centreId, shiftId, date, patient ? { ignorePatientId: patient._id } : {}));
+  } catch (e) {
+    next(e);
+  }
+});
+
+// ---------- calendar ----------
+
+export const MAX_CALENDAR_DAYS = 14;
+const calendarQuery = z.object({ from: localDate, to: localDate });
+/** A non-live session that still shows on its cell: the patient's outcome for a held slot. */
+const OUTCOME_STATUSES = ['missed', 'did_not_come'];
+
+/**
+ * Machines x blocks for each date in [from, to] (at most 14 days): the session on each cell, else the patient
+ * whose weekly plan holds it (the slots.ts rules), and the rostered nurse per machine for each block.
+ */
+scheduleRouter.get('/schedule/calendar', requirePerm('schedule.view'), async (req, res, next) => {
+  try {
+    const centreId = centreOf(req);
+    const q = calendarQuery.safeParse(req.query);
+    if (!q.success) throw badRequest('validation');
+    const { from, to } = q.data;
+    if (to < from) throw badRequest('validation');
+    const dates: string[] = [];
+    for (let d = from; d <= to; d = addDays(d, 1)) {
+      dates.push(d);
+      if (dates.length > MAX_CALENDAR_DAYS) throw badRequest('range_too_long');
+    }
+    const [centre, chairs, shifts] = await Promise.all([
+      Centre.findById(centreId),
+      Chair.find({ centreId, active: true }),
+      Shift.find({ centreId, active: true }).sort({ start: 1 }),
+    ]);
+    if (!centre) throw notFound();
+    chairs.sort((a, b) => a.label.localeCompare(b.label, undefined, { numeric: true }));
+    const sessions = await Session.find({ centreId, date: { $gte: from, $lte: to }, shiftId: { $in: shifts.map((s) => s._id) } });
+    const cards = new Map((await toSessionCards(centreId, sessions)).map(({ card }) => [card.id, card]));
+    const byCell = new Map<string, SessionDoc[]>();
+    for (const s of sessions) {
+      const k = `${s.date}:${s.shiftId}:${s.chairId}`;
+      byCell.set(k, [...(byCell.get(k) ?? []), s]);
+    }
+    const live = new Set<string>(LIVE_STATUSES);
+    const days = [];
+    for (const date of dates) {
+      const working = centre.workingDays.includes(weekdayOf(date));
+      if (!working) {
+        days.push({ date, working, blocks: [] });
+        continue;
+      }
+      const roster = await resolveRoster(centreId, date);
+      const holds = new Map<string, Map<string, string>>();
+      for (const sh of shifts) holds.set(sh.id as string, await planHolds(centreId, sh._id, date));
+      const holderIds = [...holds.values()].flatMap((m) => [...m.values()]);
+      const nurseIds = [...new Set(roster.values())];
+      const [holderDocs, nurseDocs] = await Promise.all([
+        Patient.find({ _id: { $in: holderIds } }),
+        User.find({ _id: { $in: nurseIds } }),
+      ]);
+      const holderName = new Map(holderDocs.map((p) => [p.id as string, p.name]));
+      const nurseName = new Map(nurseDocs.map((u) => [u.id as string, u.name]));
+      const blocks = shifts.map((sh) => {
+        const shiftId = sh.id as string;
+        const nurseByChair: Record<string, { id: string; name: string } | null> = {};
+        const cells = chairs.map((c) => {
+          const chairId = c.id as string;
+          const nid = roster.get(`${shiftId}:${chairId}`);
+          nurseByChair[chairId] = nid ? { id: nid, name: nurseName.get(nid) ?? '' } : null;
+          const here = byCell.get(`${date}:${shiftId}:${chairId}`) ?? [];
+          const pick = here.find((s) => live.has(s.status)) ?? here.find((s) => OUTCOME_STATUSES.includes(s.status));
+          const holder = holds.get(shiftId)!.get(chairId);
+          const name = holder === undefined ? undefined : holderName.get(holder);
+          return {
+            chairId,
+            session: pick ? (cards.get(pick.id as string) ?? null) : null,
+            heldBy: !pick && holder !== undefined && name !== undefined ? { patientId: holder, name } : null,
+          };
+        });
+        return { shiftId, nurseByChair, cells };
+      });
+      days.push({ date, working, blocks });
+    }
+    res.json({ days });
   } catch (e) {
     next(e);
   }

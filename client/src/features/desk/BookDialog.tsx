@@ -10,6 +10,8 @@ export interface BookInitial {
   chairId: string | null;
   shiftId: string | null;
   weekday: number | null;
+  /** Calendar cell date (YYYY-MM-DD): the booking starts here. */
+  date?: string;
   /** Fixed patient (booking from the patient page); otherwise chosen in the dialog. */
   patientId?: string;
 }
@@ -29,7 +31,7 @@ export function BookDialog({ grid, initial, onDone }: Props) {
   const [chairId, setChairId] = useState<string | null>(initial.chairId);
   const [shiftId, setShiftId] = useState<string | null>(initial.shiftId);
   const [weekdays, setWeekdays] = useState<string[]>(initial.weekday === null ? [] : [String(initial.weekday)]);
-  const [from, setFrom] = useState(todayLocal());
+  const [from, setFrom] = useState(initial.date ?? todayLocal());
 
   // A patient who already has slots on the grid is changing their pattern, not booking a new one.
   const change = patientId !== null && grid.slots.some((s) => s.patient.id === patientId);

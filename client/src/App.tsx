@@ -17,10 +17,10 @@ import { PatientsPage } from './features/desk/PatientsPage';
 import { PatientPage } from './features/desk/PatientPage';
 import { AssignNursesPage } from './features/desk/AssignNursesPage';
 import { RolesPage } from './features/pm/RolesPage';
-import { ScheduleGrid } from './features/desk/ScheduleGrid';
+import { CalendarPage } from './features/desk/CalendarPage';
 import { AuditPage } from './features/centre/AuditPage';
 import { SettingsPage } from './features/centre/SettingsPage';
-import { SetupPage } from './features/centre/SetupPage';
+import { SetupPage } from './features/desk/SetupPage';
 import { CentreStatsPage } from './features/centre/CentreStatsPage';
 import { SessionPage } from './features/nurse/SessionPage';
 import { TodayPage } from './features/nurse/TodayPage';
@@ -35,7 +35,7 @@ const SCREENS: Record<string, ReactElement> = {
   '/dashboard': <DashboardPage />,
   '/c/:centreId/today': <TodayPage />,
   '/c/:centreId/patients': <PatientsPage />,
-  '/c/:centreId/schedule': <ScheduleGrid />,
+  '/c/:centreId/schedule': <CalendarPage />,
   '/c/:centreId/transfers': <TransfersPage />,
   '/c/:centreId/users': <UsersPage />,
   '/c/:centreId/setup': <SetupPage />,
