@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
@@ -96,5 +96,34 @@ describe('CalendarPage', () => {
     renderApp(<CalendarPage />);
     const link = await screen.findByRole('link', { name: /Ahmad Nour/ });
     expect(link.getAttribute('href')).toBe('/c/c1/patients/p1');
+  });
+
+  it('desktop week runs Saturday to Friday', async () => {
+    vi.spyOn(window, 'matchMedia').mockImplementation(
+      (query: string) =>
+        ({ matches: true, media: query, onchange: null, addEventListener: () => {}, removeEventListener: () => {}, addListener: () => {}, removeListener: () => {}, dispatchEvent: () => false }) as unknown as MediaQueryList,
+    );
+    useCentreUser(['schedule.view', 'patients.view']);
+    let from = '';
+    server.use(
+      http.get('*/api/centres/c1/schedule/setup', () => HttpResponse.json(setup)),
+      http.get('*/api/centres/c1/schedule/calendar', ({ request }) => {
+        from = new URL(request.url).searchParams.get('from') ?? '';
+        const [y, m, d] = from.split('-').map(Number) as [number, number, number];
+        const days = Array.from({ length: 7 }, (_, i) => {
+          const dt = new Date(y, m - 1, d + i);
+          const pad = (n: number) => String(n).padStart(2, '0');
+          return { date: `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}`, working: true, blocks: [] };
+        });
+        return HttpResponse.json({ days });
+      }),
+    );
+    renderApp(<CalendarPage />);
+    const heads = await screen.findAllByRole('columnheader');
+    const names = heads.map((h) => h.textContent?.split(' ')[0]).filter(Boolean);
+    expect(names.slice(0, 7)).toEqual(['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri']);
+    const [y, m, d] = from.split('-').map(Number) as [number, number, number];
+    expect(new Date(y, m - 1, d).getDay()).toBe(6);
+    vi.restoreAllMocks();
   });
 });

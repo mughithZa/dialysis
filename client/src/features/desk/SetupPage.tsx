@@ -40,7 +40,7 @@ function MachineLabel({ id, label, n }: { id: string; label: string; n: number }
   );
 }
 
-function SetupForm({ setup, canSetup }: { setup: SetupDto; canSetup: boolean }) {
+function SetupForm({ setup, machines: machineList, canSetup, onSaved }: { setup: SetupDto; machines: SetupDto['machines']; canSetup: boolean; onSaved: (dto: SetupDto) => void }) {
   const { t } = useTranslation();
   const save = useSaveSetup();
   const [machineCount, setMachineCount] = useState(String(setup.machines.length || 1));
@@ -76,7 +76,12 @@ function SetupForm({ setup, canSetup }: { setup: SetupDto; canSetup: boolean }) 
               blocks: blocks.map((b) => ({ ...(b.id ? { id: b.id } : {}), name: b.name.trim(), start: b.start, end: b.end })),
               workingDays: days.map(Number).sort((a, b) => a - b),
             },
-            { onSuccess: () => notifications.show({ message: t('desk.setup.saved') }) },
+            {
+              onSuccess: (dto) => {
+                notifications.show({ message: t('desk.setup.saved') });
+                onSaved(dto);
+              },
+            },
           );
         }}
       >
@@ -149,12 +154,12 @@ function SetupForm({ setup, canSetup }: { setup: SetupDto; canSetup: boolean }) 
         )}
       </Stack>
 
-      {setup.machines.length > 0 && (
+      {machineList.length > 0 && (
         <Stack gap="xs">
           <Title order={3} size="h4">
             {t('desk.setup.machineLabels')}
           </Title>
-          {setup.machines.map((m, i) => (
+          {machineList.map((m, i) => (
             <MachineLabel key={`${m.id}:${m.label}`} id={m.id} label={m.label} n={i + 1} />
           ))}
         </Stack>
@@ -167,13 +172,22 @@ export function SetupPage() {
   const { t } = useTranslation();
   const setup = useSetup();
   const canSetup = useCan('schedule.setup');
+  // after a Save the form restarts from the server's answer (so new blocks carry their ids); a refetch alone never resets edits
+  const [saved, setSaved] = useState<{ dto: SetupDto; version: number } | null>(null);
   return (
     <Stack gap="md">
       <Title order={2}>{t('desk.setup.title')}</Title>
       {setup.isPending && <Loader />}
       {setup.isError && <Alert color="danger">{errorMessage(t, setup.error)}</Alert>}
-      {/* remount on fresh server data so new blocks carry their ids into the next save */}
-      {setup.data && <SetupForm key={JSON.stringify(setup.data)} setup={setup.data} canSetup={canSetup} />}
+      {setup.data && (
+        <SetupForm
+          key={saved?.version ?? 0}
+          setup={saved?.dto ?? setup.data}
+          machines={setup.data.machines}
+          canSetup={canSetup}
+          onSaved={(dto) => setSaved({ dto, version: (saved?.version ?? 0) + 1 })}
+        />
+      )}
     </Stack>
   );
 }

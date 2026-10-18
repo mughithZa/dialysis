@@ -103,4 +103,28 @@ describe('SetupPage', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Save label 2' }));
     await waitFor(() => expect(patch).toEqual({ label: 'B' }));
   });
+
+  it('a label rename does not wipe unsaved block edits', async () => {
+    useCentreUser(['schedule.view', 'schedule.setup']);
+    let renamed = false;
+    server.use(
+      http.get('*/api/centres/c1/schedule/setup', () =>
+        HttpResponse.json({ ...setup, machines: [{ id: 'm1', label: renamed ? 'A' : '1', active: true }, setup.machines[1]!] }),
+      ),
+      http.patch('*/api/centres/c1/chairs/m1', () => {
+        renamed = true;
+        return HttpResponse.json({ id: 'm1', label: 'A', active: true });
+      }),
+    );
+    renderApp(<SetupPage />);
+    const name = await screen.findByLabelText('Name of block 1');
+    await userEvent.clear(name);
+    await userEvent.type(name, 'Early');
+    const label = screen.getByLabelText('Label for machine 1');
+    await userEvent.clear(label);
+    await userEvent.type(label, 'A');
+    await userEvent.click(screen.getByRole('button', { name: 'Save label 1' }));
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Save label 1' })).toBeDisabled());
+    expect(screen.getByLabelText('Name of block 1')).toHaveValue('Early');
+  });
 });

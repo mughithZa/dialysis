@@ -23,7 +23,8 @@ const shift = (date: string, days: number) => {
   d.setDate(d.getDate() + days);
   return toLocalDate(d);
 };
-const weekStart = (date: string) => shift(date, -parse(date).getDay());
+/** The week runs Saturday to Friday (Sat-Thu working week). */
+const weekStart = (date: string) => shift(date, -((parse(date).getDay() + 1) % 7));
 
 const GLYPH: Record<string, string> = {
   scheduled: '○',
@@ -114,6 +115,8 @@ export function CalendarPage() {
         variant="default"
         size="compact-md"
         mih={44}
+        loading={canBook && grid.isPending}
+        disabled={!grid.data}
         aria-label={t('desk.calendar.emptyCell', { label: labelOf(c.chairId), block: name, date: day.date })}
         onClick={() => setPicked({ date: day.date, shiftId: block.shiftId, chairId: c.chairId })}
       >
@@ -157,6 +160,7 @@ export function CalendarPage() {
       {(setup.isPending || calendar.isPending) && <Loader />}
       {setup.isError && <Alert color="danger">{errorMessage(t, setup.error)}</Alert>}
       {calendar.isError && <Alert color="danger">{errorMessage(t, calendar.error)}</Alert>}
+      {grid.isError && <Alert color="danger">{errorMessage(t, grid.error)}</Alert>}
       {ready && blocks.length === 0 && <Text c="dimmed">{t('desk.calendar.noBlocks')}</Text>}
 
       {ready && !desktop &&
