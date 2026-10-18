@@ -1,14 +1,18 @@
 import mongoose from 'mongoose';
 import { config } from '../config.js';
 import { connectDb } from '../db.js';
-import { migrateV2 } from './migrate-v2.js';
+import { migrateV2, migrationMarker } from './migrate-v2.js';
 
 try {
   await connectDb(config.mongoUrl);
-  const { skipped, ...counts } = await migrateV2();
-  console.log(`migrate:v2 done: ${JSON.stringify(counts)}`);
-  if (skipped.length) {
-    console.log(`${skipped.length} record(s) skipped:`);
+  const before = await migrationMarker();
+  if (before) {
+    console.log(`already migrated on ${before.at.toISOString()}; ${before.skipped.length} records were skipped${before.skipped.length ? ':' : '.'}`);
+    for (const s of before.skipped) console.log(`  - ${s}`);
+  } else {
+    const { skipped, ...counts } = await migrateV2();
+    console.log(`migrate:v2 done: ${JSON.stringify(counts)}`);
+    if (skipped.length) console.log(`${skipped.length} records skipped:`);
     for (const s of skipped) console.log(`  - ${s}`);
   }
 } catch (e) {

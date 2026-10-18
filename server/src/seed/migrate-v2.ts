@@ -107,7 +107,7 @@ export async function migrateV2(): Promise<MigrateV2Result> {
         continue;
       }
       for (const chairIds of runs) {
-        const dup = await RosterEntry.exists({ centreId, nurseId, shiftId, from: today, chairIds });
+        const dup = await RosterEntry.exists({ centreId, nurseId, shiftId, chairIds, to: { $gte: today } });
         if (dup) continue;
         await RosterEntry.create({ centreId, nurseId, shiftId, from: today, to: addDays(today, ROSTER_DAYS), chairIds });
         result.roster++;
@@ -143,6 +143,15 @@ export async function migrateV2(): Promise<MigrateV2Result> {
     result.skipped.push(`role front_desk: ${msg(e)}`);
   }
 
-  await migrations.insertOne({ _id: 'v2' as never, at: new Date() });
+  const { skipped, ...counts } = result;
+  await migrations.insertOne({ _id: 'v2' as never, at: new Date(), counts, skipped });
   return result;
+}
+
+export interface MigrationMarker { at: Date; counts: Omit<MigrateV2Result, 'skipped'>; skipped: string[] }
+
+/** The stored outcome of a finished migration, or null when it has not run. */
+export async function migrationMarker(): Promise<MigrationMarker | null> {
+  const m = await coll('migrations').findOne({ _id: 'v2' as never });
+  return m ? ({ at: m.at, counts: m.counts, skipped: m.skipped ?? [] } as MigrationMarker) : null;
 }

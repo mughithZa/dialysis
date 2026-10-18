@@ -8,7 +8,7 @@ import { Plan } from '../schedule/plan.model.js';
 import { RosterEntry } from '../schedule/roster.model.js';
 import { Session } from '../sessions/session.model.js';
 import { createUser, makeCentre, makePatient } from '../../test/factories.js';
-import { migrateV2 } from './migrate-v2.js';
+import { migrateV2, migrationMarker } from './migrate-v2.js';
 
 const raw = (name: string) => mongoose.connection.collection(name);
 beforeEach(seedRoles);
@@ -98,6 +98,23 @@ describe('migrateV2', () => {
     expect(res.skipped.join('\n')).toMatch(/pattern/);
     expect(res.skipped.join('\n')).toMatch(/assignment/);
     expect(await Plan.countDocuments({ patientId: a.patient._id })).toBe(1);
+    const marker = await migrationMarker();
+    expect(marker!.counts).toEqual({ plans: 2, roster: 2, sessions: 1, roles: 1 });
+    expect(marker!.skipped).toEqual(res.skipped);
+    expect(marker!.at).toBeInstanceOf(Date);
+    await migrateV2();
+    expect((await migrationMarker())!.skipped).toEqual(res.skipped);
     expect(await raw('migrations').countDocuments({ _id: 'v2' as never })).toBe(1);
+  });
+
+  it('re-running without the marker (interrupted run) duplicates nothing', async () => {
+    await fixture();
+    await migrateV2();
+    const snap = async () => ({ plans: await Plan.countDocuments(), roster: await RosterEntry.countDocuments(), sessions: await Session.countDocuments() });
+    const before = await snap();
+    await raw('migrations').deleteMany({});
+    const again = await migrateV2();
+    expect(again).toMatchObject({ plans: 0, roster: 0, sessions: 0, roles: 0 });
+    expect(await snap()).toEqual(before);
   });
 });

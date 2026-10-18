@@ -62,11 +62,19 @@ git pull
 docker compose -f deploy/docker-compose.yml up -d --build
 ```
 
-When updating an existing deployment to scheduling v2, run the one-time data migration once, after the rebuild. It converts the old patient patterns, chair assignments and sessions, is safe to repeat (a second run changes nothing), and lists any record it had to skip:
+When updating an existing deployment to scheduling v2, take a backup first (see Backups):
+
+```sh
+docker compose -f deploy/docker-compose.yml exec -T mongo mongodump --db dialysis --archive --gzip > backup-$(date +%F).gz
+```
+
+Then run the one-time data migration once, after the rebuild. It converts the old patient patterns, chair assignments and sessions, is safe to repeat (a second run changes nothing), and lists any record it had to skip:
 
 ```sh
 docker compose -f deploy/docker-compose.yml run --rm app npm run migrate:v2 -w server
 ```
+
+Migrated nurse roster entries last 92 days from the migration date; renew them on the Roster page before they end. Skipped records are stored with the migration marker, and running the command again prints them.
 
 The data lives in the `dialysis_mongo-data` volume and survives rebuilds. Open sessions in browsers pick up the new version on the next reload.
 
