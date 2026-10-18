@@ -11,7 +11,8 @@ import { landingPath, visibleNav } from './layout/nav';
 import { CatalogPage } from './features/pm/CatalogPage';
 import { CentresPage } from './features/pm/CentresPage';
 import { DashboardPage } from './features/pm/DashboardPage';
-import { MePage } from './features/me/MePage';
+import { MePage } from './features/patient/MePage';
+import { HistoryPage } from './features/patient/HistoryPage';
 import { PatientsPage } from './features/desk/PatientsPage';
 import { PatientPage } from './features/desk/PatientPage';
 import { AssignNursesPage } from './features/desk/AssignNursesPage';
@@ -95,6 +96,7 @@ function Guard({ pattern, perm, children }: { pattern?: string; perm?: Permissio
 const SUB_SCREENS: Record<string, [string, ReactElement]> = {
   '/c/:centreId/patients/:patientId': ['/c/:centreId/patients', <PatientPage />],
   '/c/:centreId/schedule/nurses': ['/c/:centreId/schedule', <AssignNursesPage />],
+  '/me/history': ['/me', <HistoryPage />],
 };
 
 export function AppRoutes() {
