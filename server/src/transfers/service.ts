@@ -35,9 +35,15 @@ export async function decide(
 /** Hands the patient over to the target centre; run inside the accept transaction. */
 export async function moveToTarget(t: TransferDoc, session: ClientSession): Promise<void> {
   const today = todayLocal();
+  if (await Session.exists({ patientId: t.patientId, status: 'active' }).session(session)) throw conflict('session_active');
   await endPatterns(String(t.patientId), today, session);
   // endPatterns keeps sessions up to and including today; today's still-scheduled one goes too
   await Session.deleteMany({ patientId: t.patientId, status: 'scheduled', date: { $gte: today } }, { session });
-  await Patient.updateOne({ _id: t.patientId }, { $set: { centreId: t.toCentreId, status: 'active' } }, { session });
+  const moved = await Patient.updateOne(
+    { _id: t.patientId, centreId: t.fromCentreId, status: 'transferring' },
+    { $set: { centreId: t.toCentreId, status: 'active' } },
+    { session },
+  );
+  if (!moved.modifiedCount) throw conflict('patient_not_transferring');
   await Order.updateMany({ patientId: t.patientId, status: 'active' }, { $set: { centreId: t.toCentreId } }, { session });
 }

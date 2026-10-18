@@ -197,4 +197,40 @@ describe('accept', () => {
     expect(out.body[0].status).toBe('accepted');
     expect(await AuditEntry.countDocuments({ action: 'transfer.accept' })).toBe(1);
   });
+
+  it('old centre loses session access and /today omits the patient', async () => {
+    const s = await setup();
+    await book(s);
+    const nurseA = await staffIn(s.a.centre.id, ['nurse']);
+    const doctorA = await staffIn(s.a.centre.id, ['doctor']);
+    const today = (await Session.findOne({ patientId: s.patient.id, date: todayLocal() }))!;
+    await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/open`);
+    await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/close`);
+    const t = (await s.send()).body as { id: string };
+    const before = await nurseA.agent.get(`${s.baseA}/today`);
+    expect(JSON.stringify(before.body)).toContain(s.patient.id);
+    expect((await s.deskB.agent.post(`${s.baseB}/transfers/${t.id}/accept`)).status).toBe(200);
+    for (const who of [s.deskA, nurseA, doctorA]) {
+      expect((await who.agent.get(`${s.baseA}/sessions/${today.id}`)).status).toBe(404);
+    }
+    expect((await nurseA.agent.get(`${s.baseA}/sessions/${today.id}/history`)).status).toBe(404);
+    expect((await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/notes`).send({ text: 'x' })).status).toBe(404);
+    const after = await nurseA.agent.get(`${s.baseA}/today`);
+    expect(JSON.stringify(after.body)).not.toContain(s.patient.id);
+  });
+
+  it('409 session_active while a session is active, without moving anything', async () => {
+    const s = await setup();
+    await book(s);
+    const nurseA = await staffIn(s.a.centre.id, ['nurse']);
+    const today = (await Session.findOne({ patientId: s.patient.id, date: todayLocal() }))!;
+    expect((await nurseA.agent.post(`${s.baseA}/sessions/${today.id}/open`)).status).toBe(200);
+    const t = (await s.send()).body as { id: string };
+    const r = await s.deskB.agent.post(`${s.baseB}/transfers/${t.id}/accept`);
+    expect([r.status, r.body]).toEqual([409, { error: 'session_active' }]);
+    const p = (await Patient.findById(s.patient.id))!;
+    expect([String(p.centreId), p.status]).toEqual([s.a.centre.id, 'transferring']);
+    expect((await Transfer.findById(t.id))!.status).toBe('pending');
+    expect(await Slot.countDocuments({ centreId: s.a.centre._id })).toBeGreaterThan(0);
+  });
 });

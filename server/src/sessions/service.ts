@@ -4,6 +4,7 @@ import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
+import { Patient } from '../patients/patient.model.js';
 import { loadPatientInCentre } from '../patients/load.js';
 import { Pattern } from '../schedule/pattern.model.js';
 import { Slot } from '../schedule/slot.model.js';
@@ -18,6 +19,8 @@ const validId = (id: unknown): id is string => typeof id === 'string' && mongoos
 export async function loadSessionInCentre(centreId: string, sid: unknown): Promise<SessionDoc> {
   const session = validId(sid) ? await Session.findById(sid) : null;
   if (!session || String(session.centreId) !== String(centreId)) throw notFound();
+  // a transferred patient's old sessions stay in the old centre's records but are no longer reachable there
+  if (!(await Patient.exists({ _id: session.patientId, centreId }))) throw notFound();
   return session;
 }
 

@@ -36,7 +36,7 @@ const sidOf = (req: Request) => String(req.params.sid);
 const validId = (id: unknown): id is string => typeof id === 'string' && mongoose.isValidObjectId(id);
 
 async function cardOf(session: SessionDoc) {
-  const [row] = await toSessionCards(String(session.centreId), [session]);
+  const [row] = await toSessionCards(String(session.centreId), [session], { includeMoved: true });
   if (!row) throw notFound();
   return row.card;
 }

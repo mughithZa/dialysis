@@ -44,7 +44,6 @@ transfersRouter.post('/patients/:id/transfer', requirePerm('transfers.send'), va
       mongoose.isValidObjectId(b.toCentreId) && b.toCentreId !== from ? await Centre.findById(b.toCentreId) : null;
     if (!target || target.status !== 'active') throw badRequest('bad_target');
     if (patient.status !== 'active') throw conflict('patient_not_active');
-    await Transfer.init(); // the partial unique index must exist before racing sends
     let created: TransferDoc;
     try {
       created = await withTransaction(async (session) => {

@@ -20,6 +20,8 @@ export interface SessionCard {
 export async function toSessionCards(
   centreId: string,
   sessions: SessionDoc[],
+  /** Sessions whose patient has since moved to another centre are skipped unless `includeMoved`. */
+  { includeMoved = false }: { includeMoved?: boolean } = {},
 ): Promise<{ card: SessionCard; nurseId: string | undefined }[]> {
   const [assignments, chairs, shifts, patients, ordered] = await Promise.all([
     ChairAssignment.find({ centreId }),
@@ -37,7 +39,7 @@ export async function toSessionCards(
     const chair = chairById.get(String(s.chairId));
     const shift = shiftById.get(String(s.shiftId));
     const patient = patientById.get(String(s.patientId));
-    if (!chair || !shift || !patient) continue;
+    if (!chair || !shift || !patient || (!includeMoved && String(patient.centreId) !== String(centreId))) continue;
     out.push({
       card: {
         id: s.id as string,
