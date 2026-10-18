@@ -45,7 +45,7 @@ export async function regenerateSessions(patientId: string, today: string = toda
         if (item.weekday !== weekday || movedAway.has(`${date}:${String(item.shiftId)}`)) continue;
         const chair = chairOf.get(String(item.chairId));
         const shift = shiftOf.get(String(item.shiftId));
-        if (!chair || !shift) continue;
+        if (!chair?.active || !shift?.active) continue;
         ops.push({
           updateOne: {
             filter: { patientId: plan.patientId, date, shiftId: item.shiftId },
@@ -71,18 +71,53 @@ export async function regenerateSessions(patientId: string, today: string = toda
   try {
     await Session.bulkWrite(ops, { ordered: false });
   } catch (e) {
-    // a concurrent run inserted the same session first: that is the idempotent outcome we want
-    const errs = (e as { writeErrors?: { err?: { code?: number } }[] }).writeErrors;
+    const errs = (e as { writeErrors?: { err?: { code?: number; errmsg?: string } }[] }).writeErrors;
     if (!errs || errs.some((w) => w.err?.code !== 11000)) throw e;
+    // a duplicate on the patient/date/block key is a concurrent run inserting the same session: the idempotent
+    // outcome. A duplicate on the chair key means another patient holds that machine: skipped, reported once.
+    const taken = errs.filter((w) => w.err?.errmsg?.includes('chairId_1'));
+    if (taken.length) {
+      console.warn(`generate: ${taken.length} session(s) for patient ${patientId} skipped, machine already taken`);
+    }
   }
 }
 
 /**
- * Refreshes future `scheduled` sessions after a setup or roster change (block times, machine label,
- * rostered nurse). No-op placeholder until the session refresh is implemented.
+ * Refreshes future `scheduled` sessions (date >= today) after a setup change: block times and machine labels are
+ * re-read from the current setup, and sessions on a non-working day or an inactive block/machine are deleted
+ * (a safety net; setup refuses these while in use). Then the centre's patients are regenerated.
+ * Past sessions and sessions in any other status are never touched.
  */
-export async function refreshFutureSessions(_centreId: string, _today: string = todayLocal()): Promise<void> {
-  // intentionally empty
+export async function refreshFutureSessions(centreId: string, today: string = todayLocal()): Promise<void> {
+  const [centre, chairs, shifts, sessions] = await Promise.all([
+    Centre.findById(centreId).lean(),
+    Chair.find({ centreId }).lean(),
+    Shift.find({ centreId }).lean(),
+    Session.find({ centreId, status: 'scheduled', date: { $gte: today } }).lean(),
+  ]);
+  if (!centre) return;
+  const chairOf = new Map(chairs.map((c) => [String(c._id), c]));
+  const shiftOf = new Map(shifts.map((s) => [String(s._id), s]));
+  const drop: unknown[] = [];
+  const ops = [];
+  for (const s of sessions) {
+    const chair = chairOf.get(String(s.chairId));
+    const shift = shiftOf.get(String(s.shiftId));
+    if (!centre.workingDays.includes(weekdayOf(s.date)) || !chair?.active || !shift?.active) {
+      drop.push(s._id);
+    } else if (s.shiftStart !== shift.start || s.shiftEnd !== shift.end || s.chairLabel !== chair.label) {
+      ops.push({
+        updateOne: {
+          filter: { _id: s._id, status: 'scheduled' as const },
+          update: { $set: { shiftStart: shift.start, shiftEnd: shift.end, chairLabel: chair.label } },
+        },
+      });
+    }
+  }
+  if (drop.length) await Session.deleteMany({ _id: { $in: drop }, status: 'scheduled' });
+  if (ops.length) await Session.bulkWrite(ops);
+  const patients = await Plan.distinct('patientId', { centreId, $or: [{ to: null }, { to: { $gte: today } }] });
+  for (const patientId of patients) await regenerateSessions(String(patientId), today);
 }
 
 /** Deletes `scheduled` sessions of the patient dated after `lastDate`. */

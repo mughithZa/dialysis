@@ -8,6 +8,7 @@ import { Patient } from '../patients/patient.model.js';
 import { Plan } from '../schedule/plan.model.js';
 import { regenerateSessions } from '../schedule/generate.js';
 import { Session } from '../sessions/session.model.js';
+import { finaliseSnapshot } from '../sessions/service.js';
 import { messages } from './messages.js';
 import { sendPush } from './push.js';
 
@@ -21,11 +22,15 @@ export async function generateAll(today: string = todayLocal()): Promise<void> {
 
 /** Marks `scheduled` sessions from before the local date of `now` as missed; returns how many. */
 export async function markMissed(now: Date = new Date()): Promise<number> {
-  const res = await Session.updateMany(
-    { status: 'scheduled', date: { $lt: todayLocal(now) } },
-    { $set: { status: 'missed' } },
-  );
-  return res.modifiedCount;
+  const due = await Session.find({ status: 'scheduled', date: { $lt: todayLocal(now) } }, { _id: 1 }).lean();
+  let count = 0;
+  for (const { _id } of due) {
+    const done = await Session.findOneAndUpdate({ _id, status: 'scheduled' }, { $set: { status: 'missed' } }, { new: true });
+    if (!done) continue;
+    await finaliseSnapshot(done);
+    count++;
+  }
+  return count;
 }
 
 /**

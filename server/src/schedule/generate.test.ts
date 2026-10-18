@@ -1,9 +1,11 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { Centre } from '../centres/centre.model.js';
+import { Chair } from '../centres/chair.model.js';
+import { Shift } from '../centres/shift.model.js';
 import { Plan } from './plan.model.js';
 import { Session } from '../sessions/session.model.js';
-import { regenerateSessions } from './generate.js';
+import { regenerateSessions, refreshFutureSessions } from './generate.js';
 import { generateAll } from '../notify/jobs.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
@@ -158,5 +160,81 @@ describe('plan change regenerates', () => {
     expect(sched.every((s) => weekdayOf(s.date) === 4 && String(s.shiftId) === shifts[1]!.id)).toBe(true);
     expect(await Session.countDocuments({ patientId: patient.id, date: { $lt: start } })).toBe(before);
     expect((await Session.findById(keep._id))!.status).toBe('completed');
+  });
+});
+
+describe('chair-date guard', () => {
+  it('warns once per run when another patient holds the chair, and still creates the rest', async () => {
+    const { centre, chairs, shifts, patient } = await openPlan([1]);
+    const other = await makePatient(centre.id);
+    await makeSession({
+      centreId: centre.id, patientId: other.patient.id, chairId: chairs[0]!.id, shiftId: shifts[0]!.id,
+      date: '2026-10-19', kind: 'makeup', status: 'scheduled',
+    });
+    await makeSession({
+      centreId: centre.id, patientId: other.patient.id, chairId: chairs[0]!.id, shiftId: shifts[0]!.id,
+      date: '2026-10-26', kind: 'makeup', status: 'scheduled',
+    });
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+    try {
+      await regenerateSessions(patient.id, TODAY);
+      expect(warn).toHaveBeenCalledTimes(1);
+      expect(await Session.countDocuments({ patientId: patient.id })).toBe(0);
+    } finally {
+      warn.mockRestore();
+    }
+  });
+});
+
+describe('refreshFutureSessions', () => {
+  it('updates snapshots of future scheduled sessions only', async () => {
+    const { centre, shifts, patient } = await openPlan([6, 1]);
+    await regenerateSessions(patient.id, TODAY);
+    await Session.updateOne({ patientId: patient.id, date: '2026-10-17' }, { $set: { status: 'completed' } });
+    await Shift.updateOne({ _id: shifts[0]!._id }, { $set: { start: '08:00', end: '12:30' } });
+    await refreshFutureSessions(centre.id, '2026-10-18');
+    const byDate = Object.fromEntries((await Session.find({ patientId: patient.id })).map((s) => [s.date, s]));
+    expect(byDate['2026-10-17']!.shiftStart).toBe('07:00');
+    expect(byDate['2026-10-19']!.shiftStart).toBe('08:00');
+    expect(byDate['2026-10-19']!.shiftEnd).toBe('12:30');
+    expect(byDate['2026-10-24']!.shiftStart).toBe('08:00');
+  });
+
+  it('updates the machine label and leaves past scheduled and non-scheduled sessions alone', async () => {
+    const { centre, chairs, patient } = await openPlan([1]);
+    await regenerateSessions(patient.id, TODAY);
+    await Chair.updateOne({ _id: chairs[0]!._id }, { $set: { label: 'A1' } });
+    await refreshFutureSessions(centre.id, '2026-10-20'); // Mon 19 is in the past
+    const s19 = await Session.findOne({ date: '2026-10-19' });
+    const s26 = await Session.findOne({ date: '2026-10-26' });
+    expect(s19!.chairLabel).toBe('1');
+    expect(s26!.chairLabel).toBe('A1');
+  });
+
+  it('deletes future scheduled sessions on non-working days and inactive blocks, keeps others', async () => {
+    const { centre, chairs, shifts, patient } = await openPlan([1, 3]);
+    await regenerateSessions(patient.id, TODAY);
+    const completed = await makeSession({
+      centreId: centre.id, patientId: (await makePatient(centre.id)).patient.id, chairId: chairs[1]!.id,
+      shiftId: shifts[0]!.id, date: '2026-10-28', kind: 'regular', status: 'completed',
+    });
+    await Centre.updateOne({ _id: centre._id }, { $set: { workingDays: [0, 1, 2, 4, 6] } }); // Wed off
+    await refreshFutureSessions(centre.id, TODAY);
+    expect((await Session.find({ patientId: patient.id }).sort({ date: 1 })).map((s) => s.date)).toEqual(['2026-10-19', '2026-10-26']);
+    expect(await Session.exists({ _id: completed._id })).toBeTruthy();
+
+    await Shift.updateOne({ _id: shifts[0]!._id }, { $set: { active: false } });
+    await refreshFutureSessions(centre.id, TODAY);
+    expect(await Session.countDocuments({ patientId: patient.id })).toBe(0);
+  });
+
+  it('regenerates for the centre patients after a working-day change', async () => {
+    const { centre, patient } = await openPlan([3]);
+    await Centre.updateOne({ _id: centre._id }, { $set: { workingDays: [0, 1, 2, 4, 6] } });
+    await refreshFutureSessions(centre.id, TODAY);
+    expect(await Session.countDocuments({ patientId: patient.id })).toBe(0);
+    await Centre.updateOne({ _id: centre._id }, { $set: { workingDays: [0, 1, 2, 3, 4, 6] } });
+    await refreshFutureSessions(centre.id, TODAY);
+    expect(await Session.countDocuments({ patientId: patient.id })).toBe(2);
   });
 });

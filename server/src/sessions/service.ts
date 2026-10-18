@@ -154,3 +154,11 @@ export async function createMakeup(centreId: string, patientId: string, input: M
     }
   });
 }
+
+/**
+ * Freezes who covered a session when it reaches a final status (stores `rosterNurseId`). Placeholder: Task 6
+ * implements it; callers already invoke it so the hook point is fixed.
+ */
+export async function finaliseSnapshot(_session: SessionDoc, _tx?: ClientSession): Promise<void> {
+  // intentionally empty until the roster exists
+}
