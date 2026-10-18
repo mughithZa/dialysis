@@ -1,6 +1,6 @@
 # Dialysis centre POC
 
-A proof-of-concept web app for running a small network of dialysis centres: front desk registers patients, books chairs and shifts and handles transfers between centres; nurses run each session (vitals, usage, notes); doctors write orders; centre managers manage staff, roles and settings; a program manager oversees all centres, the shared catalogue and aggregate statistics. Patients get their own phone-first view with upcoming sessions, history and push reminders. It is a phone-first PWA backed by a single Node API and MongoDB.
+A proof-of-concept web app for running a small network of dialysis centres: front desk builds the schedule (machines, session blocks, working days), rosters nurses, registers patients, books them per day and handles transfers between centres; everyone works from a shared Today board; nurses run each session (vitals, usage, notes); doctors write orders and patient notes; centre managers manage staff, roles and settings; a program manager oversees all centres, the shared catalogue and aggregate statistics. Patients get their own phone-first view with one timeline of upcoming and past sessions and push reminders. It is a phone-first PWA backed by a single Node API and MongoDB.
 
 ## Requirements
 
@@ -17,9 +17,9 @@ npm workspaces:
 | `shared/` | Types and the permission list shared by server and client (TypeScript source, no build step) |
 | `server/` | Express 5 + Mongoose API, run with `tsx`; tests in `src/**/*.test.ts` (Vitest + supertest) |
 | `client/` | React 18 + Mantine + Vite PWA; tests in `src/**/*.test.tsx` (Vitest + Testing Library + MSW) |
-| `e2e/` | Playwright browser test of the core flow |
+| `e2e/` | Playwright browser test of the core flow (schedule setup, roster, booking, Today board, timeline) |
 | `deploy/` | Docker Compose (MongoDB, app, Caddy) for a VPS — see [deploy/README.md](deploy/README.md) |
-| `docs/superpowers/` | Design spec (`specs/2026-10-18-dialysis-poc-design.md`) and implementation plan (`plans/2026-10-18-dialysis-poc.md`) |
+| `docs/superpowers/` | Design specs (`specs/2026-10-18-dialysis-poc-design.md`, and `specs/2026-10-18-scheduling-v2-design.md` for scheduling, which wins where they differ) and implementation plans |
 
 ## Getting started
 
@@ -81,6 +81,18 @@ or create just the first program manager (refuses if one already exists; passwor
 ```sh
 CREATE_PM_USERNAME=pm CREATE_PM_NAME="Program Manager" CREATE_PM_PASSWORD=secret123 npm run create-pm -w server
 ```
+
+## Day-to-day flow (scheduling v2)
+
+As the front desk (or centre manager) in a new centre, in this order:
+
+1. **Schedule setup** (`Schedule setup`): set the number of machines, the day start and end and the number of sessions, press *Propose blocks*, adjust names and times, choose the working days, and save.
+2. **Nurse roster** (`Schedule`, then *Assign nurses*): pick a nurse, a date and one or more session blocks, a period (this session, day, week, month, custom) and all or chosen machines. A single date beats a range, and a specific machine range beats all machines. A slot with no roster nurse shows "No nurse".
+3. **Booking** (patient page, *Book schedule*, or an empty cell on the Schedule calendar): add day rows (weekday, session block, a free machine), choose the start date, then either "Just these sessions" or "Every week" with no end or an end date. Sessions are generated 14 days ahead.
+4. **Today board** (`Today`): for the current session block, start a waiting session, record *Did not come* or postpone it; nurses see their own machines first. Open a session for medicines, vitals, notes and closing.
+5. **Patient timeline** (patient page, and `My dialysis` for patients): upcoming, today and past sessions with doctor notes. The front desk can move, cancel or record did-not-come on a row, and change the weekly plan from a date.
+
+Upgrading a database built before scheduling v2: back it up, then run `npm run migrate:v2 -w server` once (safe to repeat; see [deploy/README.md](deploy/README.md)).
 
 ## Tests and checks
 
