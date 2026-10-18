@@ -27,13 +27,13 @@ describe('roles', () => {
     const { centre } = await makeCentre();
     const fd = await staffIn(centre.id, ['front_desk']);
     const before = await fd.agent.get('/api/auth/me');
-    expect(before.body.centres[0].permissions).not.toContain('sessions.recordUsage');
+    expect(before.body.centres[0].permissions).not.toContain('sessions.editClosed');
     const { agent: pm } = await programManager();
     const role = await Role.findOne({ key: 'front_desk' });
-    const res = await pm.patch(`/api/roles/${role!.id}`).send({ permissions: [...role!.permissions, 'sessions.recordUsage'] });
+    const res = await pm.patch(`/api/roles/${role!.id}`).send({ permissions: [...role!.permissions, 'sessions.editClosed'] });
     expect(res.status).toBe(200);
     const after = await fd.agent.get('/api/auth/me');
-    expect(after.body.centres[0].permissions).toContain('sessions.recordUsage');
+    expect(after.body.centres[0].permissions).toContain('sessions.editClosed');
     expect(await AuditEntry.countDocuments({ action: 'role.edit' })).toBe(1);
   });
 

@@ -14,6 +14,7 @@ import { usersRouter } from './users/routes.js';
 import { patientsRouter } from './patients/routes.js';
 import { catalogRouter } from './catalog/routes.js';
 import { scheduleRouter } from './schedule/routes.js';
+import { setupRouter } from './schedule/setup.routes.js';
 import { sessionsRouter } from './sessions/routes.js';
 import { ordersRouter } from './orders/routes.js';
 import { transfersRouter } from './transfers/routes.js';
@@ -58,6 +59,7 @@ export function createApp(options: AppOptions = {}): express.Express {
   api.use('/centres/:centreId/audit', auditRouter);
   api.use('/centres/:centreId/users', usersRouter);
   api.use('/centres/:centreId/patients', patientsRouter);
+  api.use('/centres/:centreId', setupRouter);
   api.use('/centres/:centreId', scheduleRouter);
   api.use('/centres/:centreId', sessionsRouter);
   api.use('/centres/:centreId', ordersRouter);

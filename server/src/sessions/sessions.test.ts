@@ -141,9 +141,12 @@ describe('running a session', () => {
     const { session } = await book();
     const s = `${base}/sessions/${session.id}`;
     await nurse.agent.post(`${s}/open`);
-    expect((await desk.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 1 })).status).toBe(403);
+    // front desk holds recordUsage by default now; a PM can still take it away
     const role = await Role.findOne({ key: 'front_desk' });
-    await pm.agent.patch(`/api/roles/${role!.id}`).send({ permissions: [...role!.permissions, 'sessions.recordUsage'] });
+    const without = role!.permissions.filter((p) => p !== 'sessions.recordUsage');
+    await pm.agent.patch(`/api/roles/${role!.id}`).send({ permissions: without });
+    expect((await desk.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 1 })).status).toBe(403);
+    await pm.agent.patch(`/api/roles/${role!.id}`).send({ permissions: [...without, 'sessions.recordUsage'] });
     expect((await desk.agent.post(`${s}/usage`).send({ itemId: heparin.id, amount: 1 })).status).toBe(201);
   });
 

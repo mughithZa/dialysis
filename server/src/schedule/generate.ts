@@ -44,6 +44,14 @@ export async function regenerateSessions(patientId: string, today: string = toda
   }
 }
 
+/**
+ * Refreshes future `scheduled` sessions after a setup or roster change (block times, machine label,
+ * rostered nurse). No-op placeholder until the session refresh is implemented.
+ */
+export async function refreshFutureSessions(_centreId: string, _today: string = todayLocal()): Promise<void> {
+  // intentionally empty
+}
+
 /** Deletes `scheduled` sessions of the patient dated after `lastDate`. */
 export async function deleteScheduledSessionsAfter(
   patientId: string,

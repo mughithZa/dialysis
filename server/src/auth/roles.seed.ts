@@ -18,7 +18,9 @@ export const DEFAULT_ROLES: DefaultRole[] = [
     permissions: [
       'patients.view', 'patients.create', 'patients.edit', 'patients.discharge', 'transfers.send',
       'transfers.decide', 'schedule.view', 'schedule.book', 'schedule.makeup', 'schedule.assignNurses',
-      'sessions.view', 'sessions.postpone', 'users.create', 'users.resetPassword', 'catalog.view', 'catalog.add',
+      'schedule.setup', 'sessions.view', 'sessions.postpone', 'sessions.run', 'sessions.recordUsage',
+      'sessions.recordVitals', 'sessions.addNotes', 'users.create', 'users.resetPassword', 'catalog.view',
+      'catalog.add',
     ],
   },
   {
