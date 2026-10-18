@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
+import i18n from '../../i18n';
 import { AssignNursesPage } from './AssignNursesPage';
 import { renderApp } from '../../test/render';
 import { server } from '../../test/server';
@@ -17,6 +18,10 @@ const grid = {
 };
 
 describe('AssignNursesPage', () => {
+  it('has text for the saved notification (found by the e2e run: the raw key was shown)', () => {
+    expect(i18n.t('desk.assign.saved')).toBe('Saved.');
+  });
+
   it('sends the nurse full chair set for the shift when a chair is assigned', async () => {
     useCentreUser(['schedule.view', 'schedule.assignNurses']);
     const bodies: unknown[] = [];

@@ -1,3 +1,4 @@
+import path from 'node:path';
 import express, { type ErrorRequestHandler } from 'express';
 import session from 'express-session';
 import MongoStore from 'connect-mongo';
@@ -19,15 +20,21 @@ import { meRouter } from './me/routes.js';
 import { pushRouter } from './notify/routes.js';
 import { centreStatsRouter, statsRouter } from './reports/routes.js';
 
-export function createApp(): express.Express {
+export interface AppOptions {
+  /** Directory of the built client; when set it is served with an SPA fallback. */
+  clientDist?: string;
+}
+
+export function createApp(options: AppOptions = {}): express.Express {
   const app = express();
+  if (config.isProduction) app.set('trust proxy', 1); // TLS is terminated by the reverse proxy
   app.use(express.json());
   app.use(
     session({
       secret: config.sessionSecret,
       resave: false,
       saveUninitialized: false,
-      cookie: { httpOnly: true, sameSite: 'lax', maxAge: 1000 * 60 * 60 * 24 * 7 },
+      cookie: { httpOnly: true, sameSite: 'lax', secure: config.isProduction, maxAge: 1000 * 60 * 60 * 24 * 7 },
       store: MongoStore.create({
         client: mongoose.connection.getClient(),
         // interval cleanup avoids an unawaited TTL-index creation racing with client close
@@ -60,6 +67,26 @@ export function createApp(): express.Express {
   // Feature routers are mounted here by later tasks.
   api.use((_req, _res, next) => next(notFound()));
   app.use('/api', api);
+
+  if (options.clientDist) {
+    const dist = options.clientDist;
+    const noCache = (res: express.Response) => res.setHeader('Cache-Control', 'no-cache');
+    app.use(
+      express.static(dist, {
+        index: false,
+        setHeaders(res, file) {
+          const name = path.basename(file);
+          if (name === 'sw.js' || name === 'index.html') noCache(res);
+          else if (file.includes(`${path.sep}assets${path.sep}`)) res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
+        },
+      }),
+    );
+    // Any other GET (/api is handled above) is a client-side route.
+    app.get(/.*/, (_req, res) => {
+      noCache(res);
+      res.sendFile('index.html', { root: dist }); // `root` so a dot-directory in the install path is not refused
+    });
+  }
 
   const onError: ErrorRequestHandler = (err, _req, res, _next) => {
     if (err instanceof HttpError) {

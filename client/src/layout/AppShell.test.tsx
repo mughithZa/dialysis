@@ -58,6 +58,23 @@ describe('AppShell', () => {
     expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
   });
 
+  it('returns to the login page after a successful sign out (found by the e2e run)', async () => {
+    let signedOut = false;
+    server.use(
+      http.get('*/api/auth/me', () =>
+        signedOut ? HttpResponse.json({ error: 'unauthenticated' }, { status: 401 }) : HttpResponse.json(nurse([{ id: 'c1', name: 'Damascus' }])),
+      ),
+      http.post('*/api/auth/logout', () => {
+        signedOut = true;
+        return HttpResponse.json({ ok: true });
+      }),
+    );
+    renderApp(<AppRoutes />);
+    await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.queryByRole('heading', { name: 'Today' })).toBeNull();
+  });
+
   it('redirects an already signed-in user from /login to their landing page', async () => {
     server.use(http.get('*/api/auth/me', () => HttpResponse.json(nurse([{ id: 'c1', name: 'Damascus' }]))));
     renderApp(<AppRoutes />, '/login');

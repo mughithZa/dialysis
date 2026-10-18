@@ -2,11 +2,21 @@
   "name": "dialysis",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=22" },
-  "workspaces": ["shared", "server", "client"],
+  "engines": {
+    "node": ">=22"
+  },
+  "workspaces": [
+    "shared",
+    "server",
+    "client"
+  ],
   "scripts": {
     "test": "npm test -w server && npm test -w client",
     "dev": "npm run dev -w server",
-    "dev:client": "npm run dev -w client"
+    "dev:client": "npm run dev -w client",
+    "e2e": "npm run build -w client && playwright test"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.64.1"
   }
 }

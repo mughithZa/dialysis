@@ -1,0 +1,9 @@
+node_modules
+**/node_modules
+client/dist
+test-results
+playwright-report
+.git
+.claude
+.superpowers
+deploy/.env

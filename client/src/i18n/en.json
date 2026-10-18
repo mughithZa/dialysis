@@ -429,7 +429,8 @@
       "nurse": "Nurse",
       "noNurses": "No nurses in this centre yet.",
       "noShifts": "No shifts set up yet.",
-      "clear": "Clear {{chair}}"
+      "clear": "Clear {{chair}}",
+      "saved": "Saved."
     },
     "transfers": {
       "title": "Transfers",

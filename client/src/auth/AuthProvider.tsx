@@ -74,8 +74,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const logout = useCallback(async () => {
     await apiPost('/auth/logout');
-    qc.clear();
+    // Not qc.clear(): that detaches the mounted `me` observer from its query, so the UI would keep the old user.
     qc.setQueryData(ME_KEY, null);
+    qc.removeQueries({ predicate: (q) => q.queryKey[0] !== ME_KEY[0] });
   }, [qc]);
 
   const setCentreId = useCallback((id: string) => {
