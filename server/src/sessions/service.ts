@@ -8,6 +8,7 @@ import { Shift } from '../centres/shift.model.js';
 import { Patient } from '../patients/patient.model.js';
 import { loadPatientInCentre } from '../patients/load.js';
 import { isSlotFree, lockSlot } from '../schedule/slots.js';
+import { nurseFor } from '../schedule/roster.js';
 import { SessionChange, type ChangeKind } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
 
@@ -94,11 +95,17 @@ export async function openSession(session: SessionDoc, userId: string, tx?: Clie
   return transition(session.id, ['scheduled'], { status: 'active', openedAt: new Date(), openedBy: userId, runBy: userId }, tx);
 }
 
-export const closeSession = (session: SessionDoc, userId: string, tx?: ClientSession) =>
-  transition(session.id, ['active'], { status: 'completed', closedAt: new Date(), closedBy: userId }, tx);
+export async function closeSession(session: SessionDoc, userId: string, tx?: ClientSession): Promise<SessionDoc> {
+  const closed = await transition(session.id, ['active'], { status: 'completed', closedAt: new Date(), closedBy: userId }, tx);
+  await finaliseSnapshot(closed, tx);
+  return closed;
+}
 
-export const postponeSession = (session: SessionDoc, tx?: ClientSession) =>
-  transition(session.id, ['scheduled', 'missed'], { status: 'postponed' }, tx);
+export async function postponeSession(session: SessionDoc, tx?: ClientSession): Promise<SessionDoc> {
+  const postponed = await transition(session.id, ['scheduled', 'missed'], { status: 'postponed' }, tx);
+  await finaliseSnapshot(postponed, tx);
+  return postponed;
+}
 
 export interface MakeupInput {
   date: string;
@@ -156,9 +163,17 @@ export async function createMakeup(centreId: string, patientId: string, input: M
 }
 
 /**
- * Freezes who covered a session when it reaches a final status (stores `rosterNurseId`). Placeholder: Task 6
- * implements it; callers already invoke it so the hook point is fixed.
+ * Freezes who covered a session when it reaches a final status: stores `rosterNurseId` from the roster, only if not
+ * already set. Nothing is stored when nobody was rostered.
  */
-export async function finaliseSnapshot(_session: SessionDoc, _tx?: ClientSession): Promise<void> {
-  // intentionally empty until the roster exists
+export async function finaliseSnapshot(session: SessionDoc, tx?: ClientSession): Promise<void> {
+  if (session.rosterNurseId) return;
+  const nurseId = await nurseFor(String(session.centreId), session.date, String(session.shiftId), String(session.chairId));
+  if (!nurseId) return;
+  await Session.updateOne(
+    { _id: session._id, rosterNurseId: { $exists: false } },
+    { $set: { rosterNurseId: nurseId } },
+    { session: tx },
+  );
+  session.rosterNurseId = new mongoose.Types.ObjectId(nurseId);
 }

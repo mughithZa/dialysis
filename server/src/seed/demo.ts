@@ -10,7 +10,7 @@ import { Unit } from '../catalog/unit.model.js';
 import { Item } from '../catalog/item.model.js';
 import { Patient } from '../patients/patient.model.js';
 import { bookPlan } from '../schedule/booking.js';
-import { ChairAssignment } from '../schedule/assignment.model.js';
+import { RosterEntry } from '../schedule/roster.model.js';
 import { Plan } from '../schedule/plan.model.js';
 import { Session } from '../sessions/session.model.js';
 import { UsageLine } from '../sessions/usage.model.js';
@@ -87,11 +87,22 @@ export async function seedDemo(): Promise<{ created: boolean }> {
     const nurseA = await mkStaff(`nurse${n}a`, `Nurse ${n}A`, { memberships: [{ ...at, roleIds: [role('nurse')] }] });
     const nurseB = await mkStaff(`nurse${n}b`, `Nurse ${n}B`, { memberships: [{ ...at, roleIds: [role('nurse')] }] });
 
-    // standing nurse assignments: nurse A chairs 1-4, nurse B chairs 5-8, both shifts
-    const nurseOfChair = (idx: number) => (idx < 4 ? nurseA : nurseB);
-    await ChairAssignment.create(
-      chairs.flatMap((chair, idx) =>
-        shifts.map((shift) => ({ centreId: centre._id, shiftId: shift._id, chairId: chair._id, nurseId: nurseOfChair(idx)._id })),
+    // roster: nurse A covers the first half of the machines, nurse B the rest, both blocks, today-14 .. today+92
+    const half = Math.ceil(chairs.length / 2);
+    const nurseOfChair = (idx: number) => (idx < half ? nurseA : nurseB);
+    await RosterEntry.create(
+      [
+        [nurseA, chairs.slice(0, half)],
+        [nurseB, chairs.slice(half)],
+      ].flatMap(([nurse, cover]) =>
+        shifts.map((shift) => ({
+          centreId: centre._id,
+          nurseId: (nurse as typeof nurseA)._id,
+          shiftId: shift._id,
+          from: addDays(todayLocal(), -14),
+          to: addDays(todayLocal(), 92),
+          chairIds: (cover as typeof chairs).map((c) => c._id),
+        })),
       ),
     );
 

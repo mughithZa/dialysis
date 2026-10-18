@@ -2,7 +2,7 @@ import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { User } from '../auth/user.model.js';
 import { Patient } from '../patients/patient.model.js';
-import { ChairAssignment } from '../schedule/assignment.model.js';
+import { resolveRoster } from '../schedule/roster.js';
 import { withActiveOrders } from '../orders/service.js';
 import type { SessionDoc } from './session.model.js';
 
@@ -19,7 +19,7 @@ export interface SessionCard {
   start: string;
   end: string;
   chairLabel: string;
-  /** Rostered nurse; filled once the roster exists. */
+  /** Nurse covering this machine and block: the frozen snapshot once final, else the roster for the date. */
   nurse: { id: string; name: string } | null;
   /** Who ran the session (set when it is opened). */
   runBy: { id: string; name: string } | null;
@@ -32,8 +32,7 @@ export async function toSessionCards(
   /** Sessions whose patient has since moved to another centre are skipped unless `includeMoved`. */
   { includeMoved = false }: { includeMoved?: boolean } = {},
 ): Promise<{ card: SessionCard; nurseId: string | undefined }[]> {
-  const [assignments, chairs, shifts, patients, ordered, runners] = await Promise.all([
-    ChairAssignment.find({ centreId }),
+  const [chairs, shifts, patients, ordered, runners] = await Promise.all([
     Chair.find({ centreId }),
     Shift.find({ centreId }),
     Patient.find({ _id: { $in: sessions.map((s) => s.patientId) } }),
@@ -41,7 +40,20 @@ export async function toSessionCards(
     User.find({ _id: { $in: sessions.map((s) => s.runBy).filter(Boolean) } }),
   ]);
   const runnerById = new Map(runners.map((u) => [u.id as string, u]));
-  const nurseOf = new Map(assignments.map((a) => [`${a.chairId}:${a.shiftId}`, String(a.nurseId)]));
+  // a frozen snapshot (final statuses) wins; otherwise the roster for the session's date (resolved once per date)
+  const rosterByDate = new Map<string, Map<string, string>>();
+  const nurseIdOf = new Map<string, string | undefined>();
+  for (const s of sessions) {
+    let id = s.rosterNurseId ? String(s.rosterNurseId) : undefined;
+    if (!id) {
+      if (!rosterByDate.has(s.date)) rosterByDate.set(s.date, await resolveRoster(centreId, s.date));
+      id = rosterByDate.get(s.date)!.get(`${s.shiftId}:${s.chairId}`);
+    }
+    nurseIdOf.set(s.id as string, id);
+  }
+  const nurses = new Map(
+    (await User.find({ _id: { $in: [...new Set([...nurseIdOf.values()].filter(Boolean))] } })).map((u) => [u.id as string, u.name]),
+  );
   const chairById = new Map(chairs.map((c) => [c.id as string, c]));
   const shiftById = new Map(shifts.map((s) => [s.id as string, s]));
   const patientById = new Map(patients.map((p) => [p.id as string, p]));
@@ -50,6 +62,7 @@ export async function toSessionCards(
     const chair = chairById.get(String(s.chairId));
     const shift = shiftById.get(String(s.shiftId));
     const patient = patientById.get(String(s.patientId));
+    const nurseId = nurseIdOf.get(s.id as string);
     const runner = s.runBy ? runnerById.get(String(s.runBy)) : undefined;
     if (!chair || !shift || !patient || (!includeMoved && String(patient.centreId) !== String(centreId))) continue;
     out.push({
@@ -65,10 +78,10 @@ export async function toSessionCards(
         start: s.shiftStart ?? shift.start,
         end: s.shiftEnd ?? shift.end,
         chairLabel: s.chairLabel ?? chair.label,
-        nurse: null,
+        nurse: nurseId ? { id: nurseId, name: nurses.get(nurseId) ?? '' } : null,
         runBy: runner ? { id: runner.id as string, name: runner.name } : null,
       },
-      nurseId: nurseOf.get(`${s.chairId}:${s.shiftId}`),
+      nurseId,
     });
   }
   return out;

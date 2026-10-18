@@ -11,7 +11,6 @@ import { Role } from '../auth/role.model.js';
 import { User } from '../auth/user.model.js';
 import { Session, type SessionDoc } from '../sessions/session.model.js';
 import { toSessionCards } from '../sessions/card.js';
-import { ChairAssignment } from './assignment.model.js';
 import { withTransaction } from '../db.js';
 import { recordAudit } from '../audit/record.js';
 import { requirePerm } from '../auth/middleware.js';
@@ -223,58 +222,6 @@ scheduleRouter.put('/patients/:id/pattern', requirePerm('schedule.book'), valida
       recordAudit(req, 'plan.change', 'plan', p.id as string, b, session),
     );
     res.json(patternDto(plan));
-  } catch (e) {
-    next(e);
-  }
-});
-
-const validId = (id: unknown): id is string => typeof id === 'string' && mongoose.isValidObjectId(id);
-
-scheduleRouter.get('/assignments', requirePerm('schedule.view'), async (req, res, next) => {
-  try {
-    const rows = await ChairAssignment.find({ centreId: centreOf(req) });
-    res.json(rows.map((a) => ({ shiftId: String(a.shiftId), chairId: String(a.chairId), nurseId: String(a.nurseId) })));
-  } catch (e) {
-    next(e);
-  }
-});
-
-const assignBody = z.object({
-  shiftId: z.string().min(1),
-  nurseId: z.string().min(1),
-  chairIds: z.array(z.string().min(1)),
-});
-
-/** Sets the nurse's chairs for a shift (their full set), taking those chairs over from any other nurse. */
-scheduleRouter.put('/assignments', requirePerm('schedule.assignNurses'), validate(assignBody), async (req, res, next) => {
-  try {
-    const centreId = centreOf(req);
-    const b = req.body as z.infer<typeof assignBody>;
-    const chairIds = [...new Set(b.chairIds)];
-    const shift = validId(b.shiftId) ? await Shift.findById(b.shiftId) : null;
-    if (!shift || String(shift.centreId) !== centreId) throw notFound();
-    const chairs = chairIds.every(validId) ? await Chair.find({ _id: { $in: chairIds }, centreId }) : [];
-    if (chairs.length !== chairIds.length) throw notFound();
-    const nurseRole = await Role.findOne({ key: 'nurse' });
-    const nurse = validId(b.nurseId) ? await User.findById(b.nurseId) : null;
-    const isNurse =
-      !!nurseRole &&
-      !!nurse &&
-      nurse.active &&
-      nurse.memberships.some((m) => String(m.centreId) === centreId && m.roleIds.some((r) => String(r) === String(nurseRole._id)));
-    if (!isNurse) throw badRequest('not_a_nurse');
-    await withTransaction(async (session) => {
-      await ChairAssignment.deleteMany(
-        { shiftId: shift._id, $or: [{ nurseId: b.nurseId }, { chairId: { $in: chairIds } }] },
-        { session },
-      );
-      await ChairAssignment.create(
-        chairIds.map((chairId) => ({ centreId, shiftId: b.shiftId, chairId, nurseId: b.nurseId })),
-        { session, ordered: true },
-      );
-      await recordAudit(req, 'assignment.update', 'assignment', b.shiftId, b, session);
-    });
-    res.json({ shiftId: b.shiftId, nurseId: b.nurseId, chairIds });
   } catch (e) {
     next(e);
   }

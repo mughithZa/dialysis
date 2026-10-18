@@ -8,6 +8,8 @@ import { hashPassword } from '../auth/password.js';
 import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
+import { RosterEntry } from '../schedule/roster.model.js';
+import { addDays, todayLocal } from '../lib/dates.js';
 import { Unit } from '../catalog/unit.model.js';
 import { Item } from '../catalog/item.model.js';
 
@@ -23,7 +25,7 @@ export async function seedE2e(): Promise<void> {
   // open every day: the browser test books "today's weekday", which must be a working day whatever the date
   const centre = await Centre.create({ name: 'E2E Centre', workingDays: [0, 1, 2, 3, 4, 5, 6] });
   await Chair.create(['1', '2', '3', '4'].map((label) => ({ centreId: centre._id, label })));
-  await Shift.create([
+  const shifts = await Shift.create([
     { centreId: centre._id, name: 'Morning', start: '07:00', end: '11:30' },
     { centreId: centre._id, name: 'Afternoon', start: '12:00', end: '16:30' },
   ]);
@@ -34,7 +36,13 @@ export async function seedE2e(): Promise<void> {
     ['doctor', 'Doctor Dan', 'doctor'],
   ];
   for (const [username, name, role] of staff) {
-    await User.create({ username, name, passwordHash, kind: 'staff', memberships: [{ centreId: centre._id, roleIds: [roles.get(role)] }] });
+    const user = await User.create({ username, name, passwordHash, kind: 'staff', memberships: [{ centreId: centre._id, roleIds: [roles.get(role)] }] });
+    // the e2e nurse covers every machine in every block from today
+    if (username === 'nurse') {
+      await RosterEntry.create(
+        shifts.map((shift) => ({ centreId: centre._id, nurseId: user._id, shiftId: shift._id, from: todayLocal(), to: addDays(todayLocal(), 92), chairIds: [] })),
+      );
+    }
   }
 
   const cc = await Unit.create({ name: 'cc' });
