@@ -1,5 +1,6 @@
 # Dialysis centre POC
 
+
 A proof-of-concept web app for running a small network of dialysis centres: front desk builds the schedule (machines, session blocks, working days), rosters nurses, registers patients, books them per day and handles transfers between centres; everyone works from a shared Today board; nurses run each session (vitals, usage, notes); doctors write orders and patient notes; centre managers manage staff, roles and settings; a program manager oversees all centres, the shared catalogue and aggregate statistics. Patients get their own phone-first view with one timeline of upcoming and past sessions and push reminders. It is a phone-first PWA backed by a single Node API and MongoDB.
 
 ## Requirements
