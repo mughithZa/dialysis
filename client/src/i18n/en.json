@@ -44,7 +44,11 @@
     "global_perm_in_centre_role": "Centre roles cannot hold global permissions.",
     "unit_locked": "The unit cannot change because this item is already in use.",
     "item_exists": "An item with that name already exists.",
-    "unit_not_found": "That unit no longer exists."
+    "unit_not_found": "That unit no longer exists.",
+    "cannot_grant": "You cannot grant one of those roles.",
+    "already_member": "That person already belongs to this centre.",
+    "chair_exists": "A chair with that label already exists.",
+    "unknown_role": "One of the selected roles no longer exists."
   },
   "nav": {
     "centres": "Centres",
@@ -208,5 +212,64 @@
     "Medicine & supply list": "Medicine & supply list",
     "Reports & audit": "Reports & audit",
     "Centre settings": "Centre settings"
+  },
+  "centre": {
+    "users": {
+      "title": "Users",
+      "new": "New user",
+      "editTitle": "Edit user",
+      "empty": "No users yet.",
+      "fullName": "Full name",
+      "username": "Username",
+      "password": "Password (min. 8 characters)",
+      "phone": "Phone (optional)",
+      "active": "Active",
+      "inactive": "Inactive",
+      "roles": "Roles",
+      "created": "User created.",
+      "saved": "User saved.",
+      "resetPassword": "Reset password",
+      "newPassword": "New password (min. 8 characters)",
+      "passwordReset": "Password reset.",
+      "linkSection": "Or link an existing doctor",
+      "linkHint": "Find a doctor who already has an account by phone number, then pick the roles above.",
+      "doctorPhone": "Doctor phone",
+      "find": "Find",
+      "noDoctor": "No doctor found with that phone number.",
+      "link": "Link",
+      "linked": "Doctor linked.",
+      "pickRoles": "Select at least one role above to link."
+    },
+    "setup": {
+      "title": "Shifts & chairs",
+      "shifts": "Shifts",
+      "chairs": "Chairs",
+      "addShift": "Add shift",
+      "addChair": "Add chair",
+      "noShifts": "No shifts yet.",
+      "noChairs": "No chairs yet.",
+      "shiftName": "Shift name",
+      "chairLabel": "Chair label",
+      "start": "Start",
+      "end": "End",
+      "endAfterStart": "End must be after start.",
+      "saved": "Saved."
+    },
+    "settings": {
+      "title": "Settings",
+      "patientsSeeNotes": "Patients can see session notes",
+      "reminderHours": "Reminder hours before a session",
+      "reminderInvalid": "Enter a whole number from 1 to 72.",
+      "saved": "Settings saved."
+    },
+    "audit": {
+      "title": "Audit log",
+      "user": "User",
+      "allUsers": "All users",
+      "empty": "No entries."
+    },
+    "stats": {
+      "title": "Reports"
+    }
   }
 }

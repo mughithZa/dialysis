@@ -13,13 +13,13 @@ import { MePage } from './features/me/MePage';
 import { PatientsPage } from './features/patients/PatientsPage';
 import { RolesPage } from './features/pm/RolesPage';
 import { SchedulePage } from './features/schedule/SchedulePage';
-import { AuditPage } from './features/audit/AuditPage';
-import { SettingsPage } from './features/settings/SettingsPage';
-import { SetupPage } from './features/setup/SetupPage';
-import { StatsPage } from './features/stats/StatsPage';
+import { AuditPage } from './features/centre/AuditPage';
+import { SettingsPage } from './features/centre/SettingsPage';
+import { SetupPage } from './features/centre/SetupPage';
+import { CentreStatsPage } from './features/centre/CentreStatsPage';
 import { TodayPage } from './features/sessions/TodayPage';
 import { TransfersPage } from './features/transfers/TransfersPage';
-import { UsersPage } from './features/users/UsersPage';
+import { UsersPage } from './features/centre/UsersPage';
 
 /** Route pattern -> screen. Patterns must match `NAV_ITEMS[].path`. Later tasks swap in real screens. */
 const SCREENS: Record<string, ReactElement> = {
@@ -35,7 +35,7 @@ const SCREENS: Record<string, ReactElement> = {
   '/c/:centreId/setup': <SetupPage />,
   '/c/:centreId/settings': <SettingsPage />,
   '/c/:centreId/audit': <AuditPage />,
-  '/c/:centreId/stats': <StatsPage />,
+  '/c/:centreId/stats': <CentreStatsPage />,
   '/me': <MePage />,
 };
 
