@@ -3,6 +3,7 @@ import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
+import { Patient } from '../patients/patient.model.js';
 import { Session } from '../sessions/session.model.js';
 import { Plan } from './plan.model.js';
 
@@ -14,10 +15,14 @@ export const GENERATION_DAYS = 14;
  * (`to` empty or ≥ today), every working day in `[max(today, from), min(today + 13, to)]` and every item on that
  * weekday. New sessions carry `planId` and the block/machine snapshots. A (patient, date, block) that already
  * has a session (any status, detached included) or that a moved session came from is left alone, so it is safe
- * to run repeatedly and concurrently (the unique index is the guard).
+ * to run repeatedly and concurrently (the unique index is the guard). Plans filed under a centre the patient no
+ * longer belongs to (left behind by a transfer) generate nothing.
  */
 export async function regenerateSessions(patientId: string, today: string = todayLocal()): Promise<void> {
-  const plans = await Plan.find({ patientId, $or: [{ to: null }, { to: { $gte: today } }] }).lean();
+  const patient = await Patient.findById(patientId, { centreId: 1 }).lean();
+  const plans = (await Plan.find({ patientId, $or: [{ to: null }, { to: { $gte: today } }] }).lean()).filter(
+    (p) => !patient || String(p.centreId) === String(patient.centreId),
+  );
   if (!plans.length) return;
   const last = addDays(today, GENERATION_DAYS - 1);
   const items = plans.flatMap((p) => p.items);
@@ -118,6 +123,18 @@ export async function refreshFutureSessions(centreId: string, today: string = to
   if (ops.length) await Session.bulkWrite(ops);
   const patients = await Plan.distinct('patientId', { centreId, $or: [{ to: null }, { to: { $gte: today } }] });
   for (const patientId of patients) await regenerateSessions(String(patientId), today);
+}
+
+/**
+ * `refreshFutureSessions` run after a setup write has committed: a failure is logged, never surfaced, because the
+ * write itself succeeded and the nightly generation refreshes again.
+ */
+export async function refreshAfterSave(centreId: string): Promise<void> {
+  try {
+    await refreshFutureSessions(centreId);
+  } catch (e) {
+    console.error(`refresh of future sessions for centre ${centreId} failed (the nightly generation retries)`, e);
+  }
 }
 
 /** Deletes `scheduled` sessions of the patient dated after `lastDate`. */

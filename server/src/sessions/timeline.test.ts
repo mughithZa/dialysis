@@ -8,6 +8,7 @@ import { PatientNote } from '../notes/patient-note.model.js';
 import { RosterEntry } from '../schedule/roster.model.js';
 import { UsageLine } from './usage.model.js';
 import { Session } from './session.model.js';
+import { Order } from '../orders/order.model.js';
 import { login, makeCentre, makePatient, makeSession, staffIn } from '../../test/factories.js';
 
 beforeAll(async () => {
@@ -136,5 +137,30 @@ describe('GET /api/me/timeline', () => {
     expect(on.body.notes[0]).toMatchObject({ text: 'watch BP', author: { name: doctor.user.name } });
     expect(Object.keys(on.body.notes[0].author)).toEqual(['name']);
     expect(JSON.stringify(on.body)).not.toContain(String(doctor.user._id));
+  });
+
+  it('with seeNotes, each item carries the session notes and the orders in force that date; none when off', async () => {
+    const { user, doctor, nurse, mk, today, patient, centre } = await setup();
+    const s = await mk(addDays(today, -1), 'completed');
+    s.notes.push({ at: new Date(), by: nurse.user._id, text: 'felt dizzy' } as never);
+    await s.save();
+    await mk(addDays(today, -10), 'completed');
+    await Order.create({ patientId: patient._id, centreId: centre._id, doctorId: doctor.user._id, text: 'no heparin', from: addDays(today, -5) });
+    await Order.create({ patientId: patient._id, centreId: centre._id, doctorId: doctor.user._id, text: 'old', from: addDays(today, -20), status: 'ended' });
+    const agent = await login(user.username);
+    const off = await agent.get('/api/me/timeline');
+    expect(off.body.past[0]).not.toHaveProperty('notes');
+    expect(off.body.past[0]).not.toHaveProperty('orders');
+    await Centre.updateOne({ _id: centre._id }, { $set: { 'settings.patientsSeeNotes': true } });
+    const on = await agent.get('/api/me/timeline');
+    expect(on.body.past[0].notes).toEqual([{ at: expect.any(String), text: 'felt dizzy' }]);
+    expect(on.body.past[0].orders).toEqual([{ text: 'no heparin', from: addDays(today, -5) }]);
+    expect(on.body.past[1].notes).toEqual([]);
+    expect(on.body.past[1].orders).toEqual([]);
+    expect(JSON.stringify(on.body)).not.toContain(String(nurse.user._id));
+    // staff viewers keep the plain item (they open the session for notes)
+    const desk = await staffIn(centre.id, ['front_desk']);
+    const staff = await desk.agent.get(`/api/centres/${centre.id}/patients/${patient.id}/timeline`);
+    expect(staff.body.past[0]).not.toHaveProperty('notes');
   });
 });

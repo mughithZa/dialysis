@@ -132,6 +132,15 @@ describe('regenerateSessions', () => {
     // Sat 17, Sat 24 and Mon 19, Mon 26
     expect(await Session.countDocuments()).toBe(4);
   });
+
+  it('ignores a plan filed under a centre the patient has since left (transfer)', async () => {
+    const { patient } = await openPlan([6], TODAY, TODAY);
+    const other = await makeCentre({ name: 'Other' });
+    patient.centreId = other.centre._id;
+    await patient.save();
+    await regenerateSessions(patient.id, TODAY);
+    expect(await Session.countDocuments({ patientId: patient.id })).toBe(0);
+  });
 });
 
 describe('plan change regenerates', () => {
@@ -183,6 +192,18 @@ describe('chair-date guard', () => {
     } finally {
       warn.mockRestore();
     }
+  });
+});
+
+describe('nightly generation', () => {
+  it('re-runs the setup refresh: a stale future snapshot is corrected, a past one is not', async () => {
+    const { chairs, patient } = await openPlan([6, 1]);
+    await regenerateSessions(patient.id, TODAY);
+    await Chair.updateOne({ _id: chairs[0]!._id }, { $set: { label: 'A1' } });
+    await generateAll('2026-10-18');
+    const byDate = Object.fromEntries((await Session.find({ patientId: patient.id })).map((s) => [s.date, s]));
+    expect(byDate['2026-10-17']!.chairLabel).toBe('1');
+    expect(byDate['2026-10-19']!.chairLabel).toBe('A1');
   });
 });
 

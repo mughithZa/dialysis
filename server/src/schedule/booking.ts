@@ -7,7 +7,7 @@ import type { PatientDoc } from '../patients/patient.model.js';
 import { Session, type SessionDoc } from '../sessions/session.model.js';
 import { Plan, type PlanDoc } from './plan.model.js';
 import { PatientPlanLock } from './slot-lock.model.js';
-import { assertPlanItemsFree, firstOnOrAfter, isSlotFree, lockSlots, validatePlanItems } from './slots.js';
+import { assertPlanItemsFree, firstOnOrAfter, isSlotFree, lockCentreSchedule, lockSlots, validatePlanItems } from './slots.js';
 import { deleteScheduledSessionsAfter, regenerateSessions } from './generate.js';
 
 /** One day row of a booking: machine `chairId` in session block `shiftId` on `weekday` (0=Sunday … 6=Saturday). */
@@ -96,6 +96,7 @@ async function bookOnce(
   audit?: Audit<BookResult>,
 ): Promise<SessionDoc[]> {
   return withTransaction(async (session) => {
+    await lockCentreSchedule(centreId, session);
     const valid = await validatePlanItems(centreId, input.items, session);
     await lockSlots(input.items, session);
     const docs = [];
@@ -145,6 +146,7 @@ export async function bookPlan(
   if (input.repeat === 'once') return { sessions: await bookOnce(centreId, patient, input, audit) };
 
   const plan = await withTransaction(async (session) => {
+    await lockCentreSchedule(centreId, session);
     await lockPatientPlans(patient._id, session);
     if (await Plan.exists(holdingFrom(patient._id, input.from)).session(session)) throw conflict('already_booked');
     const created = await insertPlan(centreId, patient, input, session);
@@ -193,6 +195,7 @@ export async function changePlan(
 ): Promise<PlanDoc> {
   const patient = await loadBookable(centreId, patientId, input);
   const plan = await withTransaction(async (session) => {
+    await lockCentreSchedule(centreId, session);
     await lockPatientPlans(patient._id, session);
     const current = await Plan.find(holdingFrom(patient._id, input.from)).session(session);
     if (!current.length) throw conflict('no_plan');

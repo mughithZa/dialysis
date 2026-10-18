@@ -108,6 +108,32 @@ describe('Timeline', () => {
     expect(screen.queryByText('Doctor note')).toBeNull();
   });
 
+  it("shows a session's nurse notes and the doctor's orders under its row when the patient may see them", async () => {
+    serve(
+      data({
+        past: [
+          item('p1', '2026-10-01', {
+            status: 'completed',
+            linkable: undefined,
+            notes: [{ at: '2026-10-01T09:00:00.000Z', text: 'felt dizzy' }],
+            orders: [{ text: 'no heparin', from: '2026-09-25' }],
+          }),
+          item('p2', '2026-09-30', { status: 'completed', linkable: undefined }),
+        ],
+      }),
+      '*/api/me/timeline',
+    );
+    renderApp(<Timeline source={{ kind: 'me' }} />);
+    const row = within(await screen.findByTestId('timeline-row-p1'));
+    expect(row.getByText('Nurse notes')).toBeVisible();
+    expect(row.getByText('felt dizzy')).toBeVisible();
+    expect(row.getByText("Doctor's orders")).toBeVisible();
+    expect(row.getByText(/no heparin/)).toBeVisible();
+    const plain = within(screen.getByTestId('timeline-row-p2'));
+    expect(plain.queryByText('Nurse notes')).toBeNull();
+    expect(plain.queryByText("Doctor's orders")).toBeNull();
+  });
+
   it('interleaves notes with sessions by date, newest first', async () => {
     useCentreUser(['sessions.view']);
     serve(

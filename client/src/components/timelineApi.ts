@@ -21,6 +21,10 @@ export interface TimelineItem {
   statusReason?: string;
   /** Staff viewers only: the session belongs to the viewer's centre, so its page can be opened. */
   linkable?: boolean;
+  /** The patient's own app, when the centre shares notes: the session's nurse notes. */
+  notes?: { at: string; text: string }[];
+  /** The patient's own app, when the centre shares notes: doctor orders in force on the session's date. */
+  orders?: { text: string; from: string }[];
 }
 
 export interface TimelineNote {

@@ -14,6 +14,10 @@ export interface SessionCard {
   kind: 'regular' | 'makeup';
   chair: { id: string; label: string };
   shift: { id: string; name: string; start: string; end: string };
+  /** Snapshots taken when the session was booked (refreshed only while it is still scheduled). */
+  chairLabel: string;
+  start: string;
+  end: string;
   patient: { id: string; name: string };
   hasActiveOrders: boolean;
 }

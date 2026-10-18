@@ -4,6 +4,7 @@ import mongoose from 'mongoose';
 import { z } from 'zod';
 import { validate } from '../lib/validate.js';
 import { badRequest, notFound } from '../lib/errors.js';
+import { todayLocal } from '../lib/dates.js';
 import { withTransaction } from '../db.js';
 import { recordAudit } from '../audit/record.js';
 import { requirePerm } from '../auth/middleware.js';
@@ -92,6 +93,8 @@ rosterRouter.post('/', requirePerm('schedule.assignNurses'), validate(createBody
     const centreId = centreOf(req);
     const b = req.body as z.infer<typeof createBody>;
     if (b.from > b.to) throw badRequest('validation');
+    // the past is frozen: a new entry must not re-staff sessions that already happened
+    if (b.from < todayLocal()) throw badRequest('from_in_past');
     if (spanDays(b.from, b.to) > MAX_ROSTER_SPAN_DAYS) throw badRequest('range_too_long');
     const shiftIds = [...new Set(b.shiftIds)];
     const chairIds = [...new Set(b.chairIds)];

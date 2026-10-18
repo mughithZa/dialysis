@@ -11,6 +11,7 @@ const ORDER = 'Give EPO 4000 IU';
 const DOCTOR_NOTE = 'Review dry weight next week';
 
 /** Today's weekday (0 = Sunday) in the app timezone, which the browser context also uses. */
+/** Today's weekday (0=Sunday) in the server's APP_TZ: this zone must match APP_TZ set for the server in e2e/global-setup.ts (and timezoneId in playwright.config.ts). */
 function todayWeekday(): number {
   const short = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'Asia/Damascus' }).format(new Date());
   return ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'].indexOf(short);

@@ -25,3 +25,15 @@ const patientPlanLockSchema = new Schema({
 });
 
 export const PatientPlanLock = model('PatientPlanLock', patientPlanLockSchema);
+
+/**
+ * One row per centre. Setup writes and every booking write bump it first in their transaction, so a setup change
+ * (retiring a machine, removing a block or a working day) and a booking that relies on the old setup conflict and
+ * the loser is retried against the winner's data. See `lockCentreSchedule` in schedule/slots.ts.
+ */
+const centreScheduleLockSchema = new Schema({
+  centreId: { type: Schema.Types.ObjectId, required: true, unique: true },
+  rev: { type: Number, default: 0 },
+});
+
+export const CentreScheduleLock = model('CentreScheduleLock', centreScheduleLockSchema);

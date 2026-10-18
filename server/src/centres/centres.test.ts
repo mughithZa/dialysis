@@ -3,7 +3,9 @@ import request from 'supertest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { User } from '../auth/user.model.js';
 import { AuditEntry } from '../audit/audit.model.js';
-import { createUser, getApp, login, makeCentre, programManager, staffIn } from '../../test/factories.js';
+import { Session } from '../sessions/session.model.js';
+import { addDays, todayLocal } from '../lib/dates.js';
+import { createUser, getApp, login, makeCentre, makePatient, makeSession, programManager, staffIn } from '../../test/factories.js';
 
 beforeEach(seedRoles);
 
@@ -147,49 +149,54 @@ describe('centre settings', () => {
 });
 
 describe('chairs and shifts', () => {
-  it('chairs CRUD, unique label, centre scoping', async () => {
+  it('lists chairs; label-only rename with unique label and centre scoping; no legacy create/active writes', async () => {
     const a = await makeCentre({ chairs: 2 });
     const b = await makeCentre({ name: 'B', chairs: 1 });
     const { agent } = await staffIn(a.centre.id, ['centre_manager']);
     const base = `/api/centres/${a.centre.id}/chairs`;
     const list = await agent.get(base);
     expect(list.body.map((c: { label: string }) => c.label)).toEqual(['1', '2']);
-    const created = await agent.post(base).send({ label: '3' });
-    expect(created.status).toBe(201);
-    expect(created.body).toMatchObject({ label: '3', active: true });
-    expect((await agent.post(base).send({ label: '3' })).status).toBe(409);
-    expect((await agent.post(base).send({ label: '' })).status).toBe(400);
-    const upd = await agent.patch(`${base}/${created.body.id}`).send({ active: false });
-    expect(upd.body.active).toBe(false);
-    expect((await agent.patch(`${base}/${created.body.id}`).send({ label: '1' })).status).toBe(409);
-    expect((await agent.patch(`${base}/${b.chairs[0]!.id}`).send({ active: false })).status).toBe(404);
-    expect((await agent.patch(`${base}/nope`).send({ active: false })).status).toBe(404);
-    expect(await AuditEntry.countDocuments({ action: { $in: ['chair.create', 'chair.update'] } })).toBe(2);
+    // setup (/schedule/setup) owns machine count and retirement
+    expect((await agent.post(base).send({ label: '3' })).status).toBe(404);
+    expect((await agent.patch(`${base}/${a.chairs[1]!.id}`).send({ active: false })).status).toBe(400);
+    const upd = await agent.patch(`${base}/${a.chairs[1]!.id}`).send({ label: 'B2' });
+    expect(upd.status).toBe(200);
+    expect(upd.body).toMatchObject({ label: 'B2', active: true });
+    expect((await agent.patch(`${base}/${a.chairs[1]!.id}`).send({ label: '1' })).status).toBe(409);
+    expect((await agent.patch(`${base}/${a.chairs[1]!.id}`).send({ label: '' })).status).toBe(400);
+    expect((await agent.patch(`${base}/${b.chairs[0]!.id}`).send({ label: 'x' })).status).toBe(404);
+    expect((await agent.patch(`${base}/nope`).send({ label: 'x' })).status).toBe(404);
+    expect(await AuditEntry.countDocuments({ action: 'chair.update' })).toBe(1);
   });
 
-  it('shifts CRUD and start < end', async () => {
+  it('renaming a machine refreshes future scheduled sessions; completed past sessions keep their label', async () => {
+    const a = await makeCentre({ chairs: 2 });
+    const { agent } = await staffIn(a.centre.id, ['centre_manager']);
+    const { patient } = await makePatient(a.centre.id);
+    const at = { centreId: a.centre._id, patientId: patient._id, chairId: a.chairs[0]!._id, shiftId: a.shifts[0]!._id };
+    const future = await makeSession({ ...at, date: addDays(todayLocal(), 2), status: 'scheduled' });
+    const past = await makeSession({ ...at, date: addDays(todayLocal(), -2), status: 'completed' });
+    const res = await agent.patch(`/api/centres/${a.centre.id}/chairs/${a.chairs[0]!.id}`).send({ label: 'A1' });
+    expect(res.status).toBe(200);
+    expect((await Session.findById(future._id))!.chairLabel).toBe('A1');
+    expect((await Session.findById(past._id))!.chairLabel).toBe('1');
+  });
+
+  it('lists shifts; legacy shift writes are gone (setup owns blocks)', async () => {
     const a = await makeCentre();
     const { agent } = await staffIn(a.centre.id, ['centre_manager']);
     const base = `/api/centres/${a.centre.id}/shifts`;
     const list = await agent.get(base);
     expect(list.body.map((s: { name: string }) => s.name)).toEqual(['Morning', 'Afternoon']);
-    const created = await agent.post(base).send({ name: 'Evening', start: '17:00', end: '21:00' });
-    expect(created.status).toBe(201);
-    expect((await agent.post(base).send({ name: 'Bad', start: '11:00', end: '11:00' })).status).toBe(400);
-    expect((await agent.post(base).send({ name: 'Bad', start: '12:00', end: '11:00' })).status).toBe(400);
-    expect((await agent.post(base).send({ name: 'Bad', start: '7:00', end: '11:00' })).status).toBe(400);
-    const upd = await agent.patch(`${base}/${created.body.id}`).send({ end: '22:00', active: false });
-    expect(upd.body).toMatchObject({ start: '17:00', end: '22:00', active: false });
-    expect((await agent.patch(`${base}/${created.body.id}`).send({ start: '23:00' })).status).toBe(400);
-    expect(await AuditEntry.countDocuments({ action: { $in: ['shift.create', 'shift.update'] } })).toBe(2);
+    expect((await agent.post(base).send({ name: 'Evening', start: '17:00', end: '21:00' })).status).toBe(404);
+    expect((await agent.patch(`${base}/${a.shifts[0]!.id}`).send({ end: '12:00' })).status).toBe(404);
   });
 
   it('nurse can read but not write; doctor cannot read', async () => {
     const a = await makeCentre();
     const nurse = await staffIn(a.centre.id, ['nurse']);
     expect((await nurse.agent.get(`/api/centres/${a.centre.id}/chairs`)).status).toBe(200);
-    expect((await nurse.agent.post(`/api/centres/${a.centre.id}/chairs`).send({ label: 'x' })).status).toBe(403);
-    expect((await nurse.agent.post(`/api/centres/${a.centre.id}/shifts`).send({ name: 'x', start: '01:00', end: '02:00' })).status).toBe(403);
+    expect((await nurse.agent.patch(`/api/centres/${a.centre.id}/chairs/${a.chairs[0]!.id}`).send({ label: 'x' })).status).toBe(403);
     const doc = await staffIn(a.centre.id, ['doctor']);
     expect((await doc.agent.get(`/api/centres/${a.centre.id}/shifts`)).status).toBe(403);
   });

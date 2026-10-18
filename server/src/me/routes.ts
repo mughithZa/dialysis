@@ -3,7 +3,6 @@ import { DateTime } from 'luxon';
 import { z } from 'zod';
 import { requirePatient } from '../auth/middleware.js';
 import { Centre } from '../centres/centre.model.js';
-import { Shift } from '../centres/shift.model.js';
 import { addDays, todayLocal } from '../lib/dates.js';
 import { notFound } from '../lib/errors.js';
 import { validate } from '../lib/validate.js';
@@ -20,27 +19,23 @@ async function ownPatient(userId: unknown) {
   return patient;
 }
 
-/** Shift times and centre names for a set of sessions. */
+/** Centre names for a set of sessions. */
 async function lookups(sessions: SessionDoc[]) {
-  const [shifts, centres] = await Promise.all([
-    Shift.find({ _id: { $in: sessions.map((s) => s.shiftId) } }),
-    Centre.find({ _id: { $in: sessions.map((s) => s.centreId) } }),
-  ]);
-  const shiftOf = (s: SessionDoc) => shifts.find((x) => String(x._id) === String(s.shiftId));
+  const centres = await Centre.find({ _id: { $in: sessions.map((s) => s.centreId) } });
   const centreName = (s: SessionDoc) => centres.find((c) => String(c._id) === String(s.centreId))?.name ?? '';
-  return { shiftOf, centreName };
+  return { centreName };
 }
 
-const byDateThenStart = (start: (s: SessionDoc) => string) => (a: SessionDoc, b: SessionDoc) =>
-  a.date === b.date ? start(a).localeCompare(start(b)) : a.date.localeCompare(b.date);
+const byDateThenStart = (a: SessionDoc, b: SessionDoc) =>
+  a.date === b.date ? a.shiftStart.localeCompare(b.shiftStart) : a.date.localeCompare(b.date);
 
+/** Block times are the session's own snapshots, never the live setup. */
 function mini(s: SessionDoc, l: Awaited<ReturnType<typeof lookups>>) {
-  const shift = l.shiftOf(s);
   return {
     id: s.id as string,
     date: s.date,
-    start: shift?.start ?? '',
-    end: shift?.end ?? '',
+    start: s.shiftStart,
+    end: s.shiftEnd,
     centreName: l.centreName(s),
     kind: s.kind,
     status: s.status,
@@ -59,7 +54,7 @@ meRouter.get('/overview', async (req, res, next) => {
         : Session.find({ patientId: patient._id, status: 'scheduled', date: { $gte: today, $lte: addDays(today, 13) } }),
     ]);
     const l = await lookups([...scheduled, ...(active ? [active] : [])]);
-    scheduled.sort(byDateThenStart((s) => l.shiftOf(s)?.start ?? ''));
+    scheduled.sort(byDateThenStart);
     res.json({
       patient: { name: patient.name },
       centre: { name: centre?.name ?? '' },

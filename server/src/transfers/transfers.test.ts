@@ -8,6 +8,7 @@ import { Session } from '../sessions/session.model.js';
 import { todayLocal, weekdayOf, addDays } from '../lib/dates.js';
 import { ALL_DAYS, makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 import { Transfer } from './transfer.model.js';
+import { regenerateSessions } from '../schedule/generate.js';
 
 beforeAll(async () => {
   await Transfer.init();
@@ -193,8 +194,8 @@ describe('accept', () => {
     const hist = await doctorB.agent.get(`${s.baseB}/patients/${s.patient.id}/timeline`);
     expect(hist.status).toBe(200);
     expect(hist.body.today.map((h: { centreName: string }) => h.centreName)).toEqual(['Alpha']);
-    // the plan ends today (slot free from tomorrow) and another patient can take it
-    expect((await Plan.find({ patientId: s.patient._id })).map((x) => x.to)).toEqual([todayLocal()]);
+    // the plan ends yesterday: it started today, so it is removed (today's completed session stays as history)
+    expect(await Plan.find({ patientId: s.patient._id })).toEqual([]);
     const next = await makePatient(s.a.centre.id);
     const taken = await s.deskA.agent.post(`${s.baseA}/patients/${next.patient.id}/plan`).send({
       items: [{ weekday: weekdayOf(todayLocal()), chairId: s.a.chairs[0]!.id, shiftId: s.a.shifts[0]!.id }],
@@ -248,5 +249,37 @@ describe('accept', () => {
     expect([String(p.centreId), p.status]).toEqual([s.a.centre.id, 'transferring']);
     expect((await Transfer.findById(t.id))!.status).toBe('pending');
     expect((await Plan.find({ patientId: s.patient._id })).map((x) => x.to)).toEqual([null]);
+  });
+
+  it('transfer day: the new centre books from today; nothing comes back at the old centre', async () => {
+    const s = await setup();
+    s.b.centre.workingDays = ALL_DAYS;
+    await s.b.centre.save();
+    // a plan from last week, so ending it keeps a real (capped) plan at the old centre
+    const from = addDays(todayLocal(), -7);
+    await Plan.create({
+      centreId: s.a.centre._id, patientId: s.patient._id, from, to: null,
+      items: [{ weekday: weekdayOf(todayLocal()), chairId: s.a.chairs[0]!._id, shiftId: s.a.shifts[0]!._id }],
+    });
+    await regenerateSessions(s.patient.id);
+    expect(await Session.exists({ patientId: s.patient._id, date: todayLocal(), centreId: s.a.centre._id })).not.toBeNull();
+    const t = (await s.send()).body as { id: string };
+    expect((await s.deskB.agent.post(`${s.baseB}/transfers/${t.id}/accept`)).status).toBe(200);
+    expect((await Plan.find({ patientId: s.patient._id })).map((x) => x.to)).toEqual([addDays(todayLocal(), -1)]);
+
+    // a same-day regeneration (nightly job, setup refresh) recreates nothing at the old centre
+    await regenerateSessions(s.patient.id);
+    expect(await Session.countDocuments({ patientId: s.patient._id, centreId: s.a.centre._id, date: { $gte: todayLocal() } })).toBe(0);
+
+    const booked = await s.deskB.agent.post(`${s.baseB}/patients/${s.patient.id}/plan`).send({
+      items: [{ weekday: weekdayOf(todayLocal()), chairId: s.b.chairs[0]!.id, shiftId: s.b.shifts[0]!.id }],
+      from: todayLocal(),
+      repeat: 'weekly',
+    });
+    expect([booked.status, booked.body.error]).toEqual([201, undefined]);
+    await regenerateSessions(s.patient.id);
+    const todays = await Session.find({ patientId: s.patient._id, date: todayLocal() });
+    expect(todays.map((x) => String(x.centreId))).toEqual([s.b.centre.id]);
+    expect(await Session.countDocuments({ patientId: s.patient._id, centreId: s.a.centre._id, date: { $gte: todayLocal() } })).toBe(0);
   });
 });

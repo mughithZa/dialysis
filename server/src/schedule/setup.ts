@@ -6,6 +6,7 @@ import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { Session } from '../sessions/session.model.js';
 import { Plan } from './plan.model.js';
+import { lockCentreSchedule } from './slots.js';
 
 export interface SetupDto {
   machines: { id: string; label: string; active: boolean }[];
@@ -89,6 +90,8 @@ export async function applySetup(centreId: string, input: SetupInput, session: C
   for (let i = 1; i < sorted.length; i++) if (sorted[i]!.start < sorted[i - 1]!.end) throw badRequest('blocks_overlap');
   const days = [...new Set(input.workingDays)];
 
+  // first operation of the transaction: conflicts with any booking committing meanwhile (see lockCentreSchedule)
+  await lockCentreSchedule(centreId, session);
   const centre = await Centre.findById(centreId).session(session);
   if (!centre) throw notFound();
   const [allChairs, activeShifts] = await Promise.all([

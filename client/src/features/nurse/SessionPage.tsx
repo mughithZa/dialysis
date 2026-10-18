@@ -102,7 +102,7 @@ function SessionView({ s }: { s: SessionDetail }) {
           <Badge variant="light">{t(`sessions.status.${s.status}`)}</Badge>
         </Group>
         <Text c="dimmed">
-          {s.chair.label} · {s.shift.name} ({s.shift.start}-{s.shift.end}) · {s.date}
+          {s.chairLabel} · {s.shift.name} ({s.start}-{s.end}) · {s.date}
         </Text>
       </Stack>
 

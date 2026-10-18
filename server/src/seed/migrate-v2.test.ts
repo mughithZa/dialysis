@@ -3,7 +3,7 @@ import mongoose, { Types } from 'mongoose';
 import { Role } from '../auth/role.model.js';
 import { seedRoles } from '../auth/roles.seed.js';
 import { Centre } from '../centres/centre.model.js';
-import { addDays, todayLocal } from '../lib/dates.js';
+import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Plan } from '../schedule/plan.model.js';
 import { RosterEntry } from '../schedule/roster.model.js';
 import { Session } from '../sessions/session.model.js';
@@ -32,7 +32,7 @@ async function fixture() {
   );
   await raw('treatment_sessions').insertOne({
     centreId: centre._id, patientId: a.patient._id, date: '2026-01-04', chairId: chairs[0]!._id, shiftId: shifts[0]!._id,
-    status: 'completed', kind: 'regular',
+    status: 'completed', kind: 'regular', openedBy: nurse._id,
   });
   return { centre, chairs, shifts, a, b, nurse };
 }
@@ -61,6 +61,8 @@ describe('migrateV2', () => {
 
     const s = (await raw('treatment_sessions').findOne({}))!;
     expect(s).toMatchObject({ shiftStart: '07:00', shiftEnd: '11:30', chairLabel: '1', detached: false });
+    // migrated history names the nurse who opened it
+    expect(String(s.runBy)).toBe(String(nurse._id));
 
     const fd = (await Role.findOne({ key: 'front_desk' }))!;
     for (const p of ['schedule.setup', 'sessions.run', 'sessions.recordUsage', 'sessions.recordVitals', 'sessions.addNotes']) {
@@ -116,5 +118,73 @@ describe('migrateV2', () => {
     const again = await migrateV2();
     expect(again).toMatchObject({ plans: 0, roster: 0, sessions: 0, roles: 0 });
     expect(await snap()).toEqual(before);
+  });
+
+  it('sets runBy from openedBy where runBy is missing, without touching sessions that have one', async () => {
+    const { centre, chairs, shifts, a, nurse } = await fixture();
+    const other = await createUser({ username: 'nurse2' });
+    const snap = { shiftStart: '07:00', shiftEnd: '11:30', chairLabel: '2', kind: 'regular', detached: false };
+    const at = { centreId: centre._id, patientId: a.patient._id, chairId: chairs[1]!._id, shiftId: shifts[0]!._id };
+    const [noRunner, hasRunner, notOpened] = Object.values(
+      (await raw('treatment_sessions').insertMany([
+        { ...at, ...snap, date: '2026-01-06', status: 'completed', openedBy: nurse._id },
+        { ...at, ...snap, date: '2026-01-08', status: 'completed', openedBy: nurse._id, runBy: other._id },
+        { ...at, ...snap, date: '2026-01-10', status: 'missed' },
+      ])).insertedIds,
+    ) as Types.ObjectId[];
+    await migrateV2();
+    const get = async (id: Types.ObjectId) => (await raw('treatment_sessions').findOne({ _id: id }))!;
+    expect(String((await get(noRunner)).runBy)).toBe(String(nurse._id));
+    expect(String((await get(hasRunner)).runBy)).toBe(String(other._id));
+    expect((await get(notOpened)).runBy).toBeUndefined();
+  });
+
+  it("adds the weekdays of a centre's future scheduled sessions to its working days", async () => {
+    const { centre, chairs, shifts } = await makeCentre({ name: 'Fri' });
+    await raw('centres').updateOne({ _id: centre._id }, { $unset: { workingDays: '' } });
+    const { patient } = await makePatient(centre.id);
+    let friday = addDays(todayLocal(), 1);
+    while (weekdayOf(friday) !== 5) friday = addDays(friday, 1);
+    await raw('treatment_sessions').insertOne({
+      centreId: centre._id, patientId: patient._id, date: friday, chairId: chairs[0]!._id, shiftId: shifts[0]!._id,
+      status: 'scheduled', kind: 'regular',
+    });
+    await migrateV2();
+    expect((await raw('centres').findOne({ _id: centre._id }))!.workingDays).toEqual([0, 1, 2, 3, 4, 5, 6]);
+  });
+
+  it('builds the hard double-booking index; on conflicting live sessions it lists them and writes no marker', async () => {
+    const { centre, chairs, shifts, a, b } = await fixture();
+    await Session.init();
+    await raw('treatment_sessions').dropIndex('chairId_1_shiftId_1_date_1');
+    try {
+      const at = { centreId: centre._id, chairId: chairs[3]!._id, shiftId: shifts[1]!._id, date: '2026-01-05', kind: 'regular' };
+      await raw('treatment_sessions').insertMany([
+        { ...at, patientId: a.patient._id, status: 'completed' },
+        { ...at, patientId: b.patient._id, status: 'scheduled' },
+      ]);
+      const res = await migrateV2();
+      const conflict = res.skipped.find((x) => x.includes('2026-01-05'));
+      expect(conflict).toBeDefined();
+      expect(conflict).toContain(String(chairs[3]!._id));
+      expect(conflict).toContain(String(shifts[1]!._id));
+      expect(conflict).toContain(String(a.patient._id));
+      expect(conflict).toContain(String(b.patient._id));
+      expect(await migrationMarker()).toBeNull();
+
+      // resolved by hand, the re-run builds the index and finishes
+      await raw('treatment_sessions').updateOne({ patientId: b.patient._id, date: '2026-01-05' }, { $set: { status: 'cancelled' } });
+      const again = await migrateV2();
+      expect(again.skipped).toEqual([]);
+      expect(await migrationMarker()).not.toBeNull();
+      const names = (await raw('treatment_sessions').indexes()).map((i) => i.name);
+      expect(names).toContain('chairId_1_shiftId_1_date_1');
+      for (const coll of ['plans', 'slotlocks', 'patientplanlocks']) {
+        expect((await raw(coll).indexes()).length).toBeGreaterThan(1);
+      }
+    } finally {
+      await raw('treatment_sessions').deleteMany({ date: '2026-01-05' });
+      await Session.createIndexes();
+    }
   });
 });

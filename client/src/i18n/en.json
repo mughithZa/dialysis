@@ -341,12 +341,10 @@
       "record": "Record",
       "pattern": "Current schedule",
       "noPattern": "No schedule yet.",
-      "chairShift": "{{chair}}, {{shift}}",
       "orders": "Doctor orders",
       "noOrders": "No orders.",
       "actions": "Actions",
       "bookPattern": "Book schedule",
-      "changePattern": "Change schedule",
       "postpone": "Postpone session",
       "makeup": "Make-up session",
       "changePlan": "Change weekly plan",
@@ -731,6 +729,9 @@
     "moved": "Moved",
     "oneOff": "One-off",
     "note": "Doctor note",
+    "sessionNotes": "Nurse notes",
+    "orders": "Doctor's orders",
+    "order": "{{text}} (from {{date}})",
     "title": "Sessions"
   }
 }

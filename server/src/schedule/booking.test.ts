@@ -6,6 +6,7 @@ import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { ALL_DAYS, makeCentre, makePatient, staffIn } from '../../test/factories.js';
 import { Plan } from './plan.model.js';
 import { GENERATION_DAYS } from './generate.js';
+import { CentreScheduleLock } from './slot-lock.model.js';
 
 beforeAll(async () => {
   await Promise.all([Session.init(), Plan.init()]);
@@ -425,6 +426,56 @@ describe('changing the weekly plan from a date', () => {
     expect((await change(patient.id, { items: [item(FRI, 0, 0)], from: today() })).body.error).toBe('not_working_day');
     expect((await change(patient.id, { items: [], from: today() })).status).toBe(400);
     expect((await Plan.find({ patientId: patient.id })).map((p) => p.to)).toEqual([null]);
+  });
+});
+
+describe('changing the plan over dates the patient released', () => {
+  it('postpone -> another patient takes that date (make-up) -> the plan change keeping the slot is accepted', async () => {
+    const { centre, agent, base, item, weekly, change } = await setup(ALL_DAYS);
+    const { patient: p } = await makePatient(centre.id);
+    const { patient: q } = await makePatient(centre.id);
+    const d = addDays(today(), 1);
+    expect((await weekly(p.id, [item(weekdayOf(d), 0, 0)])).status).toBe(201);
+    const mine = (await Session.findOne({ patientId: p._id, date: d }))!;
+    expect((await agent.post(`${base}/sessions/${mine.id}/postpone`)).status).toBe(200);
+    const makeup = await agent.post(`${base}/patients/${q.id}/makeup`).send({ date: d, chairId: item(0, 0, 0).chairId, shiftId: item(0, 0, 0).shiftId });
+    expect(makeup.status).toBe(201);
+    const res = await change(p.id, { items: [item(weekdayOf(d), 0, 0), item(weekdayOf(addDays(d, 2)), 1, 1)], from: today() });
+    expect([res.status, res.body.error]).toEqual([200, undefined]);
+    // the make-up stays, the next week's slot is still the patient's
+    expect(await Session.exists({ _id: makeup.body.id, status: 'scheduled' })).not.toBeNull();
+    expect(await Session.exists({ patientId: p._id, date: addDays(d, 7), status: 'scheduled' })).not.toBeNull();
+  });
+});
+
+describe('setup vs booking: one per-centre lock', () => {
+  it('setup and every booking write (weekly, once, change, make-up, move) bump the centre schedule lock', async () => {
+    const { centre, agent, base, item, weekly, once, change } = await setup(ALL_DAYS);
+    const rev = async () => (await CentreScheduleLock.findOne({ centreId: centre._id }))?.rev ?? 0;
+    const { patient: p } = await makePatient(centre.id);
+    const { patient: q } = await makePatient(centre.id);
+    const steps: [string, () => Promise<{ status: number }>][] = [
+      ['weekly', () => weekly(p.id, [item(weekdayOf(today()), 0, 0)])],
+      ['once', () => once(q.id, [item(weekdayOf(addDays(today(), 2)), 1, 3)])],
+      ['change', () => change(p.id, { items: [item(weekdayOf(today()), 0, 1)], from: addDays(today(), 1) })],
+      ['makeup', () => agent.post(`${base}/patients/${q.id}/makeup`).send({ date: addDays(today(), 1), chairId: item(0, 1, 4).chairId, shiftId: item(0, 1, 4).shiftId })],
+    ];
+    for (const [name, step] of steps) {
+      const before = await rev();
+      const res = await step();
+      expect([name, res.status < 300]).toEqual([name, true]);
+      expect([name, await rev()]).toEqual([name, before + 1]);
+    }
+    const s = (await Session.findOne({ patientId: q._id, oneOff: true }))!;
+    let before = await rev();
+    const moved = await agent.post(`${base}/sessions/${s.id}/move`).send({ date: s.date, chairId: item(0, 1, 5).chairId, shiftId: item(0, 1, 5).shiftId });
+    expect(moved.status).toBe(200);
+    expect(await rev()).toBe(before + 1);
+    const { blocks } = (await agent.get(`${base}/schedule/setup`)).body;
+    before = await rev();
+    const put = await agent.put(`${base}/schedule/setup`).send({ machineCount: 6, blocks, workingDays: ALL_DAYS });
+    expect(put.status).toBe(200);
+    expect(await rev()).toBe(before + 1);
   });
 });
 

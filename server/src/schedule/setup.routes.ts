@@ -4,7 +4,7 @@ import { validate } from '../lib/validate.js';
 import { withTransaction } from '../db.js';
 import { recordAudit } from '../audit/record.js';
 import { requirePerm } from '../auth/middleware.js';
-import { refreshFutureSessions } from './generate.js';
+import { refreshAfterSave } from './generate.js';
 import { applySetup, getSetup } from './setup.js';
 
 export const setupRouter = Router({ mergeParams: true });
@@ -45,7 +45,8 @@ setupRouter.put('/schedule/setup', requirePerm('schedule.setup'), validate(putBo
       );
       return out;
     });
-    if (timesChanged) await refreshFutureSessions(centreId);
+    // after commit: a failed refresh must not turn a saved setup into an error (the nightly run refreshes again)
+    if (timesChanged) await refreshAfterSave(centreId);
     res.json(dto);
   } catch (e) {
     next(e);

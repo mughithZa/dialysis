@@ -54,6 +54,30 @@ function SessionRow({ item, source, actions }: { item: TimelineItem; source: Tim
         {item.medicines.length > 0 && (
           <Text size="sm">{item.medicines.map((m) => t('timeline.medicine', { name: m.name, amount: m.amount, unit: m.unit })).join(', ')}</Text>
         )}
+        {item.notes && item.notes.length > 0 && (
+          <Stack gap={2}>
+            <Text size="sm" fw={600}>
+              {t('timeline.sessionNotes')}
+            </Text>
+            {item.notes.map((n, i) => (
+              <Text key={i} size="sm">
+                {n.text}
+              </Text>
+            ))}
+          </Stack>
+        )}
+        {item.orders && item.orders.length > 0 && (
+          <Stack gap={2}>
+            <Text size="sm" fw={600}>
+              {t('timeline.orders')}
+            </Text>
+            {item.orders.map((o, i) => (
+              <Text key={i} size="sm">
+                {t('timeline.order', { text: o.text, date: formatDay(o.from, i18n.language) })}
+              </Text>
+            ))}
+          </Stack>
+        )}
         {extra && <Group gap="xs">{extra}</Group>}
       </Stack>
     </Card>

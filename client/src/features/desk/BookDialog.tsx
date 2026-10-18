@@ -57,7 +57,7 @@ function DayRow({ row, index, from, patientId, setup, duplicate, removable, onCh
   // A machine that is no longer in the free list (taken meanwhile) is cleared so it cannot be submitted.
   useEffect(() => {
     if (row.chairId && free.data && !free.isFetching && !free.data.some((m) => m.id === row.chairId)) onChange({ chairId: null });
-  });
+  }, [row.chairId, free.data, free.isFetching, onChange]);
 
   const days = WEEKDAY_ORDER.filter((d) => setup.workingDays.includes(d) || String(d) === row.weekday);
   return (

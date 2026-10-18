@@ -21,6 +21,9 @@ const detail = (over: Record<string, unknown> = {}) => ({
   kind: 'regular',
   chair: { id: 'ch1', label: 'Chair 1' },
   shift: { id: 'sh1', name: 'Morning', start: '07:00', end: '11:00' },
+  chairLabel: 'Chair 1',
+  start: '07:00',
+  end: '11:00',
   patient: { id: 'p1', name: 'Layla' },
   hasActiveOrders: false,
   vitals: { weightBefore: null, weightAfter: null, bp: [] },
@@ -56,6 +59,11 @@ function mount(session: Record<string, unknown>, perms = RUN) {
 }
 
 describe('SessionPage', () => {
+  it('shows the machine label and block times the session was booked with, not the live setup', async () => {
+    mount(detail({ status: 'completed', date: '2026-09-01', chairLabel: '3', start: '06:00', end: '10:00' }));
+    expect(await screen.findByText('3 · Morning (06:00-10:00) · 2026-09-01')).toBeVisible();
+  });
+
   it('asks before closing without heparin and "Close anyway" posts /close', async () => {
     let closed = 0;
     server.use(http.post('*/api/centres/c1/sessions/s1/close', () => (closed++, HttpResponse.json(detail({ status: 'completed' })))));

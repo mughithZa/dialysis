@@ -5,6 +5,7 @@ import { Centre } from '../centres/centre.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { addDays, localDateTime, todayLocal } from '../lib/dates.js';
 import { PatientNote } from '../notes/patient-note.model.js';
+import { Order } from '../orders/order.model.js';
 import { toNoteItems, type NoteItem } from '../notes/service.js';
 import { resolveRoster } from '../schedule/roster.js';
 import { Session, type SessionDoc } from './session.model.js';
@@ -30,6 +31,10 @@ export interface TimelineItem {
   statusReason?: string;
   /** Staff viewers only. */
   linkable?: boolean;
+  /** Patient viewers whose centre shares notes only: the session's nurse notes (no staff ids). */
+  notes?: { at: Date; text: string }[];
+  /** Patient viewers whose centre shares notes only: doctor orders in force on the session's date. */
+  orders?: { text: string; from: string }[];
 }
 
 export interface Timeline {
@@ -63,6 +68,10 @@ async function toItems(sessions: SessionDoc[], viewer: TimelineViewer, today: st
     (s.rosterNurseId ? String(s.rosterNurseId) : undefined) ??
     (needRoster(s) ? rosters.get(`${s.centreId}:${s.date}`)?.get(`${s.shiftId}:${s.chairId}`) : undefined);
   const users = await User.find({ _id: { $in: sessions.map(nurseIdOf).filter((x): x is string => !!x) } });
+  const shareNotes = viewer.kind === 'patient' && viewer.seeNotes;
+  const orders = shareNotes
+    ? await Order.find({ patientId: { $in: [...new Set(sessions.map((s) => String(s.patientId)))] }, status: 'active' }).sort({ from: 1, _id: 1 })
+    : [];
 
   return sessions.map((s) => {
     const nid = nurseIdOf(s);
@@ -90,6 +99,12 @@ async function toItems(sessions: SessionDoc[], viewer: TimelineViewer, today: st
     };
     if (s.statusReason) item.statusReason = s.statusReason;
     if (viewer.kind === 'staff') item.linkable = item.centreId === viewer.centreId;
+    if (shareNotes) {
+      item.notes = s.notes.map((n) => ({ at: n.at, text: n.text }));
+      item.orders = orders
+        .filter((o) => String(o.patientId) === String(s.patientId) && o.from <= s.date)
+        .map((o) => ({ text: o.text, from: o.from }));
+    }
     return item;
   });
 }

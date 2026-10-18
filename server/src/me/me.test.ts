@@ -47,6 +47,16 @@ describe('GET /api/me/overview', () => {
     expect(got.body.active).toMatchObject({ id: act.id, status: 'active', centreName: centre.name });
   });
 
+  it('uses the session snapshots (block times), not the live setup', async () => {
+    const { agent, centre, chairs, shifts, patient } = await setup();
+    const today = todayLocal();
+    await makeSession({ centreId: centre._id, patientId: patient._id, date: addDays(today, 1), chairId: chairs[0]!._id, shiftId: shifts[0]!._id, status: 'scheduled', shiftStart: '06:15', shiftEnd: '10:15' });
+    await makeSession({ centreId: centre._id, patientId: patient._id, date: today, chairId: chairs[0]!._id, shiftId: shifts[1]!._id, status: 'active', shiftStart: '12:30', shiftEnd: '16:45' });
+    const res = await agent.get('/api/me/overview');
+    expect(res.body.upcoming[0]).toMatchObject({ start: '06:15', end: '10:15' });
+    expect(res.body.active).toMatchObject({ start: '12:30', end: '16:45' });
+  });
+
   it('lets a discharged patient in with no upcoming sessions', async () => {
     const { agent, mk, patient } = await setup();
     await mk(addDays(todayLocal(), 1), 'scheduled');

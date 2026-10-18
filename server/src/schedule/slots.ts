@@ -7,7 +7,8 @@
  *  2. a weekly plan item holds it: same weekday, `from ≤ date`, `to` null or `≥ date`, and the date is a working
  *     day of the centre — unless that plan's patient released this one date, i.e. either
  *       a. the patient's session for (date, block) is postponed or cancelled, or
- *       b. a session of the patient was moved away from (date, block) (`movedFrom`).
+ *       b. a session of the patient was moved away from (date, block) (`movedFrom`),
+ *     and unless the plan's patient now belongs to another centre (a plan left behind by a transfer holds nothing).
  *
  * Write paths that act on an answer from here must run inside a transaction and call `lockSlot` (or
  * `assertPlanItemsFree`, which does it) before reading, so two concurrent bookings of the same slot conflict.
@@ -19,9 +20,10 @@ import { addDays, weekdayOf } from '../lib/dates.js';
 import { Centre } from '../centres/centre.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
+import { Patient } from '../patients/patient.model.js';
 import { LIVE_STATUSES, Session } from '../sessions/session.model.js';
 import { Plan, type PlanItem } from './plan.model.js';
-import { SlotLock } from './slot-lock.model.js';
+import { CentreScheduleLock, SlotLock } from './slot-lock.model.js';
 
 type Id = string | Types.ObjectId;
 
@@ -40,6 +42,28 @@ const isDate = (d: unknown): d is string =>
   typeof d === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(d) && DateTime.fromISO(d, { zone: 'utc' }).isValid;
 const same = (a: unknown, b: unknown) => String(a) === String(b);
 
+/** Bumps a lock row in the caller's transaction; a racing first-time upsert is retried like a write conflict. */
+async function bump(model: typeof SlotLock | typeof CentreScheduleLock, key: object, session: ClientSession): Promise<void> {
+  await model.init();
+  try {
+    await (model as typeof SlotLock).updateOne(key, { $inc: { rev: 1 } }, { upsert: true, session });
+  } catch (e) {
+    // two first-time upserts of the same key race on the unique index: make the loser retry like a write conflict
+    if (e instanceof mongoose.mongo.MongoServerError && e.code === 11000) e.addErrorLabel('TransientTransactionError');
+    throw e;
+  }
+}
+
+/**
+ * Write-locks the centre's schedule in the caller's transaction. Setup (`applySetup`) and every booking write
+ * (plan, change, one-off, make-up, move) take it as their FIRST operation, so a setup change and a booking cannot
+ * both commit on a stale view of each other: the loser write-conflicts and `withTransaction` retries it.
+ */
+export async function lockCentreSchedule(centreId: Id, session: ClientSession): Promise<void> {
+  if (!session.inTransaction()) throw new Error('lockCentreSchedule must run inside a transaction');
+  await bump(CentreScheduleLock, { centreId }, session);
+}
+
 /**
  * Write-locks (chair, shift, weekday) in the caller's transaction. Two transactions that lock the same key
  * write-conflict, and the loser is retried by `withTransaction`, re-reading the winner's booking. Call it
@@ -47,14 +71,19 @@ const same = (a: unknown, b: unknown) => String(a) === String(b);
  */
 export async function lockSlot(chairId: Id, shiftId: Id, weekday: number, session: ClientSession): Promise<void> {
   if (!session.inTransaction()) throw new Error('lockSlot must run inside a transaction');
-  await SlotLock.init();
-  try {
-    await SlotLock.updateOne({ chairId, shiftId, weekday }, { $inc: { rev: 1 } }, { upsert: true, session });
-  } catch (e) {
-    // two first-time upserts of the same key race on the unique index: make the loser retry like a write conflict
-    if (e instanceof mongoose.mongo.MongoServerError && e.code === 11000) e.addErrorLabel('TransientTransactionError');
-    throw e;
-  }
+  await bump(SlotLock, { chairId, shiftId, weekday }, session);
+}
+
+/**
+ * Of `patientIds`, those whose patient record now belongs to a centre other than `centreId` (transferred away).
+ * Their plans filed under `centreId` hold nothing. An id without a patient record is not "departed".
+ */
+async function departedFrom(centreId: Id, patientIds: unknown[], session: ClientSession | null): Promise<Set<string>> {
+  if (!patientIds.length) return new Set();
+  const gone = await Patient.find({ _id: { $in: patientIds }, centreId: { $ne: centreId } }, { _id: 1 })
+    .session(session)
+    .lean();
+  return new Set(gone.map((p) => String(p._id)));
 }
 
 /**
@@ -67,7 +96,7 @@ export async function planHolds(centreId: Id, shiftId: Id, date: string, opts: S
   const onChair = chairId ? { chairId } : {};
   const holds = new Map<string, string>();
   const weekday = weekdayOf(date);
-  const plans = await Plan.find(
+  const found = await Plan.find(
     {
       centreId,
       items: { $elemMatch: { weekday, shiftId, ...onChair } },
@@ -79,6 +108,8 @@ export async function planHolds(centreId: Id, shiftId: Id, date: string, opts: S
   )
     .session(session)
     .lean();
+  const departed = await departedFrom(centreId, found.map((p) => p.patientId), session);
+  const plans = found.filter((p) => !departed.has(String(p.patientId)));
   if (!plans.length) return holds;
 
   // exceptions: the holder released this one date (postponed/cancelled there, or moved away from it)
@@ -222,7 +253,8 @@ export async function lockSlots(items: PlanItem[], session: ClientSession): Prom
  *  - the `validatePlanItems` errors (404, `not_working_day`, `inactive_chair`, `inactive_shift`);
  *  - 409 `slot_taken` when another patient's plan item (in this centre) on the same (chair, shift, weekday)
  *    shares at least one such weekday with the range, or another patient has a scheduled/active/completed
- *    session on that chair and block on a matching weekday within the range.
+ *    session on that chair and block on a matching weekday within the range — unless `patientId` released that
+ *    date on this chair and block (its own session there is postponed/cancelled, or was moved away from it).
  * Runs inside the caller's transaction and locks each item's slot first, so concurrent bookings serialise.
  */
 export async function assertPlanItemsFree(
@@ -247,28 +279,47 @@ export async function assertPlanItemsFree(
         $or: [{ to: null }, { to: { $gte: from } }],
         ...(to !== null ? { from: { $lte: to } } : {}),
       },
-      { from: 1, to: 1 },
+      { patientId: 1, from: 1, to: 1 },
     )
       .session(session)
       .lean();
+    const departed = await departedFrom(centreId, plans.map((p) => p.patientId), session);
     for (const p of plans) {
+      if (departed.has(String(p.patientId))) continue;
       const lo = p.from > from ? p.from : from;
       const hi = p.to === null || p.to === undefined ? to : to === null || p.to < to ? p.to : to;
       if (hi === null || firstOnOrAfter(lo, weekday) <= hi) throw conflict('slot_taken');
     }
 
+    const range = to === null ? { $gte: from } : { $gte: from, $lte: to };
     const sessions = await Session.find(
-      {
-        patientId: { $ne: patientId },
-        chairId,
-        shiftId,
-        status: { $in: [...LIVE_STATUSES] },
-        date: to === null ? { $gte: from } : { $gte: from, $lte: to },
-      },
+      { patientId: { $ne: patientId }, chairId, shiftId, status: { $in: [...LIVE_STATUSES] }, date: range },
       { date: 1 },
     )
       .session(session)
       .lean();
-    if (sessions.some((s) => weekdayOf(s.date) === weekday)) throw conflict('slot_taken');
+    const clashes = sessions.filter((s) => weekdayOf(s.date) === weekday);
+    if (!clashes.length) continue;
+    // a date the booking patient released on this machine and block (postponed/cancelled there, or moved away)
+    // was free for the other patient to take; it does not hold against the patient's own plan
+    const released = await Session.find(
+      {
+        patientId,
+        $or: [
+          { chairId, shiftId, status: { $in: [...RELEASING_STATUSES] }, date: range },
+          { 'movedFrom.chairId': chairId, 'movedFrom.shiftId': shiftId, 'movedFrom.date': range },
+        ],
+      },
+      { date: 1, chairId: 1, shiftId: 1, status: 1, movedFrom: 1 },
+    )
+      .session(session)
+      .lean();
+    const releasedDates = new Set<string>();
+    for (const r of released) {
+      const here = same(r.chairId, chairId) && same(r.shiftId, shiftId);
+      if (here && (RELEASING_STATUSES as readonly string[]).includes(r.status)) releasedDates.add(r.date);
+      if (r.movedFrom && same(r.movedFrom.chairId, chairId) && same(r.movedFrom.shiftId, shiftId)) releasedDates.add(r.movedFrom.date);
+    }
+    if (clashes.some((s) => !releasedDates.has(s.date))) throw conflict('slot_taken');
   }
 }

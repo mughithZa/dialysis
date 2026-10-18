@@ -7,7 +7,7 @@ import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { Patient } from '../patients/patient.model.js';
 import { loadPatientInCentre } from '../patients/load.js';
-import { isSlotFree, lockSlot } from '../schedule/slots.js';
+import { isSlotFree, lockCentreSchedule, lockSlot } from '../schedule/slots.js';
 import { nurseFor } from '../schedule/roster.js';
 import { SessionChange, type ChangeKind } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
@@ -139,6 +139,7 @@ export interface MoveInput {
  */
 export async function moveSession(centreId: string, sessionId: string, input: MoveInput, tx: ClientSession): Promise<SessionDoc> {
   if (input.date < todayLocal()) throw badRequest('move_in_past');
+  await lockCentreSchedule(centreId, tx);
   const current = await Session.findById(sessionId, null, { session: tx });
   if (!current || String(current.centreId) !== String(centreId)) throw notFound();
   if (current.status !== 'scheduled') throw conflict('bad_status');
@@ -206,6 +207,7 @@ export async function createMakeup(centreId: string, patientId: string, input: M
   if (!centre?.workingDays.includes(weekdayOf(input.date))) throw badRequest('not_working_day');
 
   return withTransaction(async (tx) => {
+    await lockCentreSchedule(centreId, tx);
     await lockSlot(chair._id, shift._id, weekdayOf(input.date), tx);
     if (!(await isSlotFree(centreId, chair._id, shift._id, input.date, { session: tx, ignorePatientId: patient._id }))) {
       throw conflict('slot_busy');

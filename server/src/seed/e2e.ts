@@ -13,7 +13,11 @@ import { Item } from '../catalog/item.model.js';
 
 export const E2E_PASSWORD = 'e2e-pass-1';
 
-/** Minimal dataset for the browser end-to-end test: one centre, one user per role, 4 chairs, 2 shifts, 2 items. The browser test builds the schedule and the nurse roster itself. */
+/**
+ * Minimal dataset for the browser end-to-end test: one centre open every day, one user per role and 2 catalogue
+ * items. The 4 machines and 2 blocks seeded here are only a starting point: the browser test rebuilds the
+ * schedule through the setup page (4 machines, 08:00-16:00 in 2 blocks) and enters the nurse roster itself.
+ */
 export async function seedE2e(): Promise<void> {
   await seedRoles();
   const roles = new Map((await Role.find()).map((r) => [r.key, r._id]));

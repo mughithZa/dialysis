@@ -2,7 +2,7 @@ import { Router } from 'express';
 import mongoose from 'mongoose';
 import { z } from 'zod';
 import { validate } from '../lib/validate.js';
-import { badRequest, conflict, forbidden, notFound } from '../lib/errors.js';
+import { conflict, forbidden, notFound } from '../lib/errors.js';
 import { withTransaction } from '../db.js';
 import { recordAudit } from '../audit/record.js';
 import { requireAuth, requirePerm } from '../auth/middleware.js';
@@ -14,6 +14,7 @@ import { Centre } from './centre.model.js';
 import { Chair } from './chair.model.js';
 import { Shift } from './shift.model.js';
 import { countActivePatients } from './active-patients.js';
+import { refreshAfterSave } from '../schedule/generate.js';
 
 export const centresRouter = Router();
 
@@ -205,37 +206,23 @@ centresRouter.get('/:centreId/chairs', requirePerm('schedule.view'), async (req,
   }
 });
 
-const chairCreate = z.object({ label: z.string().trim().min(1) });
-const chairPatch = z
-  .object({ label: z.string().trim().min(1), active: z.boolean() })
-  .partial()
-  .refine((b) => Object.keys(b).length > 0);
-
-centresRouter.post('/:centreId/chairs', requirePerm('schedule.setup'), validate(chairCreate), async (req, res, next) => {
-  try {
-    const chair = await Chair.create({ centreId: req.params.centreId, label: (req.body as z.infer<typeof chairCreate>).label }).catch(
-      (e: unknown) => {
-        throw isDuplicateKey(e) ? conflict('chair_exists') : e;
-      },
-    );
-    await recordAudit(req, 'chair.create', 'chair', chair.id, { label: chair.label });
-    res.status(201).json(chairDto(chair));
-  } catch (e) {
-    next(e);
-  }
-});
+// Machine count, retirement and blocks are written through /schedule/setup only; here a machine can be renamed.
+const chairPatch = z.object({ label: z.string().trim().min(1) }).strict();
 
 centresRouter.patch('/:centreId/chairs/:id', requirePerm('schedule.setup'), validate(chairPatch), async (req, res, next) => {
   try {
     const id = req.params.id;
-    const chair = validId(id) ? await Chair.findOne({ _id: id, centreId: req.params.centreId }) : null;
+    const centreId = String(req.params.centreId);
+    const chair = validId(id) ? await Chair.findOne({ _id: id, centreId }) : null;
     if (!chair) throw notFound();
     const body = req.body as z.infer<typeof chairPatch>;
+    const renamed = chair.label !== body.label;
     chair.set(body);
     await chair.save().catch((e: unknown) => {
       throw isDuplicateKey(e) ? conflict('chair_exists') : e;
     });
     await recordAudit(req, 'chair.update', 'chair', chair.id, body);
+    if (renamed) await refreshAfterSave(centreId);
     res.json(chairDto(chair));
   } catch (e) {
     next(e);
@@ -250,45 +237,10 @@ const shiftDto = (s: { id?: string; name: string; start: string; end: string; ac
   active: s.active,
 });
 
-const hhmm = z.string().regex(/^([01]\d|2[0-3]):[0-5]\d$/);
-const shiftCreate = z
-  .object({ name: z.string().trim().min(1), start: hhmm, end: hhmm })
-  .refine((s) => s.start < s.end);
-const shiftPatch = z
-  .object({ name: z.string().trim().min(1), start: hhmm, end: hhmm, active: z.boolean() })
-  .partial()
-  .refine((b) => Object.keys(b).length > 0);
-
 centresRouter.get('/:centreId/shifts', requirePerm('schedule.view'), async (req, res, next) => {
   try {
     const shifts = await Shift.find({ centreId: req.params.centreId }).sort({ _id: 1 });
     res.json(shifts.map(shiftDto));
-  } catch (e) {
-    next(e);
-  }
-});
-
-centresRouter.post('/:centreId/shifts', requirePerm('schedule.setup'), validate(shiftCreate), async (req, res, next) => {
-  try {
-    const shift = await Shift.create({ ...(req.body as z.infer<typeof shiftCreate>), centreId: req.params.centreId });
-    await recordAudit(req, 'shift.create', 'shift', shift.id, req.body as object);
-    res.status(201).json(shiftDto(shift));
-  } catch (e) {
-    next(e);
-  }
-});
-
-centresRouter.patch('/:centreId/shifts/:id', requirePerm('schedule.setup'), validate(shiftPatch), async (req, res, next) => {
-  try {
-    const id = req.params.id;
-    const shift = validId(id) ? await Shift.findOne({ _id: id, centreId: req.params.centreId }) : null;
-    if (!shift) throw notFound();
-    const body = req.body as z.infer<typeof shiftPatch>;
-    shift.set(body);
-    if (shift.start >= shift.end) throw badRequest('validation');
-    await shift.save();
-    await recordAudit(req, 'shift.update', 'shift', shift.id, body);
-    res.json(shiftDto(shift));
   } catch (e) {
     next(e);
   }

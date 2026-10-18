@@ -7,9 +7,9 @@ import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { Session } from '../sessions/session.model.js';
 import { Plan, type PlanItem } from './plan.model.js';
-import { assertPlanItemsFree, freeMachines, isSlotFree, lockSlot } from './slots.js';
+import { assertPlanItemsFree, freeMachines, isSlotFree, lockSlot, planHolds } from './slots.js';
 import { SlotLock } from './slot-lock.model.js';
-import { makeCentre, makeSession } from '../../test/factories.js';
+import { makeCentre, makePatient, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
   await Promise.all([Session.init(), Plan.init()]);
@@ -482,6 +482,39 @@ describe('slots hardening (Task 4)', () => {
     // a stray plan filed under another centre that names this centre's machine and block
     await makePlan({ centreId: other.centre.id, patientId: pid(), items: [item], from: monday });
     expect(await isSlotFree(c, m(0), s(0), monday)).toBe(true);
+    await expect(withTransaction((session) => assertPlanItemsFree(c, [item], monday, null, pid(), session))).resolves.toBeUndefined();
+  });
+
+  it("another patient's live session on a date the booking patient released (postponed/cancelled/moved, same machine) does not conflict; other dates still do", async () => {
+    const { c, m, s, monday } = await setup();
+    const p = pid();
+    const q = pid();
+    const item = { weekday: MON, shiftId: s(0), chairId: m(0) };
+    const at = { centreId: c, chairId: m(0), shiftId: s(0) };
+    const run = (from: string) => withTransaction((session) => assertPlanItemsFree(c, [item], from, null, p, session));
+    await makeSession({ ...at, patientId: p, date: monday, status: 'postponed' });
+    await makeSession({ ...at, patientId: q, date: monday, status: 'scheduled', kind: 'makeup' });
+    await expect(run(monday)).resolves.toBeUndefined();
+    // released by a move away from the slot
+    const next = addDays(monday, 7);
+    await makeSession({ ...at, chairId: m(1), patientId: p, date: addDays(next, 1), status: 'scheduled', detached: true, movedFrom: { date: next, shiftId: new Types.ObjectId(s(0)), chairId: new Types.ObjectId(m(0)) } });
+    await makeSession({ ...at, patientId: q, date: next, status: 'scheduled', oneOff: true });
+    await expect(run(monday)).resolves.toBeUndefined();
+    // a release on another machine does not count
+    const third = addDays(monday, 14);
+    await makeSession({ ...at, chairId: m(1), patientId: p, date: third, status: 'cancelled' });
+    await makeSession({ ...at, patientId: q, date: third, status: 'scheduled', oneOff: true });
+    await expect(run(monday)).rejects.toMatchObject({ status: 409, code: 'slot_taken' });
+  });
+
+  it('a plan of a patient who has moved to another centre holds nothing here', async () => {
+    const { c, m, s, monday } = await setup();
+    const other = await makeCentre();
+    const { patient } = await makePatient(other.centre.id);
+    const item = { weekday: MON, shiftId: s(0), chairId: m(0) };
+    await makePlan({ centreId: c, patientId: patient.id, items: [item], from: monday, to: monday });
+    expect(await isSlotFree(c, m(0), s(0), monday)).toBe(true);
+    expect((await planHolds(c, s(0), monday)).size).toBe(0);
     await expect(withTransaction((session) => assertPlanItemsFree(c, [item], monday, null, pid(), session))).resolves.toBeUndefined();
   });
 

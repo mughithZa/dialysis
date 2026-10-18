@@ -44,6 +44,14 @@ describe('sendDueReminders', () => {
     expect(sent).toHaveLength(1);
   });
 
+  it('uses the session snapshot (start time, machine label), not the live setup', async () => {
+    const { s, sent, send } = await setup();
+    await Session.updateOne({ _id: s._id }, { $set: { shiftStart: '08:00', chairLabel: 'B7' } });
+    expect(await sendDueReminders(at('2026-10-18', '07:05'), send)).toBe(0);
+    expect(await sendDueReminders(at('2026-10-18', '08:05'), send)).toBe(1);
+    expect(sent[0]!.payload.body).toBe('Monday 2026-10-19 at 08:00, chair B7');
+  });
+
   it('honours the centre reminderHours (15h -> due at 16:00 the day before)', async () => {
     const { sent, send } = await setup(15);
     expect(await sendDueReminders(at('2026-10-18', '15:50'), send)).toBe(0);

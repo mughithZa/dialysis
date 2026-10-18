@@ -19,7 +19,7 @@ export interface SessionCard {
   start: string;
   end: string;
   chairLabel: string;
-  /** Nurse covering this machine and block: the frozen snapshot once final, else the roster for the date. */
+  /** Nurse covering this machine and block: the frozen snapshot once final, else (scheduled/active) the roster for the date. */
   nurse: { id: string; name: string } | null;
   /** Who ran the session (set when it is opened). */
   runBy: { id: string; name: string } | null;
@@ -40,12 +40,13 @@ export async function toSessionCards(
     User.find({ _id: { $in: sessions.map((s) => s.runBy).filter(Boolean) } }),
   ]);
   const runnerById = new Map(runners.map((u) => [u.id as string, u]));
-  // a frozen snapshot (final statuses) wins; otherwise the roster for the session's date (resolved once per date)
+  // a frozen snapshot (final statuses) wins; a session not yet final (scheduled or active) falls back to the roster
+  // for its date (resolved once per date); a final one without a snapshot shows no nurse rather than today's roster
   const rosterByDate = new Map<string, Map<string, string>>();
   const nurseIdOf = new Map<string, string | undefined>();
   for (const s of sessions) {
     let id = s.rosterNurseId ? String(s.rosterNurseId) : undefined;
-    if (!id) {
+    if (!id && (s.status === 'scheduled' || s.status === 'active')) {
       if (!rosterByDate.has(s.date)) rosterByDate.set(s.date, await resolveRoster(centreId, s.date));
       id = rosterByDate.get(s.date)!.get(`${s.shiftId}:${s.chairId}`);
     }

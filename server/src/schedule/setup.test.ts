@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { Role } from '../auth/role.model.js';
 import { Centre } from '../centres/centre.model.js';
@@ -222,5 +222,26 @@ describe('schedule setup', () => {
     expect(r.status).toBe(200);
     expect(r.body.blocks[0]).toMatchObject({ id: s1.blocks[0].id, end: '11:00' });
     expect(await Shift.countDocuments({ centreId: centre.id })).toBe(2);
+  });
+
+  it('a refresh failure after a committed save is logged and the saved setup is still returned', async () => {
+    const centre = await Centre.create({ name: 'C' });
+    const { agent } = await staffIn(centre.id, ['front_desk']);
+    const url = `/api/centres/${centre.id}/schedule/setup`;
+    await agent.put(url).send(body());
+    const s1 = (await agent.get(url)).body;
+    const boom = vi.spyOn(Plan, 'distinct').mockRejectedValueOnce(new Error('boom'));
+    const err = vi.spyOn(console, 'error').mockImplementation(() => {});
+    try {
+      const r = await agent.put(url).send({ ...body(), blocks: [{ ...s1.blocks[0], end: '11:00' }, s1.blocks[1]] });
+      expect(r.status).toBe(200);
+      expect(r.body.blocks[0]).toMatchObject({ id: s1.blocks[0].id, end: '11:00' });
+      expect(boom).toHaveBeenCalled();
+      expect(err).toHaveBeenCalled();
+      expect((await Shift.findById(s1.blocks[0].id))!.end).toBe('11:00');
+    } finally {
+      boom.mockRestore();
+      err.mockRestore();
+    }
   });
 });

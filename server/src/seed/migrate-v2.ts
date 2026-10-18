@@ -3,9 +3,11 @@ import { Role } from '../auth/role.model.js';
 import { User } from '../auth/user.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
-import { addDays, todayLocal } from '../lib/dates.js';
+import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Plan } from '../schedule/plan.model.js';
 import { RosterEntry } from '../schedule/roster.model.js';
+import { PatientPlanLock, SlotLock } from '../schedule/slot-lock.model.js';
+import { LIVE_STATUSES, Session } from '../sessions/session.model.js';
 
 export interface MigrateV2Result {
   plans: number;
@@ -29,7 +31,9 @@ const msg = (e: unknown) => (e instanceof Error ? e.message : String(e));
 /**
  * One-time, idempotent conversion of the old pattern/slot/assignment data to the v2 model.
  * Each record is handled on its own; a record that cannot be converted is skipped and described in `skipped`.
- * The marker is written last, so an interrupted run is simply repeated (already converted records are recognised).
+ * The marker is written last, so an interrupted run is simply repeated (already converted records are recognised);
+ * it is also withheld while old sessions double-book a machine (listed in `skipped`), so the run can be repeated
+ * once they are resolved.
  */
 export async function migrateV2(): Promise<MigrateV2Result> {
   const result: MigrateV2Result = { plans: 0, roster: 0, sessions: 0, roles: 0, skipped: [] };
@@ -37,11 +41,14 @@ export async function migrateV2(): Promise<MigrateV2Result> {
   if (await migrations.findOne({ _id: 'v2' as never })) return result;
 
   const patterns = (await coll('patterns').find({}).toArray()) as unknown as OldPattern[];
+  const today = todayLocal();
 
-  // centres: Sat–Thu plus every weekday an old pattern uses
+  // centres: Sat–Thu plus every weekday an old pattern or a future scheduled session uses
   for (const centre of await coll('centres').find({}).toArray()) {
     try {
       const used = patterns.filter((p) => String(p.centreId) === String(centre._id)).flatMap((p) => p.weekdays ?? []);
+      const booked = (await coll('treatment_sessions').distinct('date', { centreId: centre._id, status: 'scheduled', date: { $gte: today } })) as string[];
+      used.push(...booked.map(weekdayOf));
       const days = [...new Set([...((centre.workingDays as number[] | undefined) ?? DEFAULT_WORKING_DAYS), ...used])].sort();
       await coll('centres').updateOne({ _id: centre._id }, { $set: { workingDays: days } });
     } catch (e) {
@@ -76,7 +83,6 @@ export async function migrateV2(): Promise<MigrateV2Result> {
   }
 
   // chair assignments -> roster entries per contiguous run of chairs
-  const today = todayLocal();
   const assignments = (await coll('chairassignments').find({}).toArray()) as unknown as OldAssignment[];
   const groups = new Map<string, OldAssignment[]>();
   for (const a of assignments) {
@@ -134,6 +140,8 @@ export async function migrateV2(): Promise<MigrateV2Result> {
     }
   }
   await sessions.updateMany({ detached: { $exists: false } }, { $set: { detached: false } });
+  // v1 recorded only who opened a session: that nurse ran it
+  await sessions.updateMany({ runBy: { $exists: false }, openedBy: { $exists: true, $ne: null } }, [{ $set: { runBy: '$openedBy' } }]);
 
   // front_desk gains the new defaults (additive, edits are kept)
   try {
@@ -143,9 +151,58 @@ export async function migrateV2(): Promise<MigrateV2Result> {
     result.skipped.push(`role front_desk: ${msg(e)}`);
   }
 
+  // the hard guarantees: build every v2 unique index now, so a conflict in old data is found here, not later
+  if (!(await buildIndexes(result))) return result; // no marker: resolve the listed records and run again
+
   const { skipped, ...counts } = result;
   await migrations.insertOne({ _id: 'v2' as never, at: new Date(), counts, skipped });
   return result;
+}
+
+/**
+ * Builds the v2 indexes (sessions, plans, slot and patient-plan locks). When the one-live-session-per-slot index
+ * cannot be built because old sessions double-book a machine, each conflict is described in `skipped` and false is
+ * returned: the marker must not be written until the records are resolved.
+ */
+async function buildIndexes(result: MigrateV2Result): Promise<boolean> {
+  let ok = true;
+  try {
+    await Session.createIndexes();
+  } catch (e) {
+    ok = false;
+    if ((e as { code?: number }).code !== 11000) {
+      result.skipped.push(`session indexes: ${msg(e)}`);
+    } else {
+      const clashes = await coll('treatment_sessions')
+        .aggregate<{ _id: { chairId: unknown; shiftId: unknown; date: string }; patients: unknown[] }>([
+          { $match: { status: { $in: [...LIVE_STATUSES] } } },
+          { $group: { _id: { chairId: '$chairId', shiftId: '$shiftId', date: '$date' }, patients: { $push: '$patientId' }, n: { $sum: 1 } } },
+          { $match: { n: { $gt: 1 } } },
+          { $sort: { '_id.date': 1 } },
+        ])
+        .toArray();
+      for (const c of clashes) {
+        result.skipped.push(
+          `sessions double-book machine ${c._id.chairId} block ${c._id.shiftId} on ${c._id.date} (patients ${c.patients.join(', ')}): resolve, then run again`,
+        );
+      }
+      if (!clashes.length) result.skipped.push(`session indexes: ${msg(e)}`);
+    }
+  }
+  const others: [string, () => Promise<unknown>][] = [
+    ['plan', () => Plan.createIndexes()],
+    ['slot lock', () => SlotLock.createIndexes()],
+    ['patient plan lock', () => PatientPlanLock.createIndexes()],
+  ];
+  for (const [name, build] of others) {
+    try {
+      await build();
+    } catch (e) {
+      ok = false;
+      result.skipped.push(`${name} indexes: ${msg(e)}`);
+    }
+  }
+  return ok;
 }
 
 export interface MigrationMarker { at: Date; counts: Omit<MigrateV2Result, 'skipped'>; skipped: string[] }

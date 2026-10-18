@@ -7,6 +7,11 @@ import { closeSession, postponeSession } from '../sessions/service.js';
 import { RosterEntry } from './roster.model.js';
 import { resolveRoster, nurseFor } from './roster.js';
 import { makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
+import { toSessionCards } from '../sessions/card.js';
+import { addDays, todayLocal } from '../lib/dates.js';
+
+/** Days from today: the roster API refuses entries starting in the past. */
+const d = (n: number) => addDays(todayLocal(), n);
 
 beforeEach(seedRoles);
 
@@ -48,7 +53,7 @@ describe('roster precedence', () => {
 
   it('same span: explicit machines beat all-machines', async () => {
     const { chairs, shifts, centre, rana, ali, post } = await setup();
-    await post({ nurseId: ali.user.id, from: '2026-11-02', to: '2026-11-08', chairIds: [chairs[0]!.id] });
+    await post({ nurseId: ali.user.id, from: d(15), to: d(21), chairIds: [chairs[0]!.id] });
     await post({ nurseId: rana.user.id, from: '2026-11-02', to: '2026-11-08' }); // later, but empty chairIds
     expect(await nurseFor(centre.id, '2026-11-03', shifts[0]!.id, chairs[0]!.id)).toBe(ali.user.id);
     expect(await nurseFor(centre.id, '2026-11-03', shifts[0]!.id, chairs[1]!.id)).toBe(rana.user.id);
@@ -68,15 +73,15 @@ describe('roster precedence', () => {
 describe('roster routes', () => {
   it('creates one entry per block, lists with names, resolves, deletes and audits', async () => {
     const { chairs, shifts, base, desk, rana, post } = await setup();
-    const res = await post({ nurseId: rana.user.id, shiftIds: [shifts[0]!.id, shifts[1]!.id], from: '2026-11-02', to: '2026-11-08', chairIds: [chairs[0]!.id] });
+    const res = await post({ nurseId: rana.user.id, shiftIds: [shifts[0]!.id, shifts[1]!.id], from: d(15), to: d(21), chairIds: [chairs[0]!.id] });
     expect(res.status).toBe(201);
     expect(res.body).toHaveLength(2);
-    const list = await desk.agent.get(`${base}/roster?from=2026-11-01&to=2026-11-03`);
+    const list = await desk.agent.get(`${base}/roster?from=${d(14)}&to=${d(16)}`);
     expect(list.status).toBe(200);
     expect(list.body).toHaveLength(2);
-    expect(list.body[0]).toMatchObject({ nurse: { id: rana.user.id }, from: '2026-11-02', to: '2026-11-08', chairs: [{ id: chairs[0]!.id, label: '1' }] });
-    expect((await desk.agent.get(`${base}/roster?from=2026-11-09&to=2026-11-10`)).body).toEqual([]);
-    const resolved = await desk.agent.get(`${base}/roster/resolved?date=2026-11-03`);
+    expect(list.body[0]).toMatchObject({ nurse: { id: rana.user.id }, from: d(15), to: d(21), chairs: [{ id: chairs[0]!.id, label: '1' }] });
+    expect((await desk.agent.get(`${base}/roster?from=${d(22)}&to=${d(23)}`)).body).toEqual([]);
+    const resolved = await desk.agent.get(`${base}/roster/resolved?date=${d(16)}`);
     expect(resolved.status).toBe(200);
     expect(resolved.body).toHaveLength(chairs.length * shifts.length);
     const one = resolved.body.find((r: { shiftId: string; chairId: string }) => r.shiftId === shifts[0]!.id && r.chairId === chairs[0]!.id);
@@ -91,13 +96,16 @@ describe('roster routes', () => {
   it('validates: non-nurse, order, span, foreign ids, permission', async () => {
     const { base, desk, rana, post, shifts } = await setup();
     const other = await makeCentre();
-    const ok = { nurseId: rana.user.id, from: '2026-11-02', to: '2026-11-08' };
+    const ok = { nurseId: rana.user.id, from: d(15), to: d(21) };
     const r = await post({ ...ok, nurseId: desk.user.id });
     expect([r.status, r.body.error]).toEqual([400, 'not_a_nurse']);
-    expect((await post({ ...ok, from: '2026-11-09' })).status).toBe(400);
-    const long = await post({ ...ok, to: '2027-02-10' });
+    expect((await post({ ...ok, from: d(22) })).status).toBe(400);
+    const past = await post({ ...ok, from: d(-1) });
+    expect([past.status, past.body.error]).toEqual([400, 'from_in_past']);
+    expect((await post({ ...ok, from: d(0), to: d(0) })).status).toBe(201);
+    const long = await post({ ...ok, to: d(15 + 93) });
     expect([long.status, long.body.error]).toEqual([400, 'range_too_long']);
-    expect((await post({ ...ok, to: '2027-02-02' })).status).toBe(201); // exactly 92 days
+    expect((await post({ ...ok, to: d(15 + 92) })).status).toBe(201); // exactly 92 days
     expect((await post({ ...ok, chairIds: [other.chairs[0]!.id] })).status).toBe(404);
     expect((await post({ ...ok, shiftIds: [other.shifts[0]!.id] })).status).toBe(404);
     expect((await post({ ...ok, shiftIds: [] })).status).toBe(400);
@@ -108,7 +116,7 @@ describe('roster routes', () => {
     const otherNurse = await staffIn(other.centre.id, ['nurse']);
     const foreign = await otherDesk.agent
       .post(`/api/centres/${other.centre.id}/roster`)
-      .send({ nurseId: otherNurse.user.id, shiftIds: [other.shifts[0]!.id], from: '2026-11-02', to: '2026-11-08', chairIds: [] });
+      .send({ nurseId: otherNurse.user.id, shiftIds: [other.shifts[0]!.id], from: d(15), to: d(21), chairIds: [] });
     expect(foreign.status).toBe(201);
     expect((await desk.agent.delete(`${base}/roster/${foreign.body[0].id}`)).status).toBe(404);
     expect(await RosterEntry.countDocuments({ centreId: other.centre.id })).toBe(1);
@@ -118,8 +126,12 @@ describe('roster routes', () => {
 describe('roster snapshot on final status', () => {
   async function missedSetup() {
     const s = await setup();
-    await s.post({ nurseId: s.rana.user.id, from: '2026-10-01', to: '2026-10-31' });
-    const entry = await s.post({ nurseId: s.ali.user.id, from: '2026-10-05', to: '2026-10-05', chairIds: [s.chairs[0]!.id] });
+    // past entries are seeded directly: the API refuses a start before today
+    const seed = (o: { nurseId: string; from: string; to: string; chairIds?: string[] }) =>
+      RosterEntry.create({ centreId: s.centre._id, shiftId: s.shifts[0]!._id, chairIds: [], ...o });
+    await seed({ nurseId: s.rana.user.id, from: '2026-10-01', to: '2026-10-31' });
+    const created = await seed({ nurseId: s.ali.user.id, from: '2026-10-05', to: '2026-10-05', chairIds: [s.chairs[0]!.id] });
+    const entry = { body: [{ id: created.id as string }] };
     const { patient } = await makePatient(s.centre.id);
     const session = await makeSession({
       centreId: s.centre.id, patientId: patient.id, chairId: s.chairs[0]!.id, shiftId: s.shifts[0]!.id,
@@ -156,5 +168,25 @@ describe('roster snapshot on final status', () => {
     expect(String((await Session.findById(b._id))!.rosterNurseId)).toBe(s.rana.user.id);
     await postponeSession(s.session);
     expect(String((await Session.findById(s.session._id))!.rosterNurseId)).toBe(s.ali.user.id);
+  });
+});
+
+describe('cards: roster fallback', () => {
+  it('a past final session without a frozen nurse never takes the current roster; scheduled and active do', async () => {
+    const s = await setup();
+    const { patient } = await makePatient(s.centre.id);
+    const { patient: other } = await makePatient(s.centre.id);
+    const at = { centreId: s.centre.id, chairId: s.chairs[0]!.id, shiftId: s.shifts[0]!.id };
+    const past = await makeSession({ ...at, patientId: patient.id, date: d(-3), status: 'completed' });
+    const missed = await makeSession({ ...at, patientId: other.id, date: d(-4), status: 'missed' });
+    const upcoming = await makeSession({ ...at, patientId: patient.id, date: d(2), status: 'scheduled' });
+    const active = await makeSession({ ...at, patientId: other.id, date: d(0), status: 'active' });
+    // a roster written later that happens to cover those past dates
+    await RosterEntry.create({ centreId: s.centre._id, shiftId: s.shifts[0]!._id, chairIds: [], nurseId: s.rana.user._id, from: d(-10), to: d(10) });
+    const cards = new Map((await toSessionCards(s.centre.id, [past, missed, upcoming, active])).map(({ card }) => [card.id, card]));
+    expect(cards.get(past.id)!.nurse).toBeNull();
+    expect(cards.get(missed.id)!.nurse).toBeNull();
+    expect(cards.get(upcoming.id)!.nurse).toEqual({ id: s.rana.user.id, name: s.rana.user.name });
+    expect(cards.get(active.id)!.nurse).toEqual({ id: s.rana.user.id, name: s.rana.user.name });
   });
 });
