@@ -6,9 +6,6 @@ export function toLocalDate(d: Date): string {
 
 export const todayLocal = () => toLocalDate(new Date());
 
-/** Weekdays in display order, as JS numbers (0 = Sunday). */
-export const WEEKDAYS = [0, 1, 2, 3, 4, 5, 6] as const;
-
 /** Local date `days` after today. */
 export function addDaysLocal(days: number): string {
   const d = new Date();
@@ -18,3 +15,19 @@ export function addDaysLocal(days: number): string {
 
 /** Mirrors the server's MAKEUP_WINDOW_DAYS. */
 export const MAKEUP_WINDOW_DAYS = 3;
+
+/** Parses YYYY-MM-DD as a browser-local date. */
+export function parseLocal(date: string): Date {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Date(y, m - 1, d);
+}
+
+/** The date `days` after (or before, when negative) `date`. */
+export function shiftDate(date: string, days: number): string {
+  const d = parseLocal(date);
+  d.setDate(d.getDate() + days);
+  return toLocalDate(d);
+}
+
+/** The Saturday that starts the week containing `date` (the week runs Saturday to Friday). */
+export const weekStartSat = (date: string) => shiftDate(date, -((parseLocal(date).getDay() + 1) % 7));

@@ -460,15 +460,6 @@
       "sent": "Transfer sent.",
       "noTargets": "No other centres available."
     },
-    "assign": {
-      "title": "Assign nurses",
-      "shift": "Shift",
-      "nurse": "Nurse",
-      "noNurses": "No nurses in this centre yet.",
-      "noShifts": "No shifts set up yet.",
-      "clear": "Clear {{chair}}",
-      "saved": "Saved."
-    },
     "transfers": {
       "title": "Transfers",
       "incoming": "Incoming",
@@ -494,6 +485,39 @@
         "rejected": "Rejected",
         "cancelled": "Cancelled"
       }
+    },
+    "roster": {
+      "title": "Nurse roster",
+      "nurse": "Nurse",
+      "date": "Date",
+      "blocks": "Session blocks",
+      "period": "Period",
+      "session": "This session",
+      "day": "Day",
+      "week": "Week",
+      "month": "Month",
+      "custom": "Custom",
+      "from": "From",
+      "to": "To",
+      "machinesLabel": "Machines",
+      "allMachines": "All machines",
+      "chosenMachines": "Chosen machines",
+      "machinesPick": "Machines",
+      "machinesPlaceholder": "Choose machines",
+      "assign": "Assign nurse",
+      "saved": "Roster saved.",
+      "oneBlock": "Choose exactly one block for a single session.",
+      "noNurses": "No nurses in this centre yet.",
+      "noBlocks": "No session blocks set up yet.",
+      "entries": "Roster for the week",
+      "prevWeek": "Previous week",
+      "nextWeek": "Next week",
+      "none": "No roster entries this week.",
+      "dates": "{{from}} to {{to}}",
+      "delete": "Delete",
+      "deleted": "Roster entry deleted.",
+      "confirmTitle": "Delete roster entry",
+      "confirm": "Delete {{nurse}} from {{from}} to {{to}}?"
     }
   },
   "doctor": {

@@ -15,7 +15,7 @@ import { MePage } from './features/patient/MePage';
 import { HistoryPage } from './features/patient/HistoryPage';
 import { PatientsPage } from './features/desk/PatientsPage';
 import { PatientPage } from './features/desk/PatientPage';
-import { AssignNursesPage } from './features/desk/AssignNursesPage';
+import { RosterPage } from './features/desk/RosterPage';
 import { RolesPage } from './features/pm/RolesPage';
 import { CalendarPage } from './features/desk/CalendarPage';
 import { AuditPage } from './features/centre/AuditPage';
@@ -95,7 +95,7 @@ function Guard({ pattern, perm, children }: { pattern?: string; perm?: Permissio
 /** Sub-screens of a nav item: path -> [nav pattern that grants access, screen]. */
 const SUB_SCREENS: Record<string, [string, ReactElement]> = {
   '/c/:centreId/patients/:patientId': ['/c/:centreId/patients', <PatientPage />],
-  '/c/:centreId/schedule/nurses': ['/c/:centreId/schedule', <AssignNursesPage />],
+  '/c/:centreId/schedule/roster': ['/c/:centreId/schedule', <RosterPage />],
   '/me/history': ['/me', <HistoryPage />],
 };
 

@@ -5,7 +5,7 @@ import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useRenameMachine, useSaveSetup, useSetup, type SetupDto } from './api';
-import { WEEKDAYS } from './dates';
+import { WEEKDAY_ORDER } from './weekdays';
 import { proposeBlocks } from './proposeBlocks';
 
 const HHMM = /^([01]\d|2[0-3]):[0-5]\d$/;
@@ -137,7 +137,7 @@ function SetupForm({ setup, machines: machineList, canSetup, onSaved }: { setup:
           </Text>
           <Chip.Group multiple value={days} onChange={setDays}>
             <Group gap="xs">
-              {WEEKDAYS.map((d) => (
+              {WEEKDAY_ORDER.map((d) => (
                 <Chip key={d} value={String(d)} size="md" disabled={!canSetup}>
                   {t(`desk.weekdays.${d}`)}
                 </Chip>

@@ -19,7 +19,8 @@ import {
   type PatientDto,
 } from './api';
 import { BookDialog } from './BookDialog';
-import { todayLocal, WEEKDAYS } from './dates';
+import { todayLocal } from './dates';
+import { WEEKDAY_ORDER } from './weekdays';
 import { DischargeDialog } from './DischargeDialog';
 import { MakeupDialog } from './MakeupDialog';
 import { PatientForm } from './PatientForm';
@@ -166,7 +167,7 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
   const first = slots[0];
   const chair = grid.data?.chairs.find((c) => c.id === first?.chairId);
   const shift = grid.data?.shifts.find((s) => s.id === first?.shiftId);
-  const days = WEEKDAYS.filter((d) => slots.some((s) => s.weekday === d)).map((d) => t(`desk.weekdays.${d}`));
+  const days = WEEKDAY_ORDER.filter((d) => slots.some((s) => s.weekday === d)).map((d) => t(`desk.weekdays.${d}`));
   const hasPattern = slots.length > 0;
 
   const titles: Record<Dialog, string> = {

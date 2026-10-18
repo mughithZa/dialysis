@@ -128,3 +128,18 @@ describe('SetupPage', () => {
     expect(screen.getByLabelText('Name of block 1')).toHaveValue('Early');
   });
 });
+
+describe('SetupPage working-day chips', () => {
+  it('are in Saturday-first order', async () => {
+    useCentreUser(['schedule.view', 'schedule.setup']);
+    server.use(
+      http.get('*/api/centres/c1/schedule/setup', () => HttpResponse.json({ machines: [], blocks: [], workingDays: [6, 0, 1, 2, 3, 4] })),
+    );
+    renderApp(<SetupPage />);
+    await screen.findByLabelText('Number of machines');
+    const chips = ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'].map((n) => screen.getByRole('checkbox', { name: n }));
+    for (let i = 1; i < chips.length; i++) {
+      expect(chips[i - 1]!.compareDocumentPosition(chips[i]!) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    }
+  });
+});

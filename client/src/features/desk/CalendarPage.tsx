@@ -8,23 +8,11 @@ import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
 import { useCalendar, useGrid, useSetup, type CalendarDto, type SetupDto } from './api';
 import { BookDialog, type BookInitial } from './BookDialog';
-import { toLocalDate, todayLocal } from './dates';
+import { parseLocal as parse, shiftDate as shift, todayLocal, weekStartSat as weekStart } from './dates';
 
 type Day = CalendarDto['days'][number];
 type Block = Day['blocks'][number];
 type Cell = Block['cells'][number];
-
-const parse = (date: string) => {
-  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  return new Date(y, m - 1, d);
-};
-const shift = (date: string, days: number) => {
-  const d = parse(date);
-  d.setDate(d.getDate() + days);
-  return toLocalDate(d);
-};
-/** The week runs Saturday to Friday (Sat-Thu working week). */
-const weekStart = (date: string) => shift(date, -((parse(date).getDay() + 1) % 7));
 
 const GLYPH: Record<string, string> = {
   scheduled: '○',
@@ -136,7 +124,7 @@ export function CalendarPage() {
       <Group justify="space-between">
         <Title order={2}>{t('desk.calendar.title')}</Title>
         {canAssign && (
-          <Button component={Link} to={`/c/${centreId}/schedule/nurses`} variant="default" mih={44}>
+          <Button component={Link} to={`/c/${centreId}/schedule/roster`} variant="default" mih={44}>
             {t('desk.schedule.assignNurses')}
           </Button>
         )}

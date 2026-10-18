@@ -1,5 +1,5 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiGet, apiPost, apiPatch, apiPut } from '../../api';
+import { apiDelete, apiGet, apiPost, apiPatch, apiPut } from '../../api';
 import { useCentreId } from '../centre/api';
 
 export type PatientStatus = 'active' | 'transferring' | 'discharged';
@@ -38,11 +38,6 @@ export interface GridDto {
   chairs: { id: string; label: string; active: boolean }[];
   shifts: { id: string; name: string; start: string; end: string; active: boolean }[];
   slots: { chairId: string; shiftId: string; weekday: number; patient: { id: string; name: string } }[];
-}
-export interface AssignmentDto {
-  shiftId: string;
-  chairId: string;
-  nurseId: string;
 }
 export interface SessionCardDto {
   id: string;
@@ -190,20 +185,49 @@ export function useBookPattern() {
   });
 }
 
-export const useAssignments = () => {
+// ---------- Nurse roster ----------
+
+export interface RosterEntryDto {
+  id: string;
+  nurse: { id: string; name: string };
+  shiftId: string;
+  from: string;
+  to: string;
+  chairs: { id: string; label: string }[];
+}
+export interface RosterBody {
+  nurseId: string;
+  shiftIds: string[];
+  from: string;
+  to: string;
+  /** Empty means every machine. */
+  chairIds: string[];
+}
+
+/** Roster entries overlapping from..to. */
+export const useRoster = (from: string, to: string) => {
   const centreId = useCentreId();
   return useQuery({
-    queryKey: key(centreId, 'assignments'),
-    queryFn: () => apiGet<AssignmentDto[]>(`${base(centreId)}/assignments`),
+    queryKey: key(centreId, 'roster', from, to),
+    queryFn: () => apiGet<RosterEntryDto[]>(`${base(centreId)}/roster?from=${from}&to=${to}`),
     enabled: !!centreId,
   });
 };
 
-export function useAssignChairs() {
+export function useCreateRoster() {
   const centreId = useCentreId();
   const invalidate = useInvalidateDesk();
   return useMutation({
-    mutationFn: (body: { shiftId: string; nurseId: string; chairIds: string[] }) => apiPut(`${base(centreId)}/assignments`, body),
+    mutationFn: (body: RosterBody) => apiPost<RosterEntryDto[]>(`${base(centreId)}/roster`, body),
+    onSettled: invalidate,
+  });
+}
+
+export function useDeleteRoster() {
+  const centreId = useCentreId();
+  const invalidate = useInvalidateDesk();
+  return useMutation({
+    mutationFn: (id: string) => apiDelete(`${base(centreId)}/roster/${id}`),
     onSettled: invalidate,
   });
 }

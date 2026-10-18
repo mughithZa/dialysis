@@ -4,7 +4,8 @@ import { Alert, Button, Chip, Group, Select, Stack, Text, TextInput } from '@man
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '../../i18n/errors';
 import { useBookPattern, usePatients, type GridDto } from './api';
-import { todayLocal, WEEKDAYS } from './dates';
+import { todayLocal } from './dates';
+import { WEEKDAY_ORDER } from './weekdays';
 
 export interface BookInitial {
   chairId: string | null;
@@ -85,7 +86,7 @@ export function BookDialog({ grid, initial, onDone }: Props) {
         </Text>
         <Chip.Group multiple value={weekdays} onChange={setWeekdays}>
           <Group gap="xs">
-            {WEEKDAYS.map((d) => (
+            {WEEKDAY_ORDER.map((d) => (
               <Chip key={d} value={String(d)} size="md">
                 {t(`desk.weekdays.${d}`)}
               </Chip>
