@@ -10,15 +10,17 @@ import { CatalogPage } from './features/pm/CatalogPage';
 import { CentresPage } from './features/pm/CentresPage';
 import { DashboardPage } from './features/pm/DashboardPage';
 import { MePage } from './features/me/MePage';
-import { PatientsPage } from './features/patients/PatientsPage';
+import { PatientsPage } from './features/desk/PatientsPage';
+import { PatientPage } from './features/desk/PatientPage';
+import { AssignNursesPage } from './features/desk/AssignNursesPage';
 import { RolesPage } from './features/pm/RolesPage';
-import { SchedulePage } from './features/schedule/SchedulePage';
+import { ScheduleGrid } from './features/desk/ScheduleGrid';
 import { AuditPage } from './features/centre/AuditPage';
 import { SettingsPage } from './features/centre/SettingsPage';
 import { SetupPage } from './features/centre/SetupPage';
 import { CentreStatsPage } from './features/centre/CentreStatsPage';
 import { TodayPage } from './features/sessions/TodayPage';
-import { TransfersPage } from './features/transfers/TransfersPage';
+import { TransfersPage } from './features/desk/TransfersPage';
 import { UsersPage } from './features/centre/UsersPage';
 
 /** Route pattern -> screen. Patterns must match `NAV_ITEMS[].path`. Later tasks swap in real screens. */
@@ -29,7 +31,7 @@ const SCREENS: Record<string, ReactElement> = {
   '/dashboard': <DashboardPage />,
   '/c/:centreId/today': <TodayPage />,
   '/c/:centreId/patients': <PatientsPage />,
-  '/c/:centreId/schedule': <SchedulePage />,
+  '/c/:centreId/schedule': <ScheduleGrid />,
   '/c/:centreId/transfers': <TransfersPage />,
   '/c/:centreId/users': <UsersPage />,
   '/c/:centreId/setup': <SetupPage />,
@@ -86,6 +88,12 @@ function Guard({ pattern, children }: { pattern: string; children: ReactElement 
   return allowed ? children : <Navigate to="/" replace />;
 }
 
+/** Sub-screens of a nav item: path -> [nav pattern that grants access, screen]. */
+const SUB_SCREENS: Record<string, [string, ReactElement]> = {
+  '/c/:centreId/patients/:patientId': ['/c/:centreId/patients', <PatientPage />],
+  '/c/:centreId/schedule/nurses': ['/c/:centreId/schedule', <AssignNursesPage />],
+};
+
 export function AppRoutes() {
   return (
     <Routes>
@@ -94,6 +102,9 @@ export function AppRoutes() {
         <Route index element={<Home />} />
         {Object.entries(SCREENS).map(([pattern, screen]) => (
           <Route key={pattern} path={pattern} element={<Guard pattern={pattern}>{screen}</Guard>} />
+        ))}
+        {Object.entries(SUB_SCREENS).map(([path, [pattern, screen]]) => (
+          <Route key={path} path={path} element={<Guard pattern={pattern}>{screen}</Guard>} />
         ))}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Route>

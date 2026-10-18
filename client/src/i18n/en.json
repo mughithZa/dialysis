@@ -48,7 +48,24 @@
     "cannot_grant": "You cannot grant one of those roles.",
     "already_member": "That person already belongs to this centre.",
     "chair_exists": "A chair with that label already exists.",
-    "unknown_role": "One of the selected roles no longer exists."
+    "unknown_role": "One of the selected roles no longer exists.",
+    "slot_taken": "That slot was just taken by another patient.",
+    "already_booked": "This patient already has a schedule. Use Change schedule instead.",
+    "patient_not_active": "This patient is not active.",
+    "transfer_pending": "This patient has a transfer pending.",
+    "from_in_past": "The start date cannot be in the past.",
+    "inactive_chair": "That chair is not in use.",
+    "inactive_shift": "That shift is not in use.",
+    "no_pattern": "This patient has no schedule yet.",
+    "slot_busy": "That chair is already taken at that time.",
+    "makeup_out_of_window": "Make-up sessions must be within the next 14 days.",
+    "session_exists": "This patient already has a session at that time.",
+    "bad_target": "Choose a different centre to transfer to.",
+    "not_pending": "This transfer has already been decided.",
+    "session_active": "That session is already in progress.",
+    "patient_not_transferring": "This patient is no longer awaiting transfer.",
+    "already_discharged": "This patient is already discharged.",
+    "not_a_nurse": "That person is not a nurse in this centre."
   },
   "nav": {
     "centres": "Centres",
@@ -270,6 +287,194 @@
     },
     "stats": {
       "title": "Reports"
+    }
+  },
+  "desk": {
+    "weekdays": {
+      "0": "Sun",
+      "1": "Mon",
+      "2": "Tue",
+      "3": "Wed",
+      "4": "Thu",
+      "5": "Fri",
+      "6": "Sat"
+    },
+    "patients": {
+      "title": "Patients",
+      "new": "New patient",
+      "search": "Search by name or phone",
+      "empty": "No patients found.",
+      "statusFilter": "Show",
+      "filter": {
+        "default": "Active and transferring",
+        "active": "Active",
+        "transferring": "Transferring",
+        "discharged": "Discharged",
+        "all": "All"
+      },
+      "status": {
+        "active": "Active",
+        "transferring": "Transferring",
+        "discharged": "Discharged"
+      },
+      "created": "Patient registered.",
+      "saved": "Patient saved.",
+      "editTitle": "Edit patient"
+    },
+    "form": {
+      "name": "Full name",
+      "phone": "Phone",
+      "emergencyName": "Emergency contact name",
+      "emergencyPhone": "Emergency contact phone",
+      "emergencyRelation": "Emergency contact relation",
+      "kidneyFailureCause": "Cause of kidney failure",
+      "address": "Address",
+      "socialSituation": "Social situation",
+      "financialSituation": "Financial situation",
+      "otherDiseases": "Other diseases",
+      "notes": "Notes",
+      "loginSection": "Patient login",
+      "username": "Login username",
+      "password": "Login password (min. 8 characters)"
+    },
+    "patient": {
+      "back": "All patients",
+      "notFound": "Patient not found.",
+      "record": "Record",
+      "pattern": "Current schedule",
+      "noPattern": "No schedule yet.",
+      "chairShift": "{{chair}}, {{shift}}",
+      "orders": "Doctor orders",
+      "noOrders": "No orders.",
+      "actions": "Actions",
+      "bookPattern": "Book schedule",
+      "changePattern": "Change schedule",
+      "postpone": "Postpone session",
+      "makeup": "Make-up session",
+      "discharge": "Discharge",
+      "transfer": "Transfer to another centre",
+      "resetPassword": "Reset patient password",
+      "passwordReset": "Password reset.",
+      "newPassword": "New password (min. 8 characters)",
+      "discharged": "Discharged on {{date}}: {{reason}}",
+      "ordersFrom": "from {{date}}"
+    },
+    "dischargeReason": {
+      "transplant": "Transplant",
+      "death": "Death",
+      "moved": "Moved away",
+      "travelled": "Travelled",
+      "left_program": "Left the programme"
+    },
+    "schedule": {
+      "title": "Schedule",
+      "free": "Free",
+      "shift": "Shift",
+      "weekday": "Weekday",
+      "chairs": "Chairs",
+      "noChairs": "No chairs set up yet.",
+      "noShifts": "No shifts set up yet.",
+      "assignNurses": "Assign nurses"
+    },
+    "book": {
+      "title": "Book schedule",
+      "changeTitle": "Change schedule",
+      "patient": "Patient",
+      "chair": "Chair",
+      "shift": "Shift",
+      "weekdays": "Weekdays",
+      "weekdaysHint": "Choose 1 to 3 weekdays.",
+      "from": "Starting from",
+      "book": "Book",
+      "change": "Change",
+      "booked": "Schedule booked.",
+      "changed": "Schedule changed."
+    },
+    "makeup": {
+      "title": "Make-up session",
+      "date": "Date",
+      "chair": "Chair",
+      "shift": "Shift",
+      "book": "Book",
+      "booked": "Make-up session booked."
+    },
+    "postpone": {
+      "title": "Postpone session",
+      "date": "Session date",
+      "none": "No session to postpone on that date.",
+      "postpone": "Postpone",
+      "done": "Session postponed. You can now book a make-up."
+    },
+    "discharge": {
+      "title": "Discharge patient",
+      "reason": "Reason",
+      "date": "Discharge date",
+      "confirm": "Discharge",
+      "done": "Patient discharged."
+    },
+    "transfer": {
+      "title": "Transfer patient",
+      "target": "Target centre",
+      "note": "Note (optional)",
+      "send": "Send transfer",
+      "sent": "Transfer sent.",
+      "noTargets": "No other centres available."
+    },
+    "assign": {
+      "title": "Assign nurses",
+      "shift": "Shift",
+      "nurse": "Nurse",
+      "noNurses": "No nurses in this centre yet.",
+      "noShifts": "No shifts set up yet.",
+      "clear": "Clear {{chair}}"
+    },
+    "transfers": {
+      "title": "Transfers",
+      "incoming": "Incoming",
+      "outgoing": "Outgoing",
+      "empty": "No transfers.",
+      "from": "From {{centre}}",
+      "to": "To {{centre}}",
+      "sent": "Sent {{date}}",
+      "accept": "Accept",
+      "reject": "Reject",
+      "rejectTitle": "Reject transfer",
+      "reason": "Reason",
+      "confirmReject": "Reject transfer",
+      "cancel": "Cancel transfer",
+      "accepted": "Transfer accepted.",
+      "rejected": "Transfer rejected.",
+      "cancelled": "Transfer cancelled.",
+      "rejectReason": "Reason: {{reason}}",
+      "kidney": "Cause: {{cause}}",
+      "status": {
+        "pending": "Pending",
+        "accepted": "Accepted",
+        "rejected": "Rejected",
+        "cancelled": "Cancelled"
+      }
+    }
+  },
+  "sessions": {
+    "history": {
+      "title": "Session history",
+      "empty": "No sessions yet.",
+      "more": "Load more",
+      "kind": {
+        "regular": "Regular",
+        "makeup": "Make-up"
+      },
+      "weightBefore": "Weight before: {{kg}} kg",
+      "weightAfter": "Weight after: {{kg}} kg",
+      "usage": "{{item}}: {{amount}} {{unit}}",
+      "bp": "BP {{systolic}}/{{diastolic}}"
+    },
+    "status": {
+      "scheduled": "Scheduled",
+      "active": "In progress",
+      "completed": "Completed",
+      "postponed": "Postponed",
+      "missed": "Missed"
     }
   }
 }
