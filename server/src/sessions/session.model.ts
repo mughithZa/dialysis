@@ -19,6 +19,21 @@ const sessionSchema = new Schema({
   chairLabel: { type: String, required: true },
   planId: { type: Schema.Types.ObjectId },
   detached: { type: Boolean, default: false },
+  /**
+   * Where a moved session originally sat (set by Move). The plan's slot at (movedFrom.date, movedFrom.shiftId)
+   * is released for that date only; see schedule/slots.ts.
+   */
+  movedFrom: {
+    type: new Schema(
+      {
+        date: { type: String, required: true },
+        shiftId: { type: Schema.Types.ObjectId, ref: 'Shift', required: true },
+        chairId: { type: Schema.Types.ObjectId, ref: 'Chair', required: true },
+      },
+      { _id: false },
+    ),
+    default: undefined,
+  },
   runBy: { type: Schema.Types.ObjectId, ref: 'User' },
   rosterNurseId: { type: Schema.Types.ObjectId, ref: 'User' },
   statusReason: String,
