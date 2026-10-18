@@ -422,7 +422,7 @@ sessionsRouter.get(
       const items = [];
       for (const s of page) {
         const centreName = centres.find((c) => String(c._id) === String(s.centreId))?.name ?? '';
-        items.push({ ...(await historyOf(s)), centreName });
+        items.push({ ...(await historyOf(s)), centreId: String(s.centreId), centreName });
       }
       res.json(items);
     } catch (e) {

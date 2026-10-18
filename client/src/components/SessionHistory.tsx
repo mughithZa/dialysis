@@ -13,6 +13,7 @@ export interface HistorySession {
   kind: 'regular' | 'makeup';
   chair: { id: string; label: string };
   shift: { id: string; name: string };
+  centreId: string;
   centreName: string;
   vitals: { weightBefore: number | null; weightAfter: number | null; bp: { at: string; systolic: number; diastolic: number }[] };
   notes: { id: string; text: string; by: { name: string } }[];
@@ -46,9 +47,13 @@ export function SessionHistory({ patientId }: { patientId: string }) {
         <Card key={s.id} withBorder padding="sm">
           <Stack gap={4}>
             <Group justify="space-between" wrap="nowrap">
-              <Anchor component={Link} to={`/c/${centreId}/sessions/${s.id}`} fw={600} mih={44} style={{ display: 'inline-flex', alignItems: 'center' }}>
-                {s.date}
-              </Anchor>
+              {s.centreId === centreId ? (
+                <Anchor component={Link} to={`/c/${centreId}/sessions/${s.id}`} fw={600} mih={44} style={{ display: 'inline-flex', alignItems: 'center' }}>
+                  {s.date}
+                </Anchor>
+              ) : (
+                <Text fw={600}>{s.date}</Text>
+              )}
               <Group gap="xs">
                 {s.kind === 'makeup' && <Badge variant="light">{t('sessions.history.kind.makeup')}</Badge>}
                 <Badge variant="light" color={s.status === 'missed' ? 'danger' : s.status === 'postponed' ? 'warning' : 'neutral'}>

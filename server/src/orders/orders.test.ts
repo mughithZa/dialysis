@@ -107,6 +107,8 @@ describe('patient session history', () => {
       '2026-01-01:completed',
     ]);
     expect(res.body[3].centreName).toBe('Beta');
+    expect(res.body[3].centreId).toBe(String(other.centre._id));
+    expect(res.body[0].centreId).toBe(String(centre._id));
     expect(res.body[0].centreName).toBe('Alpha');
     expect(res.body[0]).toMatchObject({ usage: [], notes: [], vitals: { bp: [] } });
     expect((await desk.agent.get(url)).status).toBe(200);

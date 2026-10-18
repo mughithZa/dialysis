@@ -1,0 +1,101 @@
+import { describe, expect, it } from 'vitest';
+import { screen } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { http, HttpResponse } from 'msw';
+import { OrdersPanel } from './OrdersPanel';
+import { PatientPage } from '../desk/PatientPage';
+import { Route, Routes } from 'react-router-dom';
+import { renderApp } from '../../test/render';
+import { server } from '../../test/server';
+import { useCentreUser } from '../../test/auth';
+
+interface Stored {
+  id: string;
+  text: string;
+  from: string;
+  status: 'active' | 'ended';
+  doctor: { id: string; name: string };
+}
+
+describe('OrdersPanel', () => {
+  it('posts a new order which then appears in the active list, and End removes it', async () => {
+    useCentreUser(['orders.view', 'orders.write']);
+    const orders: Stored[] = [];
+    let posted: unknown;
+    server.use(
+      http.get('*/api/centres/c1/patients/p1/orders', () => HttpResponse.json(orders)),
+      http.post('*/api/centres/c1/patients/p1/orders', async ({ request }) => {
+        posted = await request.json();
+        const o: Stored = { id: 'o1', text: (posted as { text: string }).text, from: '2026-10-18', status: 'active', doctor: { id: 'd', name: 'Dr Omar' } };
+        orders.push(o);
+        return HttpResponse.json(o, { status: 201 });
+      }),
+      http.post('*/api/centres/c1/patients/p1/orders/o1/end', () => {
+        orders[0]!.status = 'ended';
+        return HttpResponse.json(orders[0]);
+      }),
+    );
+    renderApp(<OrdersPanel patientId="p1" />);
+    expect(await screen.findByText('No orders.')).toBeInTheDocument();
+    await userEvent.type(screen.getByLabelText('New order'), 'Heparin-free until further notice');
+    await userEvent.click(screen.getByRole('button', { name: 'Add order' }));
+    expect(await screen.findByText('Heparin-free until further notice')).toBeInTheDocument();
+    expect(posted).toEqual({ text: 'Heparin-free until further notice' });
+    expect(screen.getByText(/Dr Omar/)).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: 'End' }));
+    expect(await screen.findByText('No orders.')).toBeInTheDocument();
+    expect(screen.queryByText('Heparin-free until further notice')).toBeNull();
+  });
+
+  it('is read-only with orders.view alone', async () => {
+    useCentreUser(['orders.view']);
+    server.use(
+      http.get('*/api/centres/c1/patients/p1/orders', () =>
+        HttpResponse.json([{ id: 'o1', text: 'Low flux', from: '2026-10-01', status: 'active', doctor: { id: 'd', name: 'Dr Omar' } }]),
+      ),
+    );
+    renderApp(<OrdersPanel patientId="p1" />);
+    expect(await screen.findByText('Low flux')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
+    expect(screen.queryByLabelText('New order')).toBeNull();
+  });
+});
+
+describe('PatientPage as a doctor', () => {
+  it('shows the record and orders but no edit, booking or discharge buttons', async () => {
+    useCentreUser(['patients.view', 'sessions.view', 'sessions.viewHistory', 'orders.view', 'orders.write', 'catalog.view', 'catalog.add']);
+    server.use(
+      http.get('*/api/centres/c1/patients/p1', () =>
+        HttpResponse.json({
+          id: 'p1',
+          userId: 'u1',
+          name: 'Ali Hassan',
+          phone: null,
+          emergencyContact: { name: null, phone: null, relation: null },
+          kidneyFailureCause: null,
+          address: null,
+          socialSituation: null,
+          financialSituation: null,
+          otherDiseases: null,
+          notes: null,
+          status: 'active',
+          discharge: null,
+        }),
+      ),
+      http.get('*/api/centres/c1/patients/p1/orders', () => HttpResponse.json([])),
+      http.get('*/api/centres/c1/patients/p1/sessions', () => HttpResponse.json([])),
+    );
+    renderApp(
+      <Routes>
+        <Route path="/c/:centreId/patients/:patientId" element={<PatientPage />} />
+      </Routes>,
+      '/c/c1/patients/p1',
+    );
+    expect(await screen.findByText('Ali Hassan')).toBeInTheDocument();
+    expect(await screen.findByText('No orders.')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Add order' })).toBeInTheDocument();
+    for (const name of ['Edit', 'Book schedule', 'Change schedule', 'Postpone session', 'Make-up session', 'Discharge', 'Transfer to another centre', 'Reset patient password']) {
+      expect(screen.queryByRole('button', { name })).toBeNull();
+    }
+  });
+});

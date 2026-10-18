@@ -7,10 +7,10 @@ import { SessionHistory } from '../../components/SessionHistory';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
+import { OrdersPanel } from '../doctor/OrdersPanel';
 import {
   useDaySessions,
   useGrid,
-  useOrders,
   usePatient,
   usePostpone,
   useResetPatientPassword,
@@ -148,7 +148,6 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
   const { t } = useTranslation();
   const canGrid = useCan('schedule.view');
   const grid = useGrid(canGrid);
-  const canView = useCan('orders.view');
   const canHistory = useCan('sessions.view');
   const can = {
     edit: useCan('patients.edit'),
@@ -159,7 +158,6 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
     transfer: useCan('transfers.send'),
     reset: useCan('users.resetPassword'),
   };
-  const orders = useOrders(patient.id, canView);
   const [dialog, setDialog] = useState<Dialog | null>(null);
   const close = () => setDialog(null);
 
@@ -269,22 +267,7 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
         </Stack>
       )}
 
-      {canView && (
-        <Stack gap="xs">
-          <Text fw={600}>{t('desk.patient.orders')}</Text>
-          {orders.isPending && <Loader size="sm" />}
-          {orders.isError && <Alert color="danger">{errorMessage(t, orders.error)}</Alert>}
-          {orders.data?.length === 0 && <Text c="dimmed">{t('desk.patient.noOrders')}</Text>}
-          {orders.data?.map((o) => (
-            <Card key={o.id} withBorder padding="sm">
-              <Text>{o.text}</Text>
-              <Text size="sm" c="dimmed">
-                {o.doctor.name} · {t('desk.patient.ordersFrom', { date: o.from })}
-              </Text>
-            </Card>
-          ))}
-        </Stack>
-      )}
+      <OrdersPanel patientId={patient.id} />
 
       {canHistory && (
         <Stack gap="xs">
