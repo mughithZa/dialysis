@@ -65,7 +65,10 @@
     "session_active": "That session is already in progress.",
     "patient_not_transferring": "This patient is no longer awaiting transfer.",
     "already_discharged": "This patient is already discharged.",
-    "not_a_nurse": "That person is not a nurse in this centre."
+    "not_a_nurse": "That person is not a nurse in this centre.",
+    "bad_status": "This session is not in a state that allows that.",
+    "not_today": "Only today's sessions can be opened.",
+    "item_retired": "That item is no longer available. Choose another."
   },
   "nav": {
     "centres": "Centres",
@@ -475,6 +478,96 @@
       "completed": "Completed",
       "postponed": "Postponed",
       "missed": "Missed"
+    }
+  },
+  "nurse": {
+    "today": {
+      "mine": "My chairs",
+      "unassigned": "Unassigned",
+      "others": "Other chairs",
+      "none": "No sessions.",
+      "chair": "{{chair}}",
+      "orders": "Orders"
+    },
+    "session": {
+      "orders": "Doctor orders",
+      "ordersBy": "{{name}}",
+      "open": "Open session",
+      "close": "Close session",
+      "postpone": "Postpone",
+      "opened": "Session opened.",
+      "closed": "Session closed.",
+      "postponed": "Session postponed.",
+      "closeAnyway": "Close anyway",
+      "goBack": "Go back",
+      "noHeparin": "No heparin recorded. Close anyway?",
+      "history": "Change history",
+      "notFound": "Session not found."
+    },
+    "usage": {
+      "title": "Medicines and supplies",
+      "none": "Nothing recorded yet.",
+      "add": "Add medicine/supply",
+      "addMissing": "Add missing item",
+      "quick": "Recent items",
+      "search": "Search by name",
+      "noMatch": "No matching items.",
+      "pending": "Pending approval",
+      "amount": "Amount",
+      "save": "Save",
+      "added": "Recorded.",
+      "edit": "Change",
+      "remove": "Remove",
+      "removed": "Removed.",
+      "updated": "Updated."
+    },
+    "type": {
+      "all": "All",
+      "medicine": "Medicines",
+      "supply": "Supplies"
+    },
+    "addItem": {
+      "name": "Item name",
+      "unit": "Unit",
+      "newUnit": "New unit",
+      "addUnit": "Add unit",
+      "submit": "Add item",
+      "done": "Item added. It will be reviewed by a manager."
+    },
+    "vitals": {
+      "title": "Vitals",
+      "weightBefore": "Weight before",
+      "weightAfter": "Weight after",
+      "saveWeights": "Save weights",
+      "weightsSaved": "Weights saved.",
+      "bpTitle": "Blood pressure",
+      "noBp": "No readings yet.",
+      "systolic": "Systolic",
+      "diastolic": "Diastolic",
+      "addBp": "Add reading",
+      "bpAdded": "Reading added."
+    },
+    "notes": {
+      "title": "Notes",
+      "none": "No notes.",
+      "add": "Add a note",
+      "save": "Save note",
+      "added": "Note added."
+    },
+    "history": {
+      "title": "Change history",
+      "none": "No changes after closing.",
+      "before": "Before: {{value}}",
+      "after": "After: {{value}}",
+      "kind": {
+        "usage.add": "Usage added",
+        "usage.update": "Usage changed",
+        "usage.remove": "Usage removed",
+        "vitals.update": "Vitals changed",
+        "note.add": "Note added",
+        "note.update": "Note changed",
+        "note.remove": "Note removed"
+      }
     }
   }
 }

@@ -19,7 +19,8 @@ import { AuditPage } from './features/centre/AuditPage';
 import { SettingsPage } from './features/centre/SettingsPage';
 import { SetupPage } from './features/centre/SetupPage';
 import { CentreStatsPage } from './features/centre/CentreStatsPage';
-import { TodayPage } from './features/sessions/TodayPage';
+import { SessionPage } from './features/nurse/SessionPage';
+import { TodayPage } from './features/nurse/TodayPage';
 import { TransfersPage } from './features/desk/TransfersPage';
 import { UsersPage } from './features/centre/UsersPage';
 
@@ -92,6 +93,7 @@ function Guard({ pattern, children }: { pattern: string; children: ReactElement 
 const SUB_SCREENS: Record<string, [string, ReactElement]> = {
   '/c/:centreId/patients/:patientId': ['/c/:centreId/patients', <PatientPage />],
   '/c/:centreId/schedule/nurses': ['/c/:centreId/schedule', <AssignNursesPage />],
+  '/c/:centreId/sessions/:sessionId': ['/c/:centreId/today', <SessionPage />],
 };
 
 export function AppRoutes() {
