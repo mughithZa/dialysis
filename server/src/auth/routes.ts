@@ -1,10 +1,11 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import { LANGUAGES, type MeDto } from '@dialysis/shared';
+import { LANGUAGES, type MeDto, type RoleRef } from '@dialysis/shared';
 import { validate } from '../lib/validate.js';
 import { HttpError } from '../lib/errors.js';
 import { Centre } from '../centres/centre.model.js';
 import { User, type UserDoc } from './user.model.js';
+import { Role } from './role.model.js';
 import { verifyPassword } from './password.js';
 import { effectivePermissions } from './effective.js';
 import { requireAuth } from './middleware.js';
@@ -20,12 +21,24 @@ async function buildMe(user: UserDoc): Promise<MeDto> {
     _id: { $in: user.memberships.map((m) => m.centreId) },
     status: 'active',
   });
+  const roleIds = [...user.globalRoleIds, ...user.memberships.flatMap((m) => m.roleIds)];
+  const roles = new Map((await Role.find({ _id: { $in: roleIds } })).map((r) => [String(r._id), { key: r.key, name: r.name }]));
+  const refs = (ids: unknown[]): RoleRef[] => ids.flatMap((id) => roles.get(String(id)) ?? []);
   const out: MeDto['centres'] = [];
   for (const c of centres) {
     const permissions = [...(await effectivePermissions({ globalRoleIds: [], memberships: user.memberships }, c.id))];
-    out.push({ id: c.id, name: c.name, permissions });
+    const membership = user.memberships.find((m) => String(m.centreId) === c.id);
+    out.push({ id: c.id, name: c.name, permissions, roles: refs(membership?.roleIds ?? []) });
   }
-  return { id: user.id, name: user.name, kind: user.kind, language: user.language ?? null, globalPermissions, centres: out };
+  return {
+    id: user.id,
+    name: user.name,
+    kind: user.kind,
+    language: user.language ?? null,
+    globalPermissions,
+    globalRoles: refs(user.globalRoleIds),
+    centres: out,
+  };
 }
 
 const loginBody = z.object({ username: z.string().min(1), password: z.string().min(1) });

@@ -1,22 +1,14 @@
 import type { ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
+import { IconCalendarOff } from '@tabler/icons-react';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, Stack, Text, Title } from '@mantine/core';
 import { toLocalDate } from '../features/desk/dates';
 import { errorMessage } from '../i18n/errors';
-import type { SessionStatus } from '../sessionStatus';
 import { formatList, timeRange } from '../i18n/format';
+import { EmptyState } from './EmptyState';
+import { StatusBadge } from './StatusBadge';
 import { formatDay, useTimeline, type TimelineItem, type TimelineNote, type TimelineSource } from './timelineApi';
-
-const STATUS_COLOR: Record<SessionStatus, string> = {
-  scheduled: 'neutral',
-  active: 'warning',
-  completed: 'neutral',
-  postponed: 'warning',
-  missed: 'danger',
-  did_not_come: 'danger',
-  cancelled: 'neutral',
-};
 
 type Entry = { kind: 'session'; date: string; item: TimelineItem } | { kind: 'note'; date: string; note: TimelineNote };
 
@@ -39,9 +31,7 @@ function SessionRow({ item, source, actions }: { item: TimelineItem; source: Tim
             {item.kind === 'makeup' && <Badge variant="outline">{t('timeline.makeup')}</Badge>}
             {item.detached && <Badge variant="outline">{t('timeline.moved')}</Badge>}
             {item.oneOff && <Badge variant="outline">{t('timeline.oneOff')}</Badge>}
-            <Badge variant="light" color={STATUS_COLOR[item.status]}>
-              {t(`sessions.status.${item.status}`)}
-            </Badge>
+            <StatusBadge status={item.status} />
           </Group>
         </Group>
         <Text size="sm">
@@ -93,7 +83,7 @@ function NoteRow({ note }: { note: TimelineNote }) {
   const { t, i18n } = useTranslation();
   const at = new Date(note.at);
   return (
-    <Card withBorder padding="sm" bg="var(--mantine-color-neutral-0)" data-testid={`timeline-note-${note.id}`}>
+    <Card withBorder padding="sm" bg="var(--mantine-color-uoca-0)" data-testid={`timeline-note-${note.id}`}>
       <Stack gap={2}>
         <Group gap="xs">
           <Badge variant="light">{t('timeline.note')}</Badge>
@@ -109,7 +99,7 @@ function NoteRow({ note }: { note: TimelineNote }) {
 
 function Section({ title, highlight, children }: { title: string; highlight?: boolean; children: ReactNode }) {
   return (
-    <Stack gap="xs" p={highlight ? 'xs' : 0} bg={highlight ? 'var(--mantine-color-warning-0)' : undefined} style={{ borderRadius: 'var(--mantine-radius-md)' }}>
+    <Stack gap="xs" p={highlight ? 'xs' : 0} bg={highlight ? 'var(--mantine-color-uoca-1)' : undefined} style={{ borderRadius: 'var(--mantine-radius-md)' }}>
       <Title order={4}>{title}</Title>
       {children}
     </Stack>
@@ -146,7 +136,7 @@ export function Timeline({ source, actions }: { source: TimelineSource; actions?
     <Stack gap="md">
       {q.isPending && <Loader size="sm" />}
       {q.isError && <Alert color="danger">{errorMessage(t, q.error)}</Alert>}
-      {empty && <Text c="dimmed">{t('timeline.empty')}</Text>}
+      {empty && <EmptyState icon={IconCalendarOff} title={t('timeline.empty')} hint={t('empty.timelineHint')} />}
       {todayEntries.length > 0 && (
         <Section title={t('timeline.today')} highlight>
           {todayEntries.map(render)}

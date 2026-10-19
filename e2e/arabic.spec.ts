@@ -26,9 +26,9 @@ test('Arabic: chosen on the login page, right-to-left everywhere, remembered and
   await expect(page.getByRole('heading', { name: ar.nav.today })).toBeVisible();
   await expect(page.locator('html')).toHaveAttribute('dir', 'rtl');
 
-  // and back to English from the More sheet
-  await page.getByText(ar.common.more, { exact: true }).click();
-  await page.getByRole('dialog').getByRole('button', { name: en.language.en }).click();
+  // and back to English from the user menu
+  await page.getByRole('button', { name: ar.userMenu.label }).click();
+  await page.getByRole('menuitem', { name: en.language.en }).click();
   await expect(page.locator('html')).toHaveAttribute('dir', 'ltr');
   await expect(page.getByRole('heading', { name: en.nav.today })).toBeVisible();
 });

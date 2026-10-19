@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, Stack, Text, Title } from '@mantine/core';
+import { Alert, Anchor, Button, Card, Group, Loader, Modal, Stack, Text, Title } from '@mantine/core';
+import { IconPill } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
+import { StatusBadge } from '../../components/StatusBadge';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { formatDay } from '../../components/timelineApi';
@@ -100,7 +103,7 @@ function SessionView({ s }: { s: SessionDetail }) {
       <Stack gap={4}>
         <Group justify="space-between" wrap="nowrap">
           <Title order={2}>{s.patient.name}</Title>
-          <Badge variant="light">{t(`sessions.status.${s.status}`)}</Badge>
+          <StatusBadge status={s.status} size="lg" />
         </Group>
         <Text c="dimmed">
           {t('board.machine', { label: s.chairLabel })} · {s.shift.name} ({timeRange(s.start, s.end)}) · {formatDay(s.date, i18n.language)}
@@ -159,7 +162,7 @@ function SessionView({ s }: { s: SessionDetail }) {
           <Card withBorder padding="sm">
             <Stack gap="sm">
               <Title order={4}>{t('nurse.usage.title')}</Title>
-              {s.usage.length === 0 && <Text c="dimmed">{t('nurse.usage.none')}</Text>}
+              {s.usage.length === 0 && <EmptyState compact icon={IconPill} title={t('nurse.usage.none')} hint={t('empty.usageHint')} />}
               {s.usage.map((l) => (
                 <UsageRow key={l.id} sessionId={s.id} line={l} canEdit={may(canUsage)} />
               ))}

@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Group, Loader, Modal, PasswordInput, Stack, Text, Title } from '@mantine/core';
+import { IconUsers } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -66,7 +68,7 @@ export function UsersPage() {
       </Group>
       {users.isPending && <Loader />}
       {users.isError && <Alert color="danger">{errorMessage(t, users.error)}</Alert>}
-      {users.data?.length === 0 && <Text c="dimmed">{t('centre.users.empty')}</Text>}
+      {users.data?.length === 0 && <EmptyState icon={IconUsers} title={t('centre.users.empty')} hint={t('empty.usersHint')} />}
       {users.data?.map((u) => (
         <Card key={u.id} withBorder padding="sm" data-user={u.username}>
           <Stack gap="xs">

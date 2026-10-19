@@ -59,6 +59,17 @@ describe('auth routes', () => {
     expect(res.body.centres[0].name).toBe('C1');
   });
 
+  it('names the user\'s roles per centre and globally (for the user menu)', async () => {
+    const c = await Centre.create({ name: 'C1' });
+    await createUser({ username: 'fd', memberships: [{ centreId: c.id, roleKeys: ['front_desk'] }] });
+    await createUser({ username: 'boss', globalRoleKeys: ['program_manager'] });
+    const fd = await (await login('fd')).get('/api/auth/me');
+    expect(fd.body.centres[0].roles).toEqual([{ key: 'front_desk', name: expect.any(String) }]);
+    expect(fd.body.globalRoles).toEqual([]);
+    const pm = await (await login('boss')).get('/api/auth/me');
+    expect(pm.body.globalRoles).toEqual([{ key: 'program_manager', name: expect.any(String) }]);
+  });
+
   it('union of two roles in one centre', async () => {
     const c = await Centre.create({ name: 'C1' });
     await createUser({ username: 'u', memberships: [{ centreId: c.id, roleKeys: ['centre_manager', 'front_desk'] }] });

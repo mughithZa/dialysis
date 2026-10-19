@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Group, Loader, Modal, Select, Stack, Switch, Tabs, Text, TextInput, Title } from '@mantine/core';
+import { IconPill } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { errorMessage } from '../../i18n/errors';
 import { useAddUnit, useItems, useUnits, useUpdateItem, type ItemDto, type ItemType } from './api';
 import { MergeDialog } from './MergeDialog';
@@ -115,7 +117,7 @@ export function CatalogPage() {
       {items.isPending && <Loader />}
       {items.isError && <Alert color="danger">{errorMessage(t, items.error)}</Alert>}
       {update.isError && <Alert color="danger">{errorMessage(t, update.error)}</Alert>}
-      {items.data && shown.length === 0 && <Text c="dimmed">{t('pm.catalog.empty')}</Text>}
+      {items.data && shown.length === 0 && <EmptyState icon={IconPill} title={t('pm.catalog.empty')} hint={t('empty.itemsHint')} />}
       {shown.map((i) => (
         <Card key={i.id} withBorder padding="sm" data-item={i.id}>
           <Stack gap="xs">

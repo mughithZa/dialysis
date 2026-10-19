@@ -1,7 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useNavigate } from 'react-router-dom';
-import { Alert, Badge, Button, Card, Group, Loader, Modal, SegmentedControl, SimpleGrid, Stack, Switch, Text, Title } from '@mantine/core';
+import { Alert, Badge, Button, Card, Group, Loader, Modal, SegmentedControl, SimpleGrid, Stack, Switch, Text } from '@mantine/core';
+import { PageHeader } from '../../components/PageHeader';
+import { IconCalendarOff, IconClipboardText, IconClockPause, IconHeartbeat } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
+import { StatusBadge } from '../../components/StatusBadge';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -43,11 +47,14 @@ function BoardRowCard({ row, waiting, actions }: { row: BoardRow; waiting: boole
               {row.status === 'active' ? ` · ${t('board.started', { time: row.start })}` : ''}
             </Text>
           </Stack>
-          {row.hasActiveOrders && (
-            <Badge variant="filled" color="warning">
-              {t('board.orders')}
-            </Badge>
-          )}
+          <Group gap={4} justify="flex-end" wrap="wrap">
+            {row.hasActiveOrders && (
+              <Badge variant="light" color="amber" leftSection={<IconClipboardText size={12} aria-hidden />}>
+                {t('board.orders')}
+              </Badge>
+            )}
+            <StatusBadge status={waiting ? 'waiting' : row.status} />
+          </Group>
         </Group>
         <SimpleGrid cols={waiting ? 2 : 1} spacing="xs">
           {waiting && actions.canRun && actions.isToday && (
@@ -143,10 +150,7 @@ export function BoardPage() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between" align="center">
-        <Title order={2}>{t('nav.today')}</Title>
-        {d && <Text c="dimmed">{formatDay(d.date, i18n.language)}</Text>}
-      </Group>
+      <PageHeader title={t('nav.today')} subtitle={d ? formatDay(d.date, i18n.language) : undefined} />
       {board.isPending && <Loader size="sm" />}
       {error && <Alert color="danger">{errorMessage(t, error)}</Alert>}
       {d && d.unclosed.length > 0 && (
@@ -163,7 +167,7 @@ export function BoardPage() {
       {d && d.working && (
         <>
           {d.blocks.length === 0 ? (
-            <Text c="dimmed">{t('board.noBlocks')}</Text>
+            <EmptyState icon={IconCalendarOff} title={t('board.noBlocks')} hint={t('empty.blocksHint')} />
           ) : (
             <SegmentedControl
               fullWidth
@@ -187,14 +191,14 @@ export function BoardPage() {
 
           <Stack gap="xs">
             <Text fw={600}>{t('board.active', { count: active.length })}</Text>
-            {active.length === 0 && <Text c="dimmed">{t('board.none')}</Text>}
+            {active.length === 0 && <EmptyState compact icon={IconHeartbeat} title={t('board.noneActive')} hint={t('board.noneActiveHint')} />}
             {active.map((r) => (
               <BoardRowCard key={r.id} row={r} waiting={false} actions={actions} />
             ))}
           </Stack>
           <Stack gap="xs">
             <Text fw={600}>{t('board.waiting', { count: waiting.length })}</Text>
-            {waiting.length === 0 && <Text c="dimmed">{t('board.none')}</Text>}
+            {waiting.length === 0 && <EmptyState compact icon={IconClockPause} title={t('board.noneWaiting')} hint={t('board.noneWaitingHint')} />}
             {waiting.map((r) => (
               <BoardRowCard key={r.id} row={r} waiting actions={actions} />
             ))}

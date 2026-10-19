@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Alert, Card, Drawer, Loader, Stack, Text } from '@mantine/core';
+import { IconHistory } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { errorMessage } from '../../i18n/errors';
 import { useHistory } from './api';
 import { dateLocale } from '../../i18n';
@@ -15,7 +17,7 @@ export function HistoryDrawer({ sessionId, opened, onClose }: { sessionId: strin
       <Stack gap="sm">
         {history.isPending && <Loader size="sm" />}
         {history.isError && <Alert color="danger">{errorMessage(t, history.error)}</Alert>}
-        {history.data?.length === 0 && <Text c="dimmed">{t('nurse.history.none')}</Text>}
+        {history.data?.length === 0 && <EmptyState compact icon={IconHistory} title={t('nurse.history.none')} />}
         {history.data?.map((c) => (
           <Card key={c.id} withBorder padding="sm">
             <Text fw={600}>{t(`nurse.history.kind.${c.kind}`, { defaultValue: c.kind })}</Text>

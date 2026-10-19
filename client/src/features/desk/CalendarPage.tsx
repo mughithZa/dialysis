@@ -2,6 +2,9 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, ScrollArea, Stack, Table, Text, Title } from '@mantine/core';
+import { IconCalendarOff } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
+import { StatusBadge } from '../../components/StatusBadge';
 import { useMediaQuery } from '@mantine/hooks';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -14,16 +17,6 @@ import { parseLocal as parse, shiftDate as shift, todayLocal, weekStartSat as we
 type Day = CalendarDto['days'][number];
 type Block = Day['blocks'][number];
 type Cell = Block['cells'][number];
-
-const GLYPH: Record<string, string> = {
-  scheduled: '○',
-  active: '◐',
-  completed: '●',
-  postponed: '↻',
-  missed: '✕',
-  did_not_come: '✕',
-  cancelled: '✕',
-};
 
 interface Pick {
   date: string;
@@ -79,14 +72,10 @@ export function CalendarPage() {
   const cell = (day: Day, block: Block, c: Cell) => {
     const name = blockMeta(block.shiftId)?.name ?? '';
     if (c.session) {
-      const status = t(`desk.calendar.status.${c.session.status}`);
       return (
-        <Anchor component={Link} to={`/c/${centreId}/patients/${c.session.patient.id}`} fw={500} style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center', gap: 6 }}>
-          <span aria-hidden>{GLYPH[c.session.status] ?? ''}</span>
+        <Anchor component={Link} to={`/c/${centreId}/patients/${c.session.patient.id}`} fw={500} style={{ display: 'inline-flex', minHeight: 44, alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
           {c.session.patient.name}
-          <Text span size="xs" c="dimmed">
-            {status}
-          </Text>
+          <StatusBadge status={c.session.status} size="sm" />
         </Anchor>
       );
     }
@@ -149,7 +138,7 @@ export function CalendarPage() {
       {(setup.isPending || calendar.isPending) && <Loader />}
       {setup.isError && <Alert color="danger">{errorMessage(t, setup.error)}</Alert>}
       {calendar.isError && <Alert color="danger">{errorMessage(t, calendar.error)}</Alert>}
-      {ready && blocks.length === 0 && <Text c="dimmed">{t('desk.calendar.noBlocks')}</Text>}
+      {ready && blocks.length === 0 && <EmptyState icon={IconCalendarOff} title={t('desk.calendar.noBlocks')} hint={t('empty.blocksHint')} />}
 
       {ready && !desktop &&
         days.map((day) => (

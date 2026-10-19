@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Group, Modal, Stack, Text, Textarea, Title } from '@mantine/core';
+import { IconNote } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '../../i18n/errors';
 import { useAddNote, useRemoveNote, useUpdateNote, type NoteDto, type SessionDetail } from './api';
@@ -80,7 +82,7 @@ export function NotesList({ session, canEdit }: { session: SessionDetail; canEdi
   return (
     <Stack gap="sm">
       <Title order={4}>{t('nurse.notes.title')}</Title>
-      {session.notes.length === 0 && <Text c="dimmed">{t('nurse.notes.none')}</Text>}
+      {session.notes.length === 0 && <EmptyState compact icon={IconNote} title={t('nurse.notes.none')} />}
       {session.notes.map((n) => (
         <NoteRow key={n.id} sessionId={session.id} note={n} canEdit={canEdit} />
       ))}

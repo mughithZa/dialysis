@@ -1,7 +1,10 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Alert, Badge, Button, Card, Group, Loader, Modal, Select, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Card, Group, Loader, Modal, Select, Stack, Text, TextInput } from '@mantine/core';
+import { PageHeader } from '../../components/PageHeader';
+import { IconUserPlus, IconUserSearch } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { useDebouncedValue } from '@mantine/hooks';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -24,14 +27,16 @@ export function PatientsPage() {
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
-        <Title order={2}>{t('desk.patients.title')}</Title>
-        {canCreate && (
-          <Button mih={44} onClick={() => setCreating(true)}>
-            {t('desk.patients.new')}
-          </Button>
-        )}
-      </Group>
+      <PageHeader
+        title={t('desk.patients.title')}
+        action={
+          canCreate && (
+            <Button mih={44} onClick={() => setCreating(true)} leftSection={<IconUserPlus size={18} aria-hidden />}>
+              {t('desk.patients.new')}
+            </Button>
+          )
+        }
+      />
       <TextInput
         aria-label={t('desk.patients.search')}
         placeholder={t('desk.patients.search')}
@@ -48,7 +53,14 @@ export function PatientsPage() {
       />
       {patients.isPending && <Loader />}
       {patients.isError && <Alert color="danger">{errorMessage(t, patients.error)}</Alert>}
-      {patients.data?.length === 0 && <Text c="dimmed">{t('desk.patients.empty')}</Text>}
+      {patients.data?.length === 0 && (
+        <EmptyState
+          icon={IconUserSearch}
+          title={t('desk.patients.empty')}
+          hint={t('empty.patientsHint')}
+          action={canCreate ? { label: t('desk.patients.new'), onClick: () => setCreating(true), icon: IconUserPlus } : undefined}
+        />
+      )}
       {patients.data?.map((p) => (
         <Card key={p.id} withBorder padding="sm" component={Link} to={`/c/${centreId}/patients/${p.id}`} mih={44}>
           <Group justify="space-between" wrap="nowrap">

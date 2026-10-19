@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Chip, Group, Loader, Modal, MultiSelect, Select, SegmentedControl, Stack, Text, TextInput, Title } from '@mantine/core';
+import { IconCalendarOff, IconCalendarUser, IconNurse } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -85,8 +87,8 @@ export function RosterPage() {
       <Title order={2}>{t('desk.roster.title')}</Title>
       {loading && <Loader />}
       {error && <Alert color="danger">{errorMessage(t, error)}</Alert>}
-      {users.data && nurses.length === 0 && <Text c="dimmed">{t('desk.roster.noNurses')}</Text>}
-      {setup.data && blocks.length === 0 && <Text c="dimmed">{t('desk.roster.noBlocks')}</Text>}
+      {users.data && nurses.length === 0 && <EmptyState icon={IconNurse} title={t('desk.roster.noNurses')} hint={t('empty.usersHint')} />}
+      {setup.data && blocks.length === 0 && <EmptyState icon={IconCalendarOff} title={t('desk.roster.noBlocks')} hint={t('empty.blocksHint')} />}
 
       {canAssign && setup.data && (
         <Card withBorder>
@@ -178,7 +180,7 @@ export function RosterPage() {
         </Group>
         {roster.isPending && <Loader />}
         {roster.error && <Alert color="danger">{errorMessage(t, roster.error)}</Alert>}
-        {roster.data && roster.data.length === 0 && <Text c="dimmed">{t('desk.roster.none')}</Text>}
+        {roster.data && roster.data.length === 0 && <EmptyState compact icon={IconCalendarUser} title={t('desk.roster.none')} hint={t('empty.rosterHint')} />}
         {blocks.map((b) => {
           const entries = (roster.data ?? []).filter((e) => e.shiftId === b.id);
           if (entries.length === 0) return null;

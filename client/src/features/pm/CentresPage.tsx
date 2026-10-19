@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Group, Loader, Modal, PasswordInput, Stack, Text, Title } from '@mantine/core';
+import { IconBuildingHospital, IconUserOff } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -19,7 +21,7 @@ function ManagersPanel({ centre }: { centre: Centre }) {
       <Text fw={600}>{t('pm.centres.managers')}</Text>
       {managers.isPending && <Loader size="sm" />}
       {managers.isError && <Alert color="danger">{errorMessage(t, managers.error)}</Alert>}
-      {managers.data?.length === 0 && <Text c="dimmed">{t('pm.centres.noManagers')}</Text>}
+      {managers.data?.length === 0 && <EmptyState compact icon={IconUserOff} title={t('pm.centres.noManagers')} />}
       {managers.data?.map((m) => (
         <Stack key={m.id} gap="xs">
           <Group justify="space-between" wrap="nowrap">
@@ -90,7 +92,7 @@ export function CentresPage() {
       {centres.isPending && <Loader />}
       {centres.isError && <Alert color="danger">{errorMessage(t, centres.error)}</Alert>}
       {setStatus.isError && <Alert color="danger">{errorMessage(t, setStatus.error)}</Alert>}
-      {centres.data?.length === 0 && <Text c="dimmed">{t('pm.centres.empty')}</Text>}
+      {centres.data?.length === 0 && <EmptyState icon={IconBuildingHospital} title={t('pm.centres.empty')} hint={t('empty.centresHint')} />}
       {centres.data?.map((c) => (
         <Card key={c.id} withBorder padding="sm">
           <Stack gap="xs">

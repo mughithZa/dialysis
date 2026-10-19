@@ -2,7 +2,9 @@ import { useEffect, type ReactElement } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Navigate, Route, Routes, useParams } from 'react-router-dom';
 import type { Permission } from '@dialysis/shared';
-import { Center, Loader, Text } from '@mantine/core';
+import { Center, Loader } from '@mantine/core';
+import { IconLock } from '@tabler/icons-react';
+import { EmptyState } from './components/EmptyState';
 import { AuthProvider, useAuth, useCentre } from './auth/AuthProvider';
 import { LoginPage } from './auth/LoginPage';
 import { AppShell } from './layout/AppShell';
@@ -73,7 +75,7 @@ function Home() {
   const { centreId } = useCentre();
   const { t } = useTranslation();
   if (!me) return null;
-  if (visibleNav(me, centreId).length === 0) return <Text c="dimmed">{t('common.noAccess')}</Text>;
+  if (visibleNav(me, centreId).length === 0) return <EmptyState icon={IconLock} title={t('common.noAccess')} />;
   return <Navigate to={landingPath(me, centreId)} replace />;
 }
 

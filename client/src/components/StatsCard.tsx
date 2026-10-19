@@ -1,5 +1,8 @@
 import { useTranslation } from 'react-i18next';
-import { Card, Group, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
+import { Card, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
+import { StatCard } from './StatCard';
+import { IconActivityHeartbeat, IconPackageOff, IconUsers } from '@tabler/icons-react';
+import { EmptyState } from './EmptyState';
 
 export interface ItemTotal {
   item: { id: string; name: string };
@@ -20,9 +23,7 @@ function TotalsTable({ title, rows }: { title: string; rows: ItemTotal[] }) {
     <Stack gap={4}>
       <Text fw={600}>{title}</Text>
       {rows.length === 0 ? (
-        <Text c="dimmed" size="sm">
-          {t('pm.dashboard.noUsage')}
-        </Text>
+        <EmptyState compact icon={IconPackageOff} title={t('pm.dashboard.noUsage')} />
       ) : (
         <Table.ScrollContainer minWidth={0}>
           <Table verticalSpacing={6} fz="sm">
@@ -58,24 +59,10 @@ export function StatsCard({ stats }: { stats: CentreStats }) {
         <Title order={3} size="h4">
           {stats.centre.name}
         </Title>
-        <Group gap="xl">
-          <Stack gap={0}>
-            <Text size="sm" c="dimmed">
-              {t('pm.dashboard.sessions')}
-            </Text>
-            <Text fz={28} fw={700}>
-              {stats.sessions}
-            </Text>
-          </Stack>
-          <Stack gap={0}>
-            <Text size="sm" c="dimmed">
-              {t('pm.dashboard.patients')}
-            </Text>
-            <Text fz={28} fw={700}>
-              {stats.patients}
-            </Text>
-          </Stack>
-        </Group>
+        <SimpleGrid cols={2} spacing="sm">
+          <StatCard value={stats.sessions} label={t('pm.dashboard.sessions')} icon={IconActivityHeartbeat} />
+          <StatCard value={stats.patients} label={t('pm.dashboard.patients')} icon={IconUsers} />
+        </SimpleGrid>
         <SimpleGrid cols={{ base: 1, md: 2 }}>
           <TotalsTable title={t('pm.dashboard.medicines')} rows={stats.medicines} />
           <TotalsTable title={t('pm.dashboard.supplies')} rows={stats.supplies} />

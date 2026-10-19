@@ -18,6 +18,16 @@ async function submit(user: string, pass: string) {
 }
 
 describe('LoginPage', () => {
+  it('shows the brand, the sign-in form and the language switch', async () => {
+    server.use(unauthenticated);
+    renderApp(<LoginPage />);
+    expect(await screen.findByText('UOCA Dialysis')).toBeInTheDocument();
+    expect(screen.getByText('Dialysis centre network')).toBeInTheDocument();
+    expect(screen.getByRole('heading', { name: 'Sign in' })).toBeInTheDocument();
+    expect(screen.getByRole('group', { name: 'Language' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'العربية' })).toBeInTheDocument();
+  });
+
   it('shows a translated error on bad credentials', async () => {
     server.use(
       unauthenticated,

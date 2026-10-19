@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Card, Group, Loader, Modal, Stack, Text, Title } from '@mantine/core';
+import { IconShieldLock } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { errorMessage } from '../../i18n/errors';
 import { useRoles, type RoleDto } from './api';
 import { roleLabel } from '../../i18n/roleLabel';
@@ -22,7 +24,7 @@ export function RolesPage() {
       </Group>
       {roles.isPending && <Loader />}
       {roles.isError && <Alert color="danger">{errorMessage(t, roles.error)}</Alert>}
-      {roles.data?.length === 0 && <Text c="dimmed">{t('pm.roles.empty')}</Text>}
+      {roles.data?.length === 0 && <EmptyState icon={IconShieldLock} title={t('pm.roles.empty')} hint={t('empty.rolesHint')} />}
       {roles.data?.map((r) => (
         <Card key={r.id} withBorder padding="sm">
           <Group justify="space-between" wrap="nowrap">

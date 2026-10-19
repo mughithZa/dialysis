@@ -26,10 +26,10 @@ async function login(page: Page, username: string, password = STAFF_PASSWORD) {
   await expect(page.getByRole('button', { name: en.login.submit })).toBeHidden();
 }
 
-/** Phone layout: sign-out lives in the "More" drawer. */
+/** Sign-out lives in the user menu (avatar in the header). */
 async function logout(page: Page) {
-  await page.getByText(en.common.more, { exact: true }).click();
-  await page.getByRole('button', { name: en.common.logout }).click();
+  await page.getByRole('button', { name: en.userMenu.label }).click();
+  await page.getByRole('menuitem', { name: en.common.logout }).click();
   await expect(page.getByRole('heading', { name: en.login.title })).toBeVisible();
 }
 
@@ -184,6 +184,6 @@ test('core flow: desk builds the schedule, rosters and books; doctor notes; nurs
   await login(page, 'pm');
   await goTo(page, en.nav.dashboard);
   const stats = page.locator('[data-centre-stats]', { hasText: 'E2E Centre' });
-  await expect(stats.getByText(en.pm.dashboard.sessions).locator('xpath=following-sibling::*[1]')).toHaveText('1');
+  await expect(stats.getByText(en.pm.dashboard.sessions).locator('xpath=preceding-sibling::*[1]')).toHaveText('1');
   await expect(stats.getByRole('row', { name: /Heparin\s+5\s+cc/ })).toBeVisible();
 });

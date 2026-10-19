@@ -1,6 +1,7 @@
 {
   "app": {
-    "name": "Dialysis Centre"
+    "name": "UOCA Dialysis",
+    "tagline": "Dialysis centre network"
   },
   "common": {
     "loading": "Loading...",
@@ -30,7 +31,8 @@
     "title": "Sign in",
     "username": "Username",
     "password": "Password",
-    "submit": "Sign in"
+    "submit": "Sign in",
+    "subtitle": "Sign in with the account your centre gave you."
   },
   "errors": {
     "generic": "Something went wrong. Please try again.",
@@ -98,7 +100,23 @@
     "settings": "Settings",
     "audit": "Audit log",
     "stats": "Reports",
-    "me": "My dialysis"
+    "me": "My dialysis",
+    "short": {
+      "centres": "Centres",
+      "roles": "Roles",
+      "catalog": "Catalogue",
+      "dashboard": "Dashboard",
+      "today": "Today",
+      "patients": "Patients",
+      "schedule": "Schedule",
+      "transfers": "Transfers",
+      "users": "Users",
+      "setup": "Setup",
+      "settings": "Settings",
+      "audit": "Audit",
+      "stats": "Reports",
+      "me": "Home"
+    }
   },
   "pm": {
     "centres": {
@@ -414,15 +432,6 @@
       "held": "Reserved for {{name}}",
       "emptyCell": "Empty: machine {{label}}, {{block}}, {{date}}",
       "bookedCell": "{{name}}, {{status}}",
-      "status": {
-        "scheduled": "Scheduled",
-        "active": "In progress",
-        "completed": "Completed",
-        "postponed": "Postponed",
-        "missed": "Missed",
-        "did_not_come": "Did not come",
-        "cancelled": "Cancelled"
-      },
       "noBlocks": "No session blocks set up yet.",
       "setupFirst": "Set up the schedule first."
     },
@@ -600,7 +609,8 @@
       "postponed": "Postponed",
       "missed": "Missed",
       "did_not_come": "Did not come",
-      "cancelled": "Cancelled"
+      "cancelled": "Cancelled",
+      "waiting": "Waiting"
     }
   },
   "nurse": {
@@ -726,7 +736,6 @@
     "active_other": "Active now ({{count}})",
     "waiting_one": "Waiting ({{count}})",
     "waiting_other": "Waiting ({{count}})",
-    "none": "None.",
     "noBlocks": "No session blocks set up yet.",
     "closed": "Centre closed today",
     "summary": "Done {{done}} · Did not come {{didNotCome}} · Postponed or cancelled {{other}}",
@@ -734,7 +743,11 @@
     "noneEmpty": "none",
     "unclosed_one": "{{count}} session from an earlier day is still open",
     "unclosed_other": "{{count}} sessions from earlier days are still open",
-    "unclosedHelp": "Open each one, check the record and close it."
+    "unclosedHelp": "Open each one, check the record and close it.",
+    "noneActive": "No one on a machine right now",
+    "noneActiveHint": "Sessions appear here once they are started.",
+    "noneWaiting": "No one waiting",
+    "noneWaitingHint": "Patients booked for this block show here until their session starts."
   },
   "timeline": {
     "upcoming": "Upcoming",
@@ -769,5 +782,23 @@
     "front_desk": "Front desk",
     "nurse": "Nurse",
     "doctor": "Doctor"
+  },
+  "userMenu": {
+    "label": "Account menu",
+    "patient": "Patient",
+    "staff": "Staff"
+  },
+  "empty": {
+    "blocksHint": "A centre manager sets up session blocks under Schedule setup.",
+    "patientsHint": "Try another search, or add a new patient.",
+    "timelineHint": "Booked sessions will show here.",
+    "transfersHint": "Transfers between centres will show here.",
+    "usersHint": "Add staff accounts so they can sign in.",
+    "usageHint": "Add the medicines and supplies used in this session.",
+    "centresHint": "Create the first centre to get started.",
+    "itemsHint": "Medicines and supplies added to the catalogue show here.",
+    "rolesHint": "Roles group permissions for staff.",
+    "rosterHint": "Assign nurses to machines for this week.",
+    "dashboardHint": "Centre figures appear once a centre is created."
   }
 }

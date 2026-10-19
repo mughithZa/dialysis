@@ -1,0 +1,91 @@
+/* Colours come only from theme.ts (the --uoca-* variables and Mantine colour scales). */
+
+.page {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  background: var(--uoca-cream);
+}
+
+.brandPanel {
+  background: var(--uoca-brown);
+  color: var(--uoca-on-brown);
+  padding: 48px 24px 72px;
+  border-end-start-radius: 28px;
+  border-end-end-radius: 28px;
+}
+
+.brandInner {
+  max-width: 420px;
+  margin-inline: auto;
+}
+
+.mark {
+  background: var(--uoca-gold);
+  color: var(--uoca-text);
+}
+
+.appName {
+  margin: 4px 0 0;
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.25;
+  color: var(--uoca-on-brown);
+}
+
+.tagline {
+  color: var(--uoca-gold);
+  font-size: var(--mantine-font-size-md);
+}
+
+.formArea {
+  flex: 1;
+  width: 100%;
+  max-width: 440px;
+  margin-inline: auto;
+  margin-top: -48px;
+  padding: 0 16px 32px;
+}
+
+.card {
+  width: 100%;
+}
+
+.language {
+  margin-top: 20px;
+}
+
+@media (min-width: 62em) {
+  .page {
+    flex-direction: row;
+  }
+
+  .brandPanel {
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 0;
+    padding: 48px;
+  }
+
+  .formArea {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    max-width: none;
+    margin-top: 0;
+    padding: 48px 32px;
+  }
+
+  .card,
+  .language {
+    max-width: 420px;
+  }
+
+  .language {
+    width: 100%;
+  }
+}

@@ -1,0 +1,139 @@
+/* Colours come only from theme.ts (Mantine colour scales and the --uoca-* variables). */
+
+.header {
+  background: var(--uoca-brown);
+  color: var(--uoca-on-brown);
+  box-shadow: var(--mantine-shadow-sm);
+}
+
+.mark {
+  background: var(--uoca-gold);
+  color: var(--uoca-text);
+  flex-shrink: 0;
+}
+
+.brand {
+  color: var(--uoca-gold);
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.title {
+  color: var(--uoca-on-brown);
+  line-height: 1.3;
+}
+
+.centreSelect {
+  color: var(--uoca-on-brown);
+  font-weight: 700;
+  font-size: var(--mantine-font-size-md);
+  min-height: 26px;
+  height: 26px;
+  line-height: 26px;
+  padding-inline-end: 22px;
+  cursor: pointer;
+}
+
+.centreSection {
+  color: var(--uoca-gold);
+  width: 20px;
+}
+
+.navbar {
+  background: var(--uoca-surface);
+  border-inline-end: 1px solid var(--uoca-border);
+}
+
+.sideLink {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 44px;
+  padding-inline: 12px;
+  border-radius: var(--mantine-radius-md);
+  text-decoration: none;
+  color: var(--uoca-text);
+  font-weight: 500;
+}
+
+.sideLink svg {
+  color: var(--uoca-muted);
+  flex-shrink: 0;
+}
+
+.sideLink:hover {
+  background: var(--mantine-color-uoca-0);
+}
+
+.sideLink.active {
+  background: var(--mantine-color-uoca-1);
+  color: var(--mantine-color-uoca-8);
+  font-weight: 700;
+}
+
+.sideLink.active svg {
+  color: var(--mantine-color-uoca-8);
+}
+
+.footer {
+  background: var(--uoca-surface);
+  border-top: 1px solid var(--uoca-border);
+  padding-bottom: env(safe-area-inset-bottom);
+}
+
+.tab {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  min-height: 44px;
+  min-width: 0;
+  padding-inline: 2px;
+  text-decoration: none;
+  color: var(--uoca-muted);
+  font-weight: 500;
+}
+
+.tabIcon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 30px;
+  border-radius: 15px;
+}
+
+.tabLabel {
+  font-size: 12px;
+  line-height: 1.2;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tab.active {
+  color: var(--mantine-color-uoca-8);
+  font-weight: 700;
+}
+
+.tab.active .tabIcon {
+  background: var(--mantine-color-uoca-2);
+}
+
+.sheet {
+  width: 100%;
+  height: auto;
+  max-height: 85dvh;
+  background: var(--uoca-surface);
+  border-start-start-radius: var(--mantine-radius-lg);
+  border-start-end-radius: var(--mantine-radius-lg);
+}
+
+.sheetHeader {
+  background: var(--uoca-surface);
+}
+
+.sheetTitle {
+  font-weight: 700;
+}

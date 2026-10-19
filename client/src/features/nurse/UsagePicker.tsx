@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Badge, Button, Chip, Group, Loader, SegmentedControl, Stack, Text, TextInput } from '@mantine/core';
+import { IconSearch } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '../../i18n/errors';
 import type { ItemDto } from '../pm/api';
@@ -134,7 +136,7 @@ export function UsagePicker({ sessionId, usage, onDone }: { sessionId: string; u
           { value: 'supply', label: t('nurse.type.supply') },
         ]}
       />
-      {items.data && shown.length === 0 && <Text c="dimmed">{t('nurse.usage.noMatch')}</Text>}
+      {items.data && shown.length === 0 && <EmptyState compact icon={IconSearch} title={t('nurse.usage.noMatch')} />}
       {shown.map((i) => (
         <Button key={i.id} variant="default" mih={44} fullWidth onClick={() => setChosen(i)}>
           {i.name}

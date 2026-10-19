@@ -2,7 +2,7 @@ import type { Plugin } from 'vite';
 import { defineConfig } from 'vitest/config';
 import react from '@vitejs/plugin-react';
 import { VitePWA } from 'vite-plugin-pwa';
-import { THEME_COLOR } from './src/theme.ts';
+import { BACKGROUND_COLOR, THEME_COLOR } from './src/theme.ts';
 
 /**
  * vite-plugin-pwa 2.0 still passes the Rollup-era `output.inlineDynamicImports` to its service-worker
@@ -35,13 +35,13 @@ export default defineConfig({
       registerType: 'autoUpdate',
       injectRegister: 'auto',
       manifest: {
-        name: 'Dialysis Centre',
-        short_name: 'Dialysis',
+        name: 'UOCA Dialysis',
+        short_name: 'UOCA Dialysis',
         display: 'standalone',
         start_url: '/',
         scope: '/',
         theme_color: THEME_COLOR,
-        background_color: '#ffffff',
+        background_color: BACKGROUND_COLOR,
         icons: [
           { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
           { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
@@ -49,7 +49,7 @@ export default defineConfig({
         ],
       },
       injectManifest: {
-        globPatterns: ['**/*.{js,css,html,png,svg,ico}'],
+        globPatterns: ['**/*.{js,css,html,png,svg,ico,woff2}'],
         buildPlugins: { vite: [swSingleChunk()] },
       },
     }),

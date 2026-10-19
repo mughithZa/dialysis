@@ -1,6 +1,8 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Group, Stack, Text, TextInput, Title } from '@mantine/core';
+import { IconHeartRateMonitor } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '../../i18n/errors';
 import { useAddBp, useSaveWeights, type SessionDetail } from './api';
@@ -60,7 +62,7 @@ export function VitalsForm({ session, canEdit }: { session: SessionDetail; canEd
       )}
 
       <Title order={5}>{t('nurse.vitals.bpTitle')}</Title>
-      {session.vitals.bp.length === 0 && <Text c="dimmed">{t('nurse.vitals.noBp')}</Text>}
+      {session.vitals.bp.length === 0 && <EmptyState compact icon={IconHeartRateMonitor} title={t('nurse.vitals.noBp')} />}
       {session.vitals.bp.map((b) => (
         <Text key={b.at}>
           {timeOf(b.at)} · {t('sessions.history.bp', { systolic: b.systolic, diastolic: b.diastolic })}

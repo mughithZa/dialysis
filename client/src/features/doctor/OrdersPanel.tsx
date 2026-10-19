@@ -1,5 +1,7 @@
 import { useTranslation } from 'react-i18next';
 import { Alert, Button, Card, Group, Loader, Stack, Text } from '@mantine/core';
+import { IconClipboardText, IconNote } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useOrders } from '../desk/api';
@@ -28,7 +30,7 @@ export function OrdersPanel({ patientId }: { patientId: string }) {
       <Text fw={600}>{t('desk.patient.orders')}</Text>
       {orders.isPending && <Loader size="sm" />}
       {orders.isError && <Alert color="danger">{errorMessage(t, orders.error)}</Alert>}
-      {active?.length === 0 && <Text c="dimmed">{t('desk.patient.noOrders')}</Text>}
+      {active?.length === 0 && <EmptyState compact icon={IconClipboardText} title={t('desk.patient.noOrders')} />}
       {active?.map((o) => (
         <Card key={o.id} withBorder padding="sm">
           <Group justify="space-between" wrap="nowrap" align="flex-start">
@@ -54,7 +56,7 @@ export function OrdersPanel({ patientId }: { patientId: string }) {
       </Text>
       {notes.isPending && <Loader size="sm" />}
       {notes.isError && <Alert color="danger">{errorMessage(t, notes.error)}</Alert>}
-      {notes.data?.length === 0 && <Text c="dimmed">{t('doctor.notes.none')}</Text>}
+      {notes.data?.length === 0 && <EmptyState compact icon={IconNote} title={t('doctor.notes.none')} />}
       {notes.data?.slice(0, NOTES_SHOWN).map((n) => (
         <Card key={n.id} withBorder padding="sm">
           <Text>{n.text}</Text>

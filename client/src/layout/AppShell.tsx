@@ -1,25 +1,15 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
-import {
-  Alert,
-  AppShell as MantineAppShell,
-  Box,
-  Button,
-  Drawer,
-  Group,
-  Select,
-  Stack,
-  Text,
-  UnstyledButton,
-} from '@mantine/core';
+import { Alert, AppShell as MantineAppShell, Box, Drawer, Group, Select, Stack, Text, ThemeIcon, UnstyledButton } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
+import { IconDots, IconDroplet, IconSelector } from '@tabler/icons-react';
 import { errorMessage } from '../i18n/errors';
-import { LanguageSwitch } from '../i18n/LanguageSwitch';
 import { useAuth, useCentre } from '../auth/AuthProvider';
-import { visibleNav, type VisibleNavItem } from './nav';
+import { splitTabs, visibleNav, type VisibleNavItem } from './nav';
+import { UserMenu } from './UserMenu';
+import classes from './AppShell.module.css';
 
-const TAB_COUNT = 4;
 const TOUCH = 44;
 
 export function AppShell() {
@@ -33,9 +23,10 @@ export function AppShell() {
   const [logoutError, setLogoutError] = useState<string | null>(null);
 
   const items = visibleNav(me, centreId);
-  const tabs = items.slice(0, TAB_COUNT);
-  const rest = items.slice(TAB_COUNT);
+  const { tabs, rest } = splitTabs(items);
   const centres = me?.centres ?? [];
+  const centreName = centres.find((c) => c.id === centreId)?.name;
+  const showFooter = isPhone && items.length > 1;
 
   function switchCentre(next: string | null) {
     if (!next || next === centreId) return;
@@ -55,100 +46,98 @@ export function AppShell() {
     }
   };
 
-  const switcher = centres.length > 1 && (
-    <Select
-      aria-label={t('common.centre')}
-      data={centres.map((c) => ({ value: c.id, label: c.name }))}
-      value={centreId}
-      onChange={switchCentre}
-      allowDeselect={false}
-      comboboxProps={{ withinPortal: true }}
-      size="md"
-      w={{ base: 180, sm: 260 }}
-    />
-  );
-
   return (
     <MantineAppShell
-      header={{ height: 60 }}
-      navbar={{ width: 240, breakpoint: 'sm', collapsed: { mobile: true } }}
-      footer={{ height: 64, collapsed: !isPhone }}
+      header={{ height: 64 }}
+      navbar={{ width: 248, breakpoint: 'sm', collapsed: { mobile: true } }}
+      footer={showFooter ? { height: 68 } : undefined}
       padding="md"
     >
-      <MantineAppShell.Header>
-        <Group h="100%" px="md" justify="space-between" wrap="nowrap">
-          <Text fw={700} truncate>
-            {t('app.name')}
-          </Text>
-          <Group gap="sm" wrap="nowrap">
-            {switcher}
-            {!isPhone && (
-              <Button variant="subtle" onClick={onLogout} mih={TOUCH}>
-                {t('common.logout')}
-              </Button>
-            )}
+      <MantineAppShell.Header className={classes.header} withBorder={false}>
+        <Group h="100%" px="md" justify="space-between" wrap="nowrap" gap="sm">
+          <Group gap="sm" wrap="nowrap" style={{ minWidth: 0, flex: 1 }}>
+            <ThemeIcon size={36} radius="xl" className={classes.mark} aria-hidden>
+              <IconDroplet size={20} stroke={2} />
+            </ThemeIcon>
+            <Stack gap={0} style={{ minWidth: 0, flex: 1 }}>
+              <Text size="xs" className={classes.brand} truncate>
+                {t('app.name')}
+              </Text>
+              {centres.length > 1 ? (
+                <Select
+                  aria-label={t('common.centre')}
+                  data={centres.map((c) => ({ value: c.id, label: c.name }))}
+                  value={centreId}
+                  onChange={switchCentre}
+                  allowDeselect={false}
+                  comboboxProps={{ withinPortal: true }}
+                  variant="unstyled"
+                  rightSection={<IconSelector size={16} />}
+                  rightSectionPointerEvents="none"
+                  classNames={{ input: classes.centreSelect, section: classes.centreSection }}
+                  maw={280}
+                />
+              ) : (
+                <Text fw={700} size="md" truncate className={classes.title}>
+                  {centreName ?? t('app.tagline')}
+                </Text>
+              )}
+            </Stack>
           </Group>
+          <UserMenu onLogout={onLogout} />
         </Group>
       </MantineAppShell.Header>
 
-      <MantineAppShell.Navbar p="xs" aria-label={t('common.navigation')} component="nav">
+      <MantineAppShell.Navbar p="sm" aria-label={t('common.navigation')} component="nav" className={classes.navbar}>
         <Stack gap={4}>
           {items.map((item) => (
             <SideLink key={item.to} item={item} />
           ))}
-          <Box mt="md">
-            <LanguageSwitch />
-          </Box>
         </Stack>
       </MantineAppShell.Navbar>
 
       <MantineAppShell.Main>
-        {logoutError && (
-          <Alert color="danger" role="alert" mb="md" withCloseButton onClose={() => setLogoutError(null)}>
-            {logoutError}
-          </Alert>
-        )}
-        <Outlet />
+        <Box maw={1040} mx="auto">
+          {logoutError && (
+            <Alert color="danger" role="alert" mb="md" withCloseButton onClose={() => setLogoutError(null)}>
+              {logoutError}
+            </Alert>
+          )}
+          <Outlet />
+        </Box>
       </MantineAppShell.Main>
 
-      <MantineAppShell.Footer component="nav" aria-label={t('common.navigation')}>
-        <Group h="100%" grow gap={0} wrap="nowrap">
-          {tabs.map((item) => (
-            <TabLink key={item.to} item={item} />
-          ))}
-          <UnstyledButton
-            onClick={() => setMoreOpen(true)}
-            mih={TOUCH}
-            h="100%"
-            style={{ display: 'grid', placeItems: 'center' }}
-          >
-            <Text size="xs">{t('common.more')}</Text>
-          </UnstyledButton>
-        </Group>
-      </MantineAppShell.Footer>
+      {showFooter && (
+        <MantineAppShell.Footer component="nav" aria-label={t('common.navigation')} className={classes.footer}>
+          <Group h="100%" grow gap={0} wrap="nowrap" align="stretch">
+            {tabs.map((item) => (
+              <TabLink key={item.to} item={item} />
+            ))}
+            {rest.length > 0 && (
+              <UnstyledButton onClick={() => setMoreOpen(true)} mih={TOUCH} className={classes.tab} aria-haspopup="dialog">
+                <span className={classes.tabIcon}>
+                  <IconDots size={22} stroke={1.8} aria-hidden />
+                </span>
+                <span className={classes.tabLabel}>{t('common.more')}</span>
+              </UnstyledButton>
+            )}
+          </Group>
+        </MantineAppShell.Footer>
+      )}
 
       <Drawer
         opened={moreOpen}
         onClose={() => setMoreOpen(false)}
         position="bottom"
+        size="auto"
         title={t('common.more')}
+        classNames={{ content: classes.sheet, header: classes.sheetHeader, title: classes.sheetTitle }}
         closeButtonProps={{ 'aria-label': t('common.close'), size: 'lg' }}
       >
-        <Stack gap={4}>
+        <Stack gap={4} pb="md">
           {rest.map((item) => (
             <SideLink key={item.to} item={item} onNavigate={() => setMoreOpen(false)} />
           ))}
-          <Box mt="sm">
-            <LanguageSwitch />
-          </Box>
-          {me && (
-            <Text size="sm" c="dimmed" mt="sm">
-              {t('common.signedInAs', { name: me.name })}
-            </Text>
-          )}
-          <Button variant="default" onClick={onLogout} mih={TOUCH} mt="sm">
-            {t('common.logout')}
-          </Button>
         </Stack>
       </Drawer>
     </MantineAppShell>
@@ -157,49 +146,24 @@ export function AppShell() {
 
 function SideLink({ item, onNavigate }: { item: VisibleNavItem; onNavigate?: () => void }) {
   const { t } = useTranslation();
+  const Icon = item.icon;
   return (
-    <NavLink
-      to={item.to}
-      onClick={onNavigate}
-      style={({ isActive }) => ({
-        display: 'flex',
-        alignItems: 'center',
-        minHeight: TOUCH,
-        paddingInline: 'var(--mantine-spacing-sm)',
-        borderRadius: 'var(--mantine-radius-md)',
-        textDecoration: 'none',
-        color: 'inherit',
-        fontWeight: isActive ? 700 : 400,
-        background: isActive ? 'var(--mantine-color-neutral-0)' : undefined,
-      })}
-    >
-      {t(item.labelKey)}
+    <NavLink to={item.to} onClick={onNavigate} className={({ isActive }) => `${classes.sideLink}${isActive ? ` ${classes.active}` : ''}`}>
+      <Icon size={22} stroke={1.7} aria-hidden />
+      <span>{t(item.labelKey)}</span>
     </NavLink>
   );
 }
 
 function TabLink({ item }: { item: VisibleNavItem }) {
   const { t } = useTranslation();
+  const Icon = item.icon;
   return (
-    <Box
-      component={NavLink}
-      to={item.to}
-      h="100%"
-      mih={TOUCH}
-      style={({ isActive }: { isActive: boolean }) => ({
-        display: 'grid',
-        placeItems: 'center',
-        textDecoration: 'none',
-        color: 'inherit',
-        fontWeight: isActive ? 700 : 400,
-        borderBlockStart: isActive ? '3px solid var(--mantine-primary-color-filled)' : '3px solid transparent',
-        textAlign: 'center',
-        paddingInline: 2,
-      })}
-    >
-      <Text size="xs" fw="inherit" lineClamp={2}>
-        {t(item.labelKey)}
-      </Text>
-    </Box>
+    <NavLink to={item.to} className={({ isActive }) => `${classes.tab}${isActive ? ` ${classes.active}` : ''}`}>
+      <span className={classes.tabIcon}>
+        <Icon size={22} stroke={1.8} aria-hidden />
+      </span>
+      <span className={classes.tabLabel}>{t(item.shortKey)}</span>
+    </NavLink>
   );
 }

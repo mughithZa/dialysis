@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, Stack, Tabs, Text, Textarea, Title } from '@mantine/core';
+import { IconArrowsExchange } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { useCentreId } from '../centre/api';
@@ -64,7 +66,7 @@ function Incoming() {
       {list.isPending && <Loader />}
       {list.isError && <Alert color="danger">{errorMessage(t, list.error)}</Alert>}
       {action.isError && <Alert color="danger">{errorMessage(t, action.error)}</Alert>}
-      {list.data?.length === 0 && <Text c="dimmed">{t('desk.transfers.empty')}</Text>}
+      {list.data?.length === 0 && <EmptyState icon={IconArrowsExchange} title={t('desk.transfers.empty')} hint={t('empty.transfersHint')} />}
       {list.data?.map((tr) => (
         <Card key={tr.id} withBorder padding="sm">
           <Stack gap="xs">
@@ -119,7 +121,7 @@ function Outgoing({ canCancel }: { canCancel: boolean }) {
       {list.isPending && <Loader />}
       {list.isError && <Alert color="danger">{errorMessage(t, list.error)}</Alert>}
       {action.isError && <Alert color="danger">{errorMessage(t, action.error)}</Alert>}
-      {list.data?.length === 0 && <Text c="dimmed">{t('desk.transfers.empty')}</Text>}
+      {list.data?.length === 0 && <EmptyState icon={IconArrowsExchange} title={t('desk.transfers.empty')} hint={t('empty.transfersHint')} />}
       {(list.data as OutgoingTransfer[] | undefined)?.map((tr) => (
         <Card key={tr.id} withBorder padding="sm">
           <Stack gap="xs">

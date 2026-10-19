@@ -53,7 +53,8 @@ describe('AppShell', () => {
       http.post('*/api/auth/logout', () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
     );
     renderApp(<AppRoutes />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
     expect(await screen.findByText('Something went wrong. Please try again.')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Sign in' })).toBeNull();
   });
@@ -70,9 +71,49 @@ describe('AppShell', () => {
       }),
     );
     renderApp(<AppRoutes />);
-    await userEvent.click(await screen.findByRole('button', { name: 'Sign out' }));
+    await userEvent.click(await screen.findByRole('button', { name: 'Account menu' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Sign out' }));
     expect(await screen.findByRole('button', { name: 'Sign in' })).toBeInTheDocument();
     expect(screen.queryByRole('heading', { name: 'Today' })).toBeNull();
+  });
+
+  it('shows the current centre in the header and a user menu with name, role, language and sign out', async () => {
+    server.use(
+      http.get('*/api/auth/me', () =>
+        HttpResponse.json({
+          ...nurse([{ id: 'c1', name: 'Damascus' }]),
+          name: 'Jasmin Haddad',
+          centres: [{ id: 'c1', name: 'Damascus', permissions: ['sessions.view'], roles: [{ key: 'nurse', name: 'Nurse' }] }],
+        }),
+      ),
+      http.get('*/api/centres/c1/board', () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
+    );
+    renderApp(<AppRoutes />);
+    const banner = await screen.findByRole('banner');
+    expect(within(banner).getByText('Damascus')).toBeInTheDocument();
+    expect(within(banner).getByText('UOCA Dialysis')).toBeInTheDocument();
+    const avatar = within(banner).getByRole('button', { name: 'Account menu' });
+    expect(avatar).toHaveTextContent('JH');
+    await userEvent.click(avatar);
+    const menu = await screen.findByRole('menu');
+    expect(within(menu).getByText('Jasmin Haddad')).toBeInTheDocument();
+    expect(within(menu).getByText('Nurse')).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'العربية' })).toBeInTheDocument();
+    expect(within(menu).getByRole('menuitem', { name: 'English' })).toHaveAttribute('aria-current', 'true');
+    expect(within(menu).getByRole('menuitem', { name: 'Sign out' })).toBeInTheDocument();
+  });
+
+  it('gives every nav link an icon and keeps permission gating', async () => {
+    server.use(
+      http.get('*/api/auth/me', () => HttpResponse.json(nurse([{ id: 'c1', name: 'Damascus' }]))),
+      http.get('*/api/centres/c1/board', () => HttpResponse.json({ error: 'boom' }, { status: 500 })),
+    );
+    renderApp(<AppRoutes />);
+    const nav = (await screen.findAllByRole('navigation'))[0]!;
+    const links = await within(nav).findAllByRole('link');
+    expect(links.map((l) => l.textContent)).toEqual(['Today', 'Patients']);
+    for (const link of links) expect(link.querySelector('svg')).not.toBeNull();
+    expect(within(nav).queryByText('Users')).toBeNull();
   });
 
   it('redirects an already signed-in user from /login to their landing page', async () => {

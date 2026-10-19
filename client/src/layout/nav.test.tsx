@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { MeDto, Permission } from '@dialysis/shared';
-import { landingPath, visibleNav } from './nav';
+import { landingPath, NAV_ITEMS, splitTabs, TAB_COUNT, visibleNav } from './nav';
+import en from '../i18n/en.json';
+import ar from '../i18n/ar.json';
 
 const staff = (centrePerms: Permission[], globalPermissions: Permission[] = []): MeDto => ({
   id: 'u1',
@@ -70,5 +72,33 @@ describe('landingPath', () => {
   });
   it('sends others to the first visible item', () => {
     expect(landingPath(staff(['users.create', 'patients.view']), 'c1')).toBe('/c/c1/patients');
+  });
+});
+
+describe('splitTabs (phone tab bar)', () => {
+  const ADMIN: Permission[] = ['sessions.view', 'patients.view', 'schedule.view', 'transfers.send', 'users.create', 'settings.centre', 'audit.view', 'reports.centre'];
+
+  it('keeps at most four tabs, everyday screens first, the rest for More', () => {
+    const items = visibleNav(staff(ADMIN, ['centres.create', 'roles.edit', 'catalog.manage', 'stats.global']), 'c1');
+    const { tabs, rest } = splitTabs(items);
+    expect(tabs).toHaveLength(TAB_COUNT);
+    expect(tabs.map((i) => i.path)).toEqual(['/c/:centreId/today', '/c/:centreId/patients', '/c/:centreId/schedule', '/dashboard']);
+    expect(rest.map((i) => i.path)).toContain('/roles');
+    expect([...tabs, ...rest]).toHaveLength(items.length);
+  });
+
+  it('puts everything in tabs when there are four or fewer items', () => {
+    const { tabs, rest } = splitTabs(visibleNav(staff(NURSE), 'c1'));
+    expect(tabs.map((i) => i.path)).toEqual(['/c/:centreId/today', '/c/:centreId/patients', '/c/:centreId/schedule']);
+    expect(rest).toEqual([]);
+  });
+
+  it('gives every item an icon and a short label in both languages', () => {
+    for (const item of NAV_ITEMS) {
+      expect(item.icon).toBeTruthy();
+      const short = item.shortKey.replace('nav.short.', '');
+      expect((en.nav.short as Record<string, string>)[short]).toBeTruthy();
+      expect((ar.nav.short as Record<string, string>)[short]).toBeTruthy();
+    }
   });
 });

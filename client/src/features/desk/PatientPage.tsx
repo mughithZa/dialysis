@@ -2,6 +2,8 @@ import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { Alert, Anchor, Badge, Button, Card, Group, Loader, Menu, Modal, PasswordInput, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { IconBuildingHospital, IconCalendarOff } from '@tabler/icons-react';
+import { EmptyState } from '../../components/EmptyState';
 import { notifications } from '@mantine/notifications';
 import { Timeline } from '../../components/Timeline';
 import { useTimeline, type TimelineItem } from '../../components/timelineApi';
@@ -42,7 +44,7 @@ function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: (ses
       <TextInput label={t('desk.postpone.date')} type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} />
       {timeline.isPending && <Loader size="sm" />}
       {timeline.isError && <Alert color="danger">{errorMessage(t, timeline.error)}</Alert>}
-      {timeline.data && mine.length === 0 && <Text c="dimmed">{t('desk.postpone.none')}</Text>}
+      {timeline.data && mine.length === 0 && <EmptyState compact icon={IconCalendarOff} title={t('desk.postpone.none')} />}
       {mine.map((s) => (
         <Group key={s.id} justify="space-between" wrap="nowrap">
           <Text>
@@ -95,7 +97,7 @@ function TransferDialog({ patientId, onDone }: { patientId: string; onDone: () =
     >
       {targets.isPending && <Loader size="sm" />}
       {targets.isError && <Alert color="danger">{errorMessage(t, targets.error)}</Alert>}
-      {targets.data?.length === 0 && <Text c="dimmed">{t('desk.transfer.noTargets')}</Text>}
+      {targets.data?.length === 0 && <EmptyState compact icon={IconBuildingHospital} title={t('desk.transfer.noTargets')} />}
       <Select label={t('desk.transfer.target')} value={toCentreId} onChange={setTo} data={(targets.data ?? []).map((c) => ({ value: c.id, label: c.name }))} />
       <Textarea label={t('desk.transfer.note')} autosize minRows={2} value={note} onChange={(e) => setNote(e.currentTarget.value)} />
       {send.isError && <Alert color="danger">{errorMessage(t, send.error)}</Alert>}
@@ -265,7 +267,7 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
           <Text fw={600}>{t('desk.patient.pattern')}</Text>
           {canView && plan.isPending && <Loader size="sm" />}
           {plan.isError && <Alert color="danger">{errorMessage(t, plan.error)}</Alert>}
-          {plan.isSuccess && !hasPattern && <Text c="dimmed">{t('desk.patient.noPattern')}</Text>}
+          {plan.isSuccess && !hasPattern && <EmptyState compact icon={IconCalendarOff} title={t('desk.patient.noPattern')} />}
           {current && (
             <>
               {planItems.map((i) => (
