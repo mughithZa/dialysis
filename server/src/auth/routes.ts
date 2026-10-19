@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { z } from 'zod';
-import type { MeDto } from '@dialysis/shared';
+import { LANGUAGES, type MeDto } from '@dialysis/shared';
 import { validate } from '../lib/validate.js';
 import { HttpError } from '../lib/errors.js';
 import { Centre } from '../centres/centre.model.js';
@@ -25,7 +25,7 @@ async function buildMe(user: UserDoc): Promise<MeDto> {
     const permissions = [...(await effectivePermissions({ globalRoleIds: [], memberships: user.memberships }, c.id))];
     out.push({ id: c.id, name: c.name, permissions });
   }
-  return { id: user.id, name: user.name, kind: user.kind, globalPermissions, centres: out };
+  return { id: user.id, name: user.name, kind: user.kind, language: user.language ?? null, globalPermissions, centres: out };
 }
 
 const loginBody = z.object({ username: z.string().min(1), password: z.string().min(1) });
@@ -57,6 +57,19 @@ authRouter.post('/logout', (req, res, next) => {
     res.clearCookie('connect.sid');
     res.json({ ok: true });
   });
+});
+
+const languageBody = z.object({ language: z.enum(LANGUAGES) });
+
+/** Saves the signed-in user's interface language (the client sends it whenever it changes). */
+authRouter.put('/language', requireAuth, validate(languageBody), async (req, res, next) => {
+  try {
+    const { language } = req.body as z.infer<typeof languageBody>;
+    await User.updateOne({ _id: req.user!._id }, { $set: { language } });
+    res.status(204).end();
+  } catch (e) {
+    next(e);
+  }
 });
 
 authRouter.get('/me', requireAuth, async (req, res, next) => {

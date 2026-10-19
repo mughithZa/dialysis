@@ -151,8 +151,8 @@ export function CatalogPage() {
         </Card>
       ))}
       <UnitsPanel units={units.data ?? []} />
-      <MergeDialog key={merging?.id ?? 'none'} item={merging} items={all} onClose={() => setMerging(null)} />
-      <EditItemDialog key={editing?.id ?? 'none'} item={editing} units={units.data ?? []} onClose={() => setEditing(null)} />
+      <MergeDialog key={`merge-${merging?.id ?? 'none'}`} item={merging} items={all} onClose={() => setMerging(null)} />
+      <EditItemDialog key={`edit-${editing?.id ?? 'none'}`} item={editing} units={units.data ?? []} onClose={() => setEditing(null)} />
     </Stack>
   );
 }

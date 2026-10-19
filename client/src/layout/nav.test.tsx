@@ -6,11 +6,12 @@ const staff = (centrePerms: Permission[], globalPermissions: Permission[] = []):
   id: 'u1',
   name: 'Staff',
   kind: 'staff',
+  language: 'en',
   globalPermissions,
   centres: [{ id: 'c1', name: 'Centre 1', permissions: centrePerms }],
 });
 
-const patient: MeDto = { id: 'p1', name: 'Pat', kind: 'patient', globalPermissions: [], centres: [] };
+const patient: MeDto = { id: 'p1', name: 'Pat', kind: 'patient', language: 'en', globalPermissions: [], centres: [] };
 
 const paths = (me: MeDto, centreId: string | null) => visibleNav(me, centreId).map((i) => i.to);
 

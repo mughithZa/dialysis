@@ -23,7 +23,8 @@
     "total": "Total",
     "type": "Type",
     "actions": "Actions",
-    "signedInAs": "Signed in as {{name}}"
+    "signedInAs": "Signed in as {{name}}",
+    "listSeparator": ", "
   },
   "login": {
     "title": "Sign in",
@@ -397,7 +398,8 @@
       "invalid": "Check the times: each block must end after it starts.",
       "name": "Name",
       "starts": "Starts",
-      "ends": "Ends"
+      "ends": "Ends",
+      "defaultBlockName": "Session {{n}}"
     },
     "calendar": {
       "title": "Schedule",
@@ -659,7 +661,8 @@
       "systolic": "Systolic",
       "diastolic": "Diastolic",
       "addBp": "Add reading",
-      "bpAdded": "Reading added."
+      "bpAdded": "Reading added.",
+      "kg": "kg"
     },
     "notes": {
       "title": "Notes",
@@ -754,5 +757,17 @@
     "makeupFor": "Make-up for {{date}}",
     "madeUpOn": "Made up on {{date}}",
     "nurseNotRecorded": "Nurse not recorded"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "ar": "العربية"
+  },
+  "roleNames": {
+    "program_manager": "Program manager",
+    "centre_manager": "Centre manager",
+    "front_desk": "Front desk",
+    "nurse": "Nurse",
+    "doctor": "Doctor"
   }
 }

@@ -11,6 +11,7 @@ import { DidNotComeDialog } from '../desk/CancelDialog';
 import { usePostpone } from '../desk/api';
 import { todayLocal } from '../desk/dates';
 import { MakeupDialog } from '../desk/MakeupDialog';
+import { formatDate, formatList } from '../../i18n/format';
 import { useBoard, useStartSession, type BoardRow } from './api';
 
 type Dialog = { kind: 'dnc'; row: BoardRow } | { kind: 'makeup'; row: BoardRow } | null;
@@ -80,7 +81,7 @@ function UnclosedRow({ row }: { row: BoardRow }) {
   return (
     <Group justify="space-between" wrap="nowrap">
       <Text size="sm">
-        {row.date} · {row.shift.name} · {t('board.machine', { label: row.chairLabel })} · {row.patient.name}
+        {formatDate(row.date)} · {row.shift.name} · {t('board.machine', { label: row.chairLabel })} · {row.patient.name}
       </Text>
       <Button component={Link} to={`/c/${centreId}/sessions/${row.id}`} variant="light" mih={44}>
         {t('board.open')}
@@ -181,7 +182,7 @@ export function BoardPage() {
               other: keep(d.other).length,
             })}
             {' · '}
-            {t('board.empty', { machines: d.emptyMachines.map((m) => m.label).join(', ') || t('board.noneEmpty') })}
+            {t('board.empty', { machines: formatList(d.emptyMachines.map((m) => m.label)) || t('board.noneEmpty') })}
           </Text>
 
           <Stack gap="xs">

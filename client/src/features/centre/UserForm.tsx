@@ -4,6 +4,7 @@ import { Alert, Button, Card, Checkbox, Divider, Group, Loader, PasswordInput, S
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
+import { roleLabel } from '../../i18n/roleLabel';
 import {
   useCentreRoles,
   useCreateUser,
@@ -91,7 +92,7 @@ export function UserForm({ user, onDone }: Props) {
               <Checkbox.Group label={t('centre.users.roles')} value={roleKeys} onChange={setRoleKeys}>
                 <Stack gap="xs" mt="xs">
                   {roles.data.map((r) => (
-                    <Checkbox key={r.key} value={r.key} label={r.name} size="md" />
+                    <Checkbox key={r.key} value={r.key} label={roleLabel(t, r)} size="md" />
                   ))}
                 </Stack>
               </Checkbox.Group>

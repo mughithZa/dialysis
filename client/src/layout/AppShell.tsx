@@ -15,6 +15,7 @@ import {
 } from '@mantine/core';
 import { useMediaQuery } from '@mantine/hooks';
 import { errorMessage } from '../i18n/errors';
+import { LanguageSwitch } from '../i18n/LanguageSwitch';
 import { useAuth, useCentre } from '../auth/AuthProvider';
 import { visibleNav, type VisibleNavItem } from './nav';
 
@@ -95,6 +96,9 @@ export function AppShell() {
           {items.map((item) => (
             <SideLink key={item.to} item={item} />
           ))}
+          <Box mt="md">
+            <LanguageSwitch />
+          </Box>
         </Stack>
       </MantineAppShell.Navbar>
 
@@ -134,6 +138,9 @@ export function AppShell() {
           {rest.map((item) => (
             <SideLink key={item.to} item={item} onNavigate={() => setMoreOpen(false)} />
           ))}
+          <Box mt="sm">
+            <LanguageSwitch />
+          </Box>
           {me && (
             <Text size="sm" c="dimmed" mt="sm">
               {t('common.signedInAs', { name: me.name })}

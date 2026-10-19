@@ -1,5 +1,6 @@
 import { useInfiniteQuery, type InfiniteData } from '@tanstack/react-query';
 import { apiGet } from '../api';
+import { dateLocale } from '../i18n';
 import type { SessionStatus } from '../sessionStatus';
 import { shiftDate } from '../features/desk/dates';
 
@@ -90,5 +91,5 @@ export function useTimeline(source: TimelineSource, enabled = true) {
 /** "Tuesday, Oct 20" (order per locale) for a YYYY-MM-DD date, in the UI language. */
 export function formatDay(date: string, lng: string): string {
   const [y, m, d] = date.split('-').map(Number) as [number, number, number];
-  return new Intl.DateTimeFormat(lng, { weekday: 'long', day: 'numeric', month: 'short' }).format(new Date(y, m - 1, d));
+  return new Intl.DateTimeFormat(dateLocale(lng), { weekday: 'long', day: 'numeric', month: 'short' }).format(new Date(y, m - 1, d));
 }

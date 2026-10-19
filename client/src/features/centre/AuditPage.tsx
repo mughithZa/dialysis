@@ -4,6 +4,7 @@ import { Alert, Card, Loader, Select, Stack, Text, Title } from '@mantine/core';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useAudit, useCentreUsers } from './api';
+import { dateLocale } from '../../i18n';
 
 export function AuditPage() {
   const { t } = useTranslation();
@@ -35,7 +36,7 @@ export function AuditPage() {
             <Text fw={600}>{r.action}</Text>
             <Text size="sm">{r.user.name}</Text>
             <Text size="sm" c="dimmed">
-              {new Date(r.at).toLocaleString()}
+              {new Date(r.at).toLocaleString(dateLocale())}
             </Text>
           </Stack>
         </Card>

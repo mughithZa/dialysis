@@ -73,7 +73,7 @@ describe('CalendarPage', () => {
     expect(screen.getAllByText('No nurse')).toHaveLength(1);
     expect(screen.getByText('Lina Said')).toBeTruthy();
 
-    await userEvent.click(screen.getByRole('button', { name: 'Empty: machine 2, Morning, 2026-10-19' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Empty: machine 2, Morning, Oct 19, 2026' }));
     const dialog = await screen.findByRole('dialog');
     const row = within(dialog).getByRole('group', { name: 'Day 1' });
     expect(within(row).getByLabelText('Weekday')).toHaveValue('Mon');

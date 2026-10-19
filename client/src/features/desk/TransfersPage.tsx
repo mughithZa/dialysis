@@ -6,9 +6,11 @@ import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { useCentreId } from '../centre/api';
 import { errorMessage } from '../../i18n/errors';
+import { formatDate } from '../../i18n/format';
+import { toLocalDate } from './dates';
 import { useTransferAction, useTransfers, type IncomingTransfer, type OutgoingTransfer } from './api';
 
-const date = (iso: string) => iso.slice(0, 10);
+const date = (iso: string) => formatDate(toLocalDate(new Date(iso)));
 
 function RejectForm({ transfer, onDone }: { transfer: IncomingTransfer; onDone: () => void }) {
   const { t } = useTranslation();

@@ -24,6 +24,7 @@ import { CentreStatsPage } from './features/centre/CentreStatsPage';
 import { SessionPage } from './features/nurse/SessionPage';
 import { BoardPage } from './features/board/BoardPage';
 import { TransfersPage } from './features/desk/TransfersPage';
+import { LanguageSync } from './i18n/LanguageSwitch';
 import { UsersPage } from './features/centre/UsersPage';
 
 /** Route pattern -> screen. Patterns must match `NAV_ITEMS[].path`. Later tasks swap in real screens. */
@@ -126,6 +127,7 @@ export function AppRoutes() {
 export default function App() {
   return (
     <AuthProvider>
+      <LanguageSync />
       <AppRoutes />
     </AuthProvider>
   );

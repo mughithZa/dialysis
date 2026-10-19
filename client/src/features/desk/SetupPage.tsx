@@ -58,7 +58,13 @@ function SetupForm({ setup, machines: machineList, canSetup, onSaved }: { setup:
 
   const propose = () => {
     // keep each row's identity by position, so reshaping an existing block does not read as removing it
-    setBlocks(proposeBlocks(dayStart, dayEnd, count).map((b, i) => ({ ...b, ...(blocks[i]?.id ? { id: blocks[i]!.id } : {}) })));
+    setBlocks(
+      proposeBlocks(dayStart, dayEnd, count).map((b, i) => ({
+        ...b,
+        name: t('desk.setup.defaultBlockName', { n: i + 1 }),
+        ...(blocks[i]?.id ? { id: blocks[i]!.id } : {}),
+      })),
+    );
   };
   const patchBlock = (i: number, patch: Partial<BlockRow>) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, ...patch } : b)));
 

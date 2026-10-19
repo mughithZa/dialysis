@@ -7,6 +7,7 @@ import { todayLocal } from '../desk/dates';
 import { errorMessage } from '../../i18n/errors';
 import { useOverview } from './api';
 import { InstallPrompt } from './InstallPrompt';
+import { timeRange } from '../../i18n/format';
 import { useNotifications } from './useNotifications';
 
 function Reminders() {
@@ -56,7 +57,7 @@ export function MePage() {
         <Alert color="warning" variant="filled" role="status" title={t('me.activeNow')}>
           <Text fw={600}>{formatDay(active.date, i18n.language)}</Text>
           <Text>
-            {active.start}–{active.end}
+            {timeRange(active.start, active.end)}
           </Text>
         </Alert>
       )}
@@ -69,7 +70,7 @@ export function MePage() {
             {next.date === todayLocal() ? t('me.today') : formatDay(next.date, i18n.language)}
           </Text>
           <Text>
-            {next.start}–{next.end} · {next.centreName}
+            {timeRange(next.start, next.end)} · {next.centreName}
           </Text>
         </Card>
       )}

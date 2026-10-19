@@ -2,6 +2,7 @@ import request from 'supertest';
 import { describe, it, expect, beforeEach, beforeAll } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { Centre } from '../centres/centre.model.js';
+import { User } from '../auth/user.model.js';
 import { localDateTime } from '../lib/dates.js';
 import { Session } from '../sessions/session.model.js';
 import { sendDueReminders } from './jobs.js';
@@ -32,6 +33,13 @@ async function setup(reminderHours?: number, status = 'scheduled') {
 const at = (date: string, hhmm: string) => localDateTime(date, hhmm);
 
 describe('sendDueReminders', () => {
+  it('sends in Arabic to a patient who chose Arabic', async () => {
+    const { user, sent, send } = await setup();
+    await User.updateOne({ _id: user._id }, { $set: { language: 'ar' } });
+    expect(await sendDueReminders(at('2026-10-18', '07:05'), send)).toBe(1);
+    expect(sent[0]!.payload).toEqual({ title: 'جلسة غسيل الكلى', body: 'الاثنين 2026-10-19 الساعة 07:00، الكرسي 3', url: '/me' });
+  });
+
   it('sends once inside the 24h window, not before', async () => {
     const { s, user, sent, send } = await setup();
     expect(await sendDueReminders(at('2026-10-18', '06:50'), send)).toBe(0);
