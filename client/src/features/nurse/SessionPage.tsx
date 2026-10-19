@@ -12,6 +12,7 @@ import { hasHeparin, useRemoveUsage, useSession, useSessionAction, useUpdateUsag
 import { HistoryDrawer } from './HistoryDrawer';
 import { NotesList } from './NotesList';
 import { AmountForm, UsagePicker } from './UsagePicker';
+import { timeRange } from '../../i18n/format';
 import { VitalsForm } from './VitalsForm';
 
 function UsageRow({ sessionId, line, canEdit }: { sessionId: string; line: UsageLineDto; canEdit: boolean }) {
@@ -102,7 +103,7 @@ function SessionView({ s }: { s: SessionDetail }) {
           <Badge variant="light">{t(`sessions.status.${s.status}`)}</Badge>
         </Group>
         <Text c="dimmed">
-          {s.chairLabel} · {s.shift.name} ({s.start}-{s.end}) · {s.date}
+          {t('board.machine', { label: s.chairLabel })} · {s.shift.name} ({timeRange(s.start, s.end)}) · {formatDay(s.date, i18n.language)}
         </Text>
       </Stack>
 

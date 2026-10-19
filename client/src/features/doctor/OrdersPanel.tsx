@@ -7,6 +7,7 @@ import { formatDay } from '../../components/timelineApi';
 import { toLocalDate } from '../desk/dates';
 import { useEndOrder, useNotes } from './api';
 import { NoteForm } from './NoteForm';
+import { formatDate } from '../../i18n/format';
 import { OrderForm } from './OrderForm';
 
 const NOTES_SHOWN = 5;
@@ -34,7 +35,7 @@ export function OrdersPanel({ patientId }: { patientId: string }) {
             <div>
               <Text>{o.text}</Text>
               <Text size="sm" c="dimmed">
-                {o.doctor.name} · {t('desk.patient.ordersFrom', { date: o.from })}
+                {o.doctor.name} · {t('desk.patient.ordersFrom', { date: formatDate(o.from) })}
               </Text>
             </div>
             {canWrite && (

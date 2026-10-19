@@ -5,8 +5,9 @@ import { notifications } from '@mantine/notifications';
 import { errorMessage } from '../../i18n/errors';
 import { useAddBp, useSaveWeights, type SessionDetail } from './api';
 import { parseAmount } from './UsagePicker';
+import { dateLocale } from '../../i18n';
 
-export const timeOf = (iso: string) => new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+export const timeOf = (iso: string) => new Date(iso).toLocaleTimeString(dateLocale(), { hour: '2-digit', minute: '2-digit' });
 
 const positive = (s: string) => {
   const n = parseAmount(s);
@@ -33,8 +34,8 @@ export function VitalsForm({ session, canEdit }: { session: SessionDetail; canEd
       {canEdit ? (
         <Stack gap="xs">
           <Group grow align="flex-end" wrap="nowrap">
-            <TextInput label={t('nurse.vitals.weightBefore')} inputMode="decimal" rightSection={<Text size="xs">kg</Text>} value={before} onChange={(e) => setBefore(e.currentTarget.value)} />
-            <TextInput label={t('nurse.vitals.weightAfter')} inputMode="decimal" rightSection={<Text size="xs">kg</Text>} value={after} onChange={(e) => setAfter(e.currentTarget.value)} />
+            <TextInput label={t('nurse.vitals.weightBefore')} inputMode="decimal" rightSection={<Text size="xs">{t('nurse.vitals.kg')}</Text>} value={before} onChange={(e) => setBefore(e.currentTarget.value)} />
+            <TextInput label={t('nurse.vitals.weightAfter')} inputMode="decimal" rightSection={<Text size="xs">{t('nurse.vitals.kg')}</Text>} value={after} onChange={(e) => setAfter(e.currentTarget.value)} />
           </Group>
           <Button
             mih={44}

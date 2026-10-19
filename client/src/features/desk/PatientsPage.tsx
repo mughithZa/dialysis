@@ -5,6 +5,7 @@ import { Alert, Badge, Button, Card, Group, Loader, Modal, Select, Stack, Text, 
 import { useDebouncedValue } from '@mantine/hooks';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
+import { formatDay } from '../../components/timelineApi';
 import { useCentreId } from '../centre/api';
 import { usePatients, type StatusFilter } from './api';
 import { PatientForm } from './PatientForm';
@@ -12,7 +13,7 @@ import { PatientForm } from './PatientForm';
 const FILTERS: StatusFilter[] = ['default', 'active', 'transferring', 'discharged', 'all'];
 
 export function PatientsPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const centreId = useCentreId();
   const canCreate = useCan('patients.create');
   const [search, setSearch] = useState('');
@@ -53,15 +54,24 @@ export function PatientsPage() {
           <Group justify="space-between" wrap="nowrap">
             <Stack gap={0}>
               <Text fw={600}>{p.name}</Text>
+              {p.status !== 'discharged' && (
+                <Text size="sm">
+                  {p.nextSession
+                    ? t('desk.patients.next', { day: formatDay(p.nextSession.date, i18n.language), time: p.nextSession.start })
+                    : t('desk.patients.noNext')}
+                </Text>
+              )}
               {p.phone && (
                 <Text size="sm" c="dimmed">
                   {p.phone}
                 </Text>
               )}
             </Stack>
-            <Badge variant="light" color={p.status === 'transferring' ? 'warning' : 'neutral'}>
-              {t(`desk.patients.status.${p.status}`)}
-            </Badge>
+            {p.status !== 'active' && (
+              <Badge variant="light" color={p.status === 'transferring' ? 'warning' : 'neutral'}>
+                {t(`desk.patients.status.${p.status}`)}
+              </Badge>
+            )}
           </Group>
         </Card>
       ))}

@@ -1,4 +1,5 @@
 import { Schema, model, type HydratedDocument, type InferSchemaType } from 'mongoose';
+import { LANGUAGES } from '@dialysis/shared';
 
 const userSchema = new Schema({
   username: { type: String, required: true, unique: true, lowercase: true, trim: true },
@@ -7,6 +8,8 @@ const userSchema = new Schema({
   phone: String,
   kind: { type: String, enum: ['staff', 'patient'], required: true },
   active: { type: Boolean, default: true },
+  /** Interface language the user last chose; push reminders use it (English when unset). */
+  language: { type: String, enum: LANGUAGES },
   globalRoleIds: { type: [{ type: Schema.Types.ObjectId, ref: 'Role' }], default: [] },
   memberships: {
     type: [

@@ -5,7 +5,7 @@ Proof of concept for UOCA charity dialysis centres (Syria). One web app (install
 ## Layout
 - `shared/` — permission catalogue and shared types (`@dialysis/shared`)
 - `server/` — Express 5 + Mongoose on a MongoDB replica set; code by feature (`schedule/`, `sessions/`, `patients/`, `transfers/`, …), tests colocated `*.test.ts`
-- `client/` — React 18 + Vite 8 + Mantine 7 + TanStack Query, i18n in `client/src/i18n/en.json`
+- `client/` — React 18 + Vite 8 + Mantine 7 + TanStack Query, i18n in `client/src/i18n/en.json` and `ar.json` (Arabic, right-to-left)
 - `e2e/` — Playwright core-flow test; `deploy/` — Docker Compose (mongo, app, caddy)
 
 ## Commands
@@ -18,7 +18,8 @@ Proof of concept for UOCA charity dialysis centres (Syria). One web app (install
 - "Is this slot free" is decided only in `server/src/schedule/slots.ts`; every booking write locks (centre lock → patient plan lock → slot locks) inside a transaction.
 - Past/final sessions are never rewritten: sessions store snapshots (`shiftStart`, `shiftEnd`, `chairLabel`, `rosterNurseId`).
 - Dates are `YYYY-MM-DD` in `APP_TZ` (Asia/Damascus); weekdays 0=Sunday, UI lists start Saturday.
-- All UI text through `t()`; phone-first, touch targets ≥ 44 px; colours only in `client/src/theme.ts`.
+- All UI text through `t()`, with every key in both `en.json` and `ar.json` (tests enforce it); phone-first, touch targets ≥ 44 px; colours only in `client/src/theme.ts`.
+- Never show raw ISO dates, comma lists or time ranges: use `formatDate`, `formatList`, `timeRange` (`client/src/i18n/format.ts`) or `formatDay`, so Arabic right-to-left text cannot reorder them.
 - Write tests first; keep `npm test`, typechecks and the client build clean before committing.
 
 ## Production server (this VPS)

@@ -58,7 +58,13 @@ function SetupForm({ setup, machines: machineList, canSetup, onSaved }: { setup:
 
   const propose = () => {
     // keep each row's identity by position, so reshaping an existing block does not read as removing it
-    setBlocks(proposeBlocks(dayStart, dayEnd, count).map((b, i) => ({ ...b, ...(blocks[i]?.id ? { id: blocks[i]!.id } : {}) })));
+    setBlocks(
+      proposeBlocks(dayStart, dayEnd, count).map((b, i) => ({
+        ...b,
+        name: t('desk.setup.defaultBlockName', { n: i + 1 }),
+        ...(blocks[i]?.id ? { id: blocks[i]!.id } : {}),
+      })),
+    );
   };
   const patchBlock = (i: number, patch: Partial<BlockRow>) => setBlocks((bs) => bs.map((b, j) => (j === i ? { ...b, ...patch } : b)));
 
@@ -122,9 +128,9 @@ function SetupForm({ setup, machines: machineList, canSetup, onSaved }: { setup:
           {blocks.map((b, i) => (
             <Card key={b.id ?? `new-${i}`} withBorder padding="sm">
               <SimpleGrid cols={{ base: 1, xs: 3 }}>
-                <TextInput aria-label={t('desk.setup.blockName', { n: i + 1 })} value={b.name} onChange={(e) => patchBlock(i, { name: e.currentTarget.value })} disabled={!canSetup} />
-                <TextInput type="time" aria-label={t('desk.setup.blockStart', { n: i + 1 })} value={b.start} onChange={(e) => patchBlock(i, { start: e.currentTarget.value })} disabled={!canSetup} />
-                <TextInput type="time" aria-label={t('desk.setup.blockEnd', { n: i + 1 })} value={b.end} onChange={(e) => patchBlock(i, { end: e.currentTarget.value })} disabled={!canSetup} />
+                <TextInput label={t('desk.setup.name')} aria-label={t('desk.setup.blockName', { n: i + 1 })} value={b.name} onChange={(e) => patchBlock(i, { name: e.currentTarget.value })} disabled={!canSetup} />
+                <TextInput type="time" label={t('desk.setup.starts')} aria-label={t('desk.setup.blockStart', { n: i + 1 })} value={b.start} onChange={(e) => patchBlock(i, { start: e.currentTarget.value })} disabled={!canSetup} />
+                <TextInput type="time" label={t('desk.setup.ends')} aria-label={t('desk.setup.blockEnd', { n: i + 1 })} value={b.end} onChange={(e) => patchBlock(i, { end: e.currentTarget.value })} disabled={!canSetup} />
               </SimpleGrid>
             </Card>
           ))}

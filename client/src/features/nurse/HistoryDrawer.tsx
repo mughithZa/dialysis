@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next';
 import { Alert, Card, Drawer, Loader, Stack, Text } from '@mantine/core';
 import { errorMessage } from '../../i18n/errors';
 import { useHistory } from './api';
+import { dateLocale } from '../../i18n';
 
 const show = (v: unknown) => (v === null || v === undefined ? '-' : JSON.stringify(v));
 
@@ -19,7 +20,7 @@ export function HistoryDrawer({ sessionId, opened, onClose }: { sessionId: strin
           <Card key={c.id} withBorder padding="sm">
             <Text fw={600}>{t(`nurse.history.kind.${c.kind}`, { defaultValue: c.kind })}</Text>
             <Text size="xs" c="dimmed">
-              {new Date(c.at).toLocaleString()} · {c.by.name}
+              {new Date(c.at).toLocaleString(dateLocale())} · {c.by.name}
             </Text>
             <Text size="sm">{t('nurse.history.before', { value: show(c.before) })}</Text>
             <Text size="sm">{t('nurse.history.after', { value: show(c.after) })}</Text>

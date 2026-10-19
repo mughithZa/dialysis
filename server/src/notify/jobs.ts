@@ -7,7 +7,8 @@ import { Patient } from '../patients/patient.model.js';
 import { refreshFutureSessions } from '../schedule/generate.js';
 import { Session } from '../sessions/session.model.js';
 import { finaliseSnapshot } from '../sessions/service.js';
-import { messages } from './messages.js';
+import { messagesFor } from './messages.js';
+import { User } from '../auth/user.model.js';
 import { sendPush } from './push.js';
 
 /**
@@ -66,6 +67,7 @@ export async function sendDueReminders(now: Date = new Date(), send: typeof send
     count++;
     const patient = await Patient.findById(s.patientId);
     if (!patient?.userId) continue;
+    const messages = messagesFor((await User.findById(patient.userId, { language: 1 }).lean())?.language);
     try {
       await send(String(patient.userId), {
         title: messages.reminderTitle,

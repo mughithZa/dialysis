@@ -5,6 +5,7 @@ import { Alert, Anchor, Badge, Button, Card, Group, Loader, Stack, Text, Title }
 import { toLocalDate } from '../features/desk/dates';
 import { errorMessage } from '../i18n/errors';
 import type { SessionStatus } from '../sessionStatus';
+import { formatList, timeRange } from '../i18n/format';
 import { formatDay, useTimeline, type TimelineItem, type TimelineNote, type TimelineSource } from './timelineApi';
 
 const STATUS_COLOR: Record<SessionStatus, string> = {
@@ -44,17 +45,19 @@ function SessionRow({ item, source, actions }: { item: TimelineItem; source: Tim
           </Group>
         </Group>
         <Text size="sm">
-          {item.block} · {item.start}–{item.end} · {t('timeline.machine', { label: item.chairLabel })}
+          {item.block} · {timeRange(item.start, item.end)} · {t('timeline.machine', { label: item.chairLabel })}
         </Text>
         <Text size="sm" c="dimmed">
-          {item.nurse ? t('timeline.nurse', { name: item.nurse.name }) : t('timeline.noNurse')}
+          {item.nurse
+            ? t('timeline.nurse', { name: item.nurse.name })
+            : t(item.status === 'scheduled' || item.status === 'active' ? 'timeline.noNurse' : 'timeline.nurseNotRecorded')}
           {!item.linkable && item.centreName ? ` · ${item.centreName}` : ''}
         </Text>
         {item.statusReason && <Text size="sm">{item.statusReason}</Text>}
         {item.makeupForDate && <Text size="sm">{t('timeline.makeupFor', { date: formatDay(item.makeupForDate, i18n.language) })}</Text>}
         {item.madeUpOn && <Text size="sm">{t('timeline.madeUpOn', { date: formatDay(item.madeUpOn, i18n.language) })}</Text>}
         {item.medicines.length > 0 && (
-          <Text size="sm">{item.medicines.map((m) => t('timeline.medicine', { name: m.name, amount: m.amount, unit: m.unit })).join(', ')}</Text>
+          <Text size="sm">{formatList(item.medicines.map((m) => t('timeline.medicine', { name: m.name, amount: m.amount, unit: m.unit })))}</Text>
         )}
         {item.notes && item.notes.length > 0 && (
           <Stack gap={2}>
@@ -144,13 +147,13 @@ export function Timeline({ source, actions }: { source: TimelineSource; actions?
       {q.isPending && <Loader size="sm" />}
       {q.isError && <Alert color="danger">{errorMessage(t, q.error)}</Alert>}
       {empty && <Text c="dimmed">{t('timeline.empty')}</Text>}
-      {d && d.upcoming.length > 0 && (
-        <Section title={t('timeline.upcoming')}>{d.upcoming.map((item) => render({ kind: 'session', date: item.date, item }))}</Section>
-      )}
       {todayEntries.length > 0 && (
         <Section title={t('timeline.today')} highlight>
           {todayEntries.map(render)}
         </Section>
+      )}
+      {d && d.upcoming.length > 0 && (
+        <Section title={t('timeline.upcoming')}>{d.upcoming.map((item) => render({ kind: 'session', date: item.date, item }))}</Section>
       )}
       {pastEntries.length > 0 && <Section title={t('timeline.past')}>{pastEntries.map(render)}</Section>}
       {q.hasNextPage && (

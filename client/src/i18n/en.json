@@ -22,7 +22,9 @@
     "unit": "Unit",
     "total": "Total",
     "type": "Type",
-    "actions": "Actions"
+    "actions": "Actions",
+    "signedInAs": "Signed in as {{name}}",
+    "listSeparator": ", "
   },
   "login": {
     "title": "Sign in",
@@ -319,7 +321,9 @@
       },
       "created": "Patient registered.",
       "saved": "Patient saved.",
-      "editTitle": "Edit patient"
+      "editTitle": "Edit patient",
+      "next": "Next: {{day}} · {{time}}",
+      "noNext": "No upcoming session"
     },
     "form": {
       "name": "Full name",
@@ -362,7 +366,8 @@
       "passwordReset": "Password reset.",
       "newPassword": "New password (min. 8 characters)",
       "discharged": "Discharged on {{date}}: {{reason}}",
-      "ordersFrom": "from {{date}}"
+      "ordersFrom": "from {{date}}",
+      "moreActions": "More actions"
     },
     "dischargeReason": {
       "transplant": "Transplant",
@@ -390,7 +395,11 @@
       "save": "Save schedule",
       "saved": "Schedule saved.",
       "labelSaved": "Label saved.",
-      "invalid": "Check the times: each block must end after it starts."
+      "invalid": "Check the times: each block must end after it starts.",
+      "name": "Name",
+      "starts": "Starts",
+      "ends": "Ends",
+      "defaultBlockName": "Session {{n}}"
     },
     "calendar": {
       "title": "Schedule",
@@ -579,7 +588,10 @@
   },
   "sessions": {
     "history": {
-      "usage": "{{item}}: {{amount}} {{unit}}"
+      "usage": "{{item}}: {{amount}} {{unit}}",
+      "weightBefore": "Weight before: {{kg}} kg",
+      "weightAfter": "Weight after: {{kg}} kg",
+      "bp": "{{systolic}}/{{diastolic}}"
     },
     "status": {
       "scheduled": "Scheduled",
@@ -649,7 +661,8 @@
       "systolic": "Systolic",
       "diastolic": "Diastolic",
       "addBp": "Add reading",
-      "bpAdded": "Reading added."
+      "bpAdded": "Reading added.",
+      "kg": "kg"
     },
     "notes": {
       "title": "Notes",
@@ -692,7 +705,9 @@
       "on": "Notifications on",
       "denied": "Notifications are blocked. Allow them in your browser settings to get reminders.",
       "failed": "Could not turn on notifications."
-    }
+    },
+    "next": "Your next session",
+    "today": "Today"
   },
   "board": {
     "block": "Session block",
@@ -740,6 +755,19 @@
     "order": "{{text}} (from {{date}})",
     "title": "Sessions",
     "makeupFor": "Make-up for {{date}}",
-    "madeUpOn": "Made up on {{date}}"
+    "madeUpOn": "Made up on {{date}}",
+    "nurseNotRecorded": "Nurse not recorded"
+  },
+  "language": {
+    "label": "Language",
+    "en": "English",
+    "ar": "العربية"
+  },
+  "roleNames": {
+    "program_manager": "Program manager",
+    "centre_manager": "Centre manager",
+    "front_desk": "Front desk",
+    "nurse": "Nurse",
+    "doctor": "Doctor"
   }
 }

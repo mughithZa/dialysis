@@ -5,6 +5,6 @@ import { server } from './server';
 export const useCentreUser = (permissions: string[]) =>
   server.use(
     http.get('*/api/auth/me', () =>
-      HttpResponse.json({ id: 'u', name: 'Desk', kind: 'staff', globalPermissions: [], centres: [{ id: 'c1', name: 'Damascus', permissions }] }),
+      HttpResponse.json({ id: 'u', name: 'Desk', kind: 'staff', language: 'en', globalPermissions: [], centres: [{ id: 'c1', name: 'Damascus', permissions }] }),
     ),
   );

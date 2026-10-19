@@ -95,6 +95,12 @@ As the front desk (or centre manager) in a new centre, in this order:
 
 Upgrading a database built before scheduling v2: back it up, then run `npm run migrate:v2 -w server` once (safe to repeat; see [deploy/README.md](deploy/README.md)).
 
+## Languages
+
+The app is in Arabic (right-to-left) and English. On first visit it uses the browser's language when that is Arabic or English, and Arabic otherwise; anyone can switch on the login page or in the More menu, and the choice is remembered on the device. The server stores each user's choice, so push reminders arrive in that language.
+
+Strings live in `client/src/i18n/en.json` and `client/src/i18n/ar.json`. Add every new key to both: tests fail if a `t()` key is missing, if Arabic lacks a key or a `{{placeholder}}`, or if an Arabic string is left in English. Keys with a count need all six Arabic plural forms (`_zero`, `_one`, `_two`, `_few`, `_many`, `_other`). Show dates, lists and time ranges through the helpers in `client/src/i18n/format.ts` (or `formatDay`), never raw: right-to-left text reorders ISO dates and comma lists.
+
 ## Tests and checks
 
 ```sh

@@ -5,6 +5,7 @@ import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreRoles, useCentreUsers, useResetUserPassword, type UserRow } from './api';
+import { roleLabel } from '../../i18n/roleLabel';
 import { UserForm } from './UserForm';
 
 function ResetPasswordForm({ user, onDone }: { user: UserRow; onDone: () => void }) {
@@ -48,7 +49,10 @@ export function UsersPage() {
   const [editing, setEditing] = useState<UserRow | 'new' | null>(null);
   const [resetting, setResetting] = useState<UserRow | null>(null);
 
-  const roleName = (key: string) => roles.data?.find((r) => r.key === key)?.name ?? key;
+  const roleName = (key: string) => {
+    const role = roles.data?.find((r) => r.key === key);
+    return role ? roleLabel(t, role) : key;
+  };
 
   return (
     <Stack gap="md">

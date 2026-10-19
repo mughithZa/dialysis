@@ -6,6 +6,7 @@ import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreUsers } from '../centre/api';
 import { useCreateRoster, useDeleteRoster, useRoster, useSetup, type RosterEntryDto } from './api';
+import { formatDate, formatList, timeRange } from '../../i18n/format';
 import { shiftDate, todayLocal, weekStartSat } from './dates';
 
 type Period = 'session' | 'day' | 'week' | 'month' | 'custom';
@@ -164,11 +165,13 @@ export function RosterPage() {
 
       <Stack gap="sm">
         <Title order={3}>{t('desk.roster.entries')}</Title>
-        <Group justify="space-between" wrap="nowrap">
+        <Text size="sm" ta="center">
+          {t('desk.roster.dates', { from: formatDate(weekFrom), to: formatDate(weekTo) })}
+        </Text>
+        <Group grow gap="xs">
           <Button variant="default" mih={44} onClick={() => setWeekFrom(shiftDate(weekFrom, -7))}>
             {t('desk.roster.prevWeek')}
           </Button>
-          <Text size="sm">{t('desk.roster.dates', { from: weekFrom, to: weekTo })}</Text>
           <Button variant="default" mih={44} onClick={() => setWeekFrom(shiftDate(weekFrom, 7))}>
             {t('desk.roster.nextWeek')}
           </Button>
@@ -181,7 +184,7 @@ export function RosterPage() {
           if (entries.length === 0) return null;
           return (
             <Stack key={b.id} gap="xs">
-              <Title order={4}>{`${b.name} (${b.start}-${b.end})`}</Title>
+              <Title order={4}>{`${b.name} (${timeRange(b.start, b.end)})`}</Title>
               {entries.map((e) => (
                 <Card key={e.id} withBorder padding="sm">
                   <Group justify="space-between" wrap="nowrap" align="flex-start">
@@ -194,9 +197,9 @@ export function RosterPage() {
                           </Badge>
                         )}
                       </Group>
-                      <Text size="sm">{t('desk.roster.dates', { from: e.from, to: e.to })}</Text>
+                      <Text size="sm">{t('desk.roster.dates', { from: formatDate(e.from), to: formatDate(e.to) })}</Text>
                       <Text size="sm" c="dimmed">
-                        {e.chairs.length === 0 ? t('desk.roster.allMachines') : e.chairs.map((c) => c.label).join(', ')}
+                        {e.chairs.length === 0 ? t('desk.roster.allMachines') : formatList(e.chairs.map((c) => c.label))}
                       </Text>
                     </Stack>
                     {canAssign && (
@@ -216,7 +219,7 @@ export function RosterPage() {
         {deleting && (
           <Stack gap="md">
             {remove.isError && <Alert color="danger">{errorMessage(t, remove.error)}</Alert>}
-            <Text>{t('desk.roster.confirm', { nurse: deleting.nurse.name, from: deleting.from, to: deleting.to })}</Text>
+            <Text>{t('desk.roster.confirm', { nurse: deleting.nurse.name, from: formatDate(deleting.from), to: formatDate(deleting.to) })}</Text>
             <Group justify="flex-end">
               <Button variant="default" mih={44} onClick={() => setDeleting(null)}>
                 {t('common.cancel')}

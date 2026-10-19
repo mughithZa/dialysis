@@ -8,6 +8,7 @@ import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
 import { useCalendar, useSetup, type CalendarDto, type SetupDto } from './api';
 import { BookDialog, type BookInitial } from './BookDialog';
+import { formatDate, formatList, timeRange } from '../../i18n/format';
 import { parseLocal as parse, shiftDate as shift, todayLocal, weekStartSat as weekStart } from './dates';
 
 type Day = CalendarDto['days'][number];
@@ -62,13 +63,13 @@ export function CalendarPage() {
       <Stack gap={4} data-testid="nurses">
         {[...groups.entries()].map(([id, g]) => (
           <Text key={id} size="sm">
-            <b>{g.name}</b> <Text span c="dimmed">{g.labels.join(', ')}</Text>
+            <b>{g.name}</b> <Text span c="dimmed">{formatList(g.labels)}</Text>
           </Text>
         ))}
         {none.length > 0 && (
           <Badge color="warning" variant="light" size="lg" style={{ alignSelf: 'flex-start' }}>
             {t('desk.calendar.noNurse')}
-            {groups.size > 0 ? `: ${none.join(', ')}` : ''}
+            {groups.size > 0 ? `: ${formatList(none)}` : ''}
           </Badge>
         )}
       </Stack>
@@ -102,7 +103,7 @@ export function CalendarPage() {
         variant="default"
         size="compact-md"
         mih={44}
-        aria-label={t('desk.calendar.emptyCell', { label: labelOf(c.chairId), block: name, date: day.date })}
+        aria-label={t('desk.calendar.emptyCell', { label: labelOf(c.chairId), block: name, date: formatDate(day.date) })}
         onClick={() => setPicked({ date: day.date, shiftId: block.shiftId, chairId: c.chairId })}
       >
         {t('desk.calendar.empty')}
@@ -159,7 +160,7 @@ export function CalendarPage() {
               return (
                 <Stack key={b.shiftId} gap="xs">
                   <Text fw={600}>
-                    {meta?.name} ({meta?.start}-{meta?.end})
+                    {meta?.name} ({meta ? timeRange(meta.start, meta.end) : ''})
                   </Text>
                   {nurseLine(b)}
                   {b.cells.map((c) => (
@@ -180,7 +181,7 @@ export function CalendarPage() {
         blocks.map((meta) => (
           <Stack key={meta.id} gap="xs">
             <Text fw={600}>
-              {meta.name} ({meta.start}-{meta.end})
+              {meta.name} ({timeRange(meta.start, meta.end)})
             </Text>
             <ScrollArea type="auto">
               <Table withTableBorder withColumnBorders>

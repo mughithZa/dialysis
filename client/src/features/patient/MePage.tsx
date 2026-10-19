@@ -1,11 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Loader, Stack, Text, Title } from '@mantine/core';
+import { Alert, Button, Card, Loader, Stack, Text, Title } from '@mantine/core';
 import { Timeline } from '../../components/Timeline';
 import { formatDay } from '../../components/timelineApi';
+import { todayLocal } from '../desk/dates';
 import { errorMessage } from '../../i18n/errors';
 import { useOverview } from './api';
 import { InstallPrompt } from './InstallPrompt';
+import { timeRange } from '../../i18n/format';
 import { useNotifications } from './useNotifications';
 
 function Reminders() {
@@ -42,7 +44,8 @@ export function MePage() {
 
   if (q.isPending) return <Loader />;
   if (q.isError) return <Alert color="danger">{errorMessage(t, q.error)}</Alert>;
-  const { active, patient, centre } = q.data;
+  const { active, patient, centre, upcoming } = q.data;
+  const next = active ? undefined : upcoming[0];
 
   return (
     <Stack gap="md">
@@ -54,9 +57,22 @@ export function MePage() {
         <Alert color="warning" variant="filled" role="status" title={t('me.activeNow')}>
           <Text fw={600}>{formatDay(active.date, i18n.language)}</Text>
           <Text>
-            {active.start}–{active.end}
+            {timeRange(active.start, active.end)}
           </Text>
         </Alert>
+      )}
+      {next && (
+        <Card withBorder padding="md" role="status" aria-label={t('me.next')}>
+          <Text size="sm" c="dimmed">
+            {t('me.next')}
+          </Text>
+          <Text fw={700} size="lg">
+            {next.date === todayLocal() ? t('me.today') : formatDay(next.date, i18n.language)}
+          </Text>
+          <Text>
+            {timeRange(next.start, next.end)} · {next.centreName}
+          </Text>
+        </Card>
       )}
       <InstallPrompt />
       <Reminders />

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, PasswordInput, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
+import { Alert, Anchor, Badge, Button, Card, Group, Loader, Menu, Modal, PasswordInput, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { Timeline } from '../../components/Timeline';
 import { useTimeline, type TimelineItem } from '../../components/timelineApi';
@@ -26,6 +26,7 @@ import { WEEKDAY_ORDER } from './weekdays';
 import { DischargeDialog } from './DischargeDialog';
 import { MakeupDialog } from './MakeupDialog';
 import { MoveDialog } from './MoveDialog';
+import { formatDate } from '../../i18n/format';
 import { PatientForm } from './PatientForm';
 
 function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: (sessionId: string) => void }) {
@@ -239,7 +240,7 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
       </Group>
       {patient.discharge && (
         <Alert color="warning">
-          {t('desk.patient.discharged', { date: patient.discharge.date, reason: t(`desk.dischargeReason.${patient.discharge.reason}`) })}
+          {t('desk.patient.discharged', { date: formatDate(patient.discharge.date), reason: t(`desk.dischargeReason.${patient.discharge.reason}`) })}
         </Alert>
       )}
 
@@ -273,8 +274,8 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
                 </Text>
               ))}
               <Text c="dimmed">
-                {t('desk.patient.planFrom', { date: current.from })}
-                {current.to ? `, ${t('desk.patient.planUntil', { date: current.to })}` : ''}
+                {t('desk.patient.planFrom', { date: formatDate(current.from) })}
+                {current.to ? `${t('common.listSeparator')}${t('desk.patient.planUntil', { date: formatDate(current.to) })}` : ''}
               </Text>
             </>
           )}
@@ -312,20 +313,31 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
                 {t('desk.patient.makeup')}
               </Button>
             )}
-            {active && can.transfer && (
-              <Button mih={44} variant="default" onClick={() => setDialog('transfer')}>
-                {t('desk.patient.transfer')}
-              </Button>
-            )}
-            {active && can.discharge && (
-              <Button mih={44} variant="default" color="danger" onClick={() => setDialog('discharge')}>
-                {t('desk.patient.discharge')}
-              </Button>
-            )}
-            {can.reset && (
-              <Button mih={44} variant="default" onClick={() => setDialog('reset')}>
-                {t('desk.patient.resetPassword')}
-              </Button>
+            {((active && (can.transfer || can.discharge)) || can.reset) && (
+              <Menu position="bottom-end">
+                <Menu.Target>
+                  <Button mih={44} variant="default">
+                    {t('desk.patient.moreActions')}
+                  </Button>
+                </Menu.Target>
+                <Menu.Dropdown>
+                  {active && can.transfer && (
+                    <Menu.Item mih={44} onClick={() => setDialog('transfer')}>
+                      {t('desk.patient.transfer')}
+                    </Menu.Item>
+                  )}
+                  {can.reset && (
+                    <Menu.Item mih={44} onClick={() => setDialog('reset')}>
+                      {t('desk.patient.resetPassword')}
+                    </Menu.Item>
+                  )}
+                  {active && can.discharge && (
+                    <Menu.Item mih={44} color="danger" onClick={() => setDialog('discharge')}>
+                      {t('desk.patient.discharge')}
+                    </Menu.Item>
+                  )}
+                </Menu.Dropdown>
+              </Menu>
             )}
           </Group>
         </Stack>

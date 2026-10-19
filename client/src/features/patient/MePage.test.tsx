@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MePage } from './MePage';
@@ -55,6 +55,29 @@ describe('MePage', () => {
     expect(await screen.findByText('Session active now')).toBeVisible();
     expect(screen.getByText(/Sunday/)).toBeVisible();
     expect(screen.getAllByText(/07:00/).length).toBeGreaterThan(0);
+  });
+
+  it('shows the next session at the top, and not while a session is active', async () => {
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview({ upcoming: [mini('s2', '2026-10-20'), mini('s3', '2026-10-22')] }))),
+      http.get('*/api/me/timeline', () => HttpResponse.json(timeline())),
+    );
+    renderApp(<MePage />);
+    const next = await screen.findByRole('status', { name: 'Your next session' });
+    expect(within(next).getByText('Tuesday, Oct 20')).toBeVisible();
+    expect(within(next).getByText('07:00–11:00 · Damascus')).toBeVisible();
+  });
+
+  it('hides the next-session card while a session is active', async () => {
+    server.use(
+      http.get('*/api/me/overview', () =>
+        HttpResponse.json(overview({ active: mini('s1', '2026-10-18', { status: 'active' }), upcoming: [mini('s2', '2026-10-20')] })),
+      ),
+      http.get('*/api/me/timeline', () => HttpResponse.json(timeline())),
+    );
+    renderApp(<MePage />);
+    expect(await screen.findByText('Session active now')).toBeVisible();
+    expect(screen.queryByText('Your next session')).not.toBeInTheDocument();
   });
 
   it('has no banner without an active session', async () => {

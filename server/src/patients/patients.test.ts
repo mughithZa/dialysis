@@ -3,7 +3,8 @@ import { seedRoles } from '../auth/roles.seed.js';
 import { User } from '../auth/user.model.js';
 import { AuditEntry } from '../audit/audit.model.js';
 import { Patient } from './patient.model.js';
-import { login, makeCentre, makePatient, programManager, staffIn } from '../../test/factories.js';
+import { login, makeCentre, makePatient, makeSession, programManager, staffIn } from '../../test/factories.js';
+import { addDays, todayLocal } from '../lib/dates.js';
 
 beforeEach(seedRoles);
 
@@ -125,5 +126,27 @@ describe('patients', () => {
     expect(res.body.error).toBe('has_active_patients');
     await Patient.updateOne({ _id: patient._id }, { status: 'discharged' });
     expect((await pm.agent.post(`/api/centres/${centre.id}/close`)).status).toBe(200);
+  });
+});
+
+describe('patient list: next session', () => {
+  it('each row carries its next scheduled or active session from today, else null', async () => {
+    const { centre, chairs, shifts } = await makeCentre();
+    const { agent } = await staffIn(centre.id, ['front_desk']);
+    const today = todayLocal();
+    const a = (await makePatient(centre.id, { name: 'A' })).patient;
+    const b = (await makePatient(centre.id, { name: 'B' })).patient;
+    const at = (patientId: unknown, date: string, status: string, shift = 0) =>
+      makeSession({ centreId: centre.id, patientId: String(patientId), chairId: chairs[0]!.id, shiftId: shifts[shift]!.id, date, status });
+    await at(a._id, addDays(today, -2), 'completed');
+    await at(a._id, addDays(today, 5), 'scheduled');
+    await at(a._id, addDays(today, 2), 'scheduled', 1);
+    await at(a._id, addDays(today, 1), 'cancelled');
+    await at(b._id, addDays(today, -1), 'missed');
+    const res = await agent.get(`/api/centres/${centre.id}/patients`);
+    expect(res.status).toBe(200);
+    const row = (n: string) => res.body.find((p: { name: string }) => p.name === n);
+    expect(row('A').nextSession).toEqual({ date: addDays(today, 2), start: shifts[1]!.start });
+    expect(row('B').nextSession).toBeNull();
   });
 });
