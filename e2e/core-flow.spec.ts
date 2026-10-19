@@ -66,7 +66,9 @@ async function fillDayRow(page: Page, n: number, weekday: number, block: string,
   await pick(page, en.desk.book.machine, en.desk.calendar.machine.replace('{{label}}', machine), row);
 }
 
-const card = (page: Page, text: string) => page.locator('.mantine-Card-root', { hasText: text });
+/** A patient's card on the board (not the machine grid, which also names the patient). */
+const card = (page: Page, text: string) =>
+  page.locator('.mantine-Card-root', { hasText: text }).filter({ hasNot: page.locator('[data-tile-state]') });
 
 test('core flow: desk builds the schedule, rosters and books; doctor notes; nurse runs the session; timelines and dashboard agree', async ({ page }) => {
   const today = todayWeekday();
@@ -150,7 +152,7 @@ test('core flow: desk builds the schedule, rosters and books; doctor notes; nurs
   await page.getByRole('button', { name: 'Heparin', exact: true }).click();
   await page.getByLabel(en.nurse.usage.amount).fill('5');
   await page.getByRole('button', { name: en.nurse.usage.save, exact: true }).click();
-  await expect(page.getByText('Heparin: 5 cc')).toBeVisible();
+  await expect(page.locator('[data-usage-line]', { hasText: 'Heparin' })).toContainText('5 cc');
 
   await page.getByRole('button', { name: en.nurse.session.close, exact: true }).click();
   await expect(page.getByText(en.nurse.session.closed)).toBeVisible();

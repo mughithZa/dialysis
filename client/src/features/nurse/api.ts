@@ -20,6 +20,9 @@ export interface SessionCard {
   end: string;
   patient: { id: string; name: string };
   hasActiveOrders: boolean;
+  /** When the session was opened and closed (ISO), null until then. */
+  openedAt: string | null;
+  closedAt: string | null;
 }
 export interface UsageLineDto {
   id: string;

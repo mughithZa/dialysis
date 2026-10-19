@@ -187,7 +187,9 @@ export const theme = createTheme({
       defaultProps: { radius: 'xl' },
       styles: {
         root: { backgroundColor: 'var(--mantine-color-uoca-1)' },
-        label: { minBlockSize: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600 },
+        // unselected options must stay readable on the sand track: brown text, not Mantine's grey
+        label: { minBlockSize: 44, display: 'flex', alignItems: 'center', justifyContent: 'center', fontWeight: 600, color: 'var(--mantine-color-uoca-8)' },
+        indicator: { boxShadow: 'var(--mantine-shadow-sm)', border: '1px solid var(--uoca-border)' },
       },
     }),
   },

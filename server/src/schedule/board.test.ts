@@ -99,6 +99,18 @@ describe('buildBoard rows', () => {
     // live machines: 1, 2, 3, 11; the dead-session machines and the rest are empty
     expect(b.emptyMachines.map((m) => m.label)).toEqual(['4', '5', '6', '7', '8', '9', '10', '12']);
   });
+  it('carries when each session was opened and closed (for the elapsed timer)', async () => {
+    const { c, shifts, rana, sess } = await setup();
+    const opened = at(MON, '07:10');
+    const closed = at(MON, '11:05');
+    await sess(0, 'active', { openedAt: opened });
+    await sess(1, 'completed', { openedAt: opened, closedAt: closed });
+    await sess(2, 'scheduled');
+    const b = await buildBoard(c, rana.user.id as string, { date: MON, shiftId: shifts[0]!.id, now: at(MON, '09:00') });
+    expect(b.active[0]).toMatchObject({ openedAt: opened.toISOString(), closedAt: null });
+    expect(b.done[0]).toMatchObject({ openedAt: opened.toISOString(), closedAt: closed.toISOString() });
+    expect(b.waiting[0]).toMatchObject({ openedAt: null, closedAt: null });
+  });
 });
 
 describe('GET /board', () => {

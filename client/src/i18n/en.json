@@ -25,7 +25,9 @@
     "type": "Type",
     "actions": "Actions",
     "signedInAs": "Signed in as {{name}}",
-    "listSeparator": ", "
+    "listSeparator": ", ",
+    "showMore": "Show more",
+    "showLess": "Show less"
   },
   "login": {
     "title": "Sign in",
@@ -628,7 +630,10 @@
       "noHeparin": "No heparin recorded. Close anyway?",
       "history": "Change history",
       "notFound": "Session not found.",
-      "toPatient": "Back to patient"
+      "toPatient": "Back to patient",
+      "running": "Running",
+      "duration": "Duration",
+      "sections": "Session record"
     },
     "usage": {
       "title": "Medicines and supplies",
@@ -645,7 +650,10 @@
       "edit": "Change",
       "remove": "Remove",
       "removed": "Removed.",
-      "updated": "Updated."
+      "updated": "Updated.",
+      "menu": "More for {{item}}",
+      "quickAdd": "Quick add",
+      "quickAddItem": "Add {{item}}"
     },
     "type": {
       "all": "All",
@@ -672,7 +680,12 @@
       "diastolic": "Diastolic",
       "addBp": "Add reading",
       "bpAdded": "Reading added.",
-      "kg": "kg"
+      "kg": "kg",
+      "weightTitle": "Weight",
+      "weightLoss": "Weight loss (UF)",
+      "kgValue": "{{kg}} kg",
+      "before": "Before",
+      "after": "After"
     },
     "notes": {
       "title": "Notes",
@@ -684,7 +697,8 @@
       "remove": "Remove",
       "removed": "Note removed.",
       "updated": "Note updated.",
-      "saveEdit": "Save changes"
+      "saveEdit": "Save changes",
+      "menu": "More for this note"
     },
     "history": {
       "title": "Change history",
@@ -700,6 +714,16 @@
         "note.update": "Note changed",
         "note.remove": "Note removed"
       }
+    },
+    "elapsed": {
+      "min": "{{m}} min",
+      "h": "{{h}} h",
+      "hMin": "{{h}} h {{m}} min"
+    },
+    "tabs": {
+      "usage": "Medicines",
+      "vitals": "Vitals",
+      "notes": "Notes"
     }
   },
   "me": {
@@ -738,16 +762,31 @@
     "waiting_other": "Waiting ({{count}})",
     "noBlocks": "No session blocks set up yet.",
     "closed": "Centre closed today",
-    "summary": "Done {{done}} · Did not come {{didNotCome}} · Postponed or cancelled {{other}}",
-    "empty": "Empty machines: {{machines}}",
-    "noneEmpty": "none",
     "unclosed_one": "{{count}} session from an earlier day is still open",
     "unclosed_other": "{{count}} sessions from earlier days are still open",
     "unclosedHelp": "Open each one, check the record and close it.",
     "noneActive": "No one on a machine right now",
     "noneActiveHint": "Sessions appear here once they are started.",
     "noneWaiting": "No one waiting",
-    "noneWaitingHint": "Patients booked for this block show here until their session starts."
+    "noneWaitingHint": "Patients booked for this block show here until their session starts.",
+    "statActive": "Active",
+    "statWaiting": "Waiting",
+    "statDone": "Done",
+    "statFree": "Free machines",
+    "legend": {
+      "active": "Active",
+      "waiting": "Waiting",
+      "completed": "Done",
+      "did_not_come": "Did not come",
+      "postponed": "Postponed or cancelled",
+      "free": "Free"
+    },
+    "legendCount": "{{label}} {{n}}",
+    "free": "Free",
+    "tile": "Machine {{label}}: {{name}}, {{status}}",
+    "tileFree": "Machine {{label}}: free",
+    "grid": "Machines in this block",
+    "elapsed": "{{time}} on the machine"
   },
   "timeline": {
     "upcoming": "Upcoming",

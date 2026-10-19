@@ -1,0 +1,68 @@
+/* Colours come only from theme.ts (the --uoca-* variables and Mantine colour scales). */
+
+.summary {
+  position: sticky;
+  top: calc(var(--app-shell-header-offset, 0rem) + 8px);
+  z-index: 5;
+}
+
+.timer {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--mantine-radius-xl);
+  background: var(--mantine-color-success-0);
+  color: var(--mantine-color-success-7);
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+}
+
+.timerDone {
+  background: var(--mantine-color-uoca-1);
+  color: var(--mantine-color-uoca-8);
+}
+
+.orders {
+  background: var(--mantine-color-amber-0);
+  border: 1px solid var(--mantine-color-amber-2);
+  border-inline-start: 4px solid var(--mantine-color-amber-6);
+  border-radius: var(--mantine-radius-lg);
+  padding: 10px 12px;
+}
+
+/* The primary action stays reachable: pinned above the phone tab bar while the page scrolls. */
+.actionBar {
+  position: sticky;
+  bottom: calc(var(--app-shell-footer-offset, 0rem) + 8px);
+  z-index: 5;
+}
+
+.actionBar button {
+  box-shadow: var(--mantine-shadow-lg);
+}
+
+[dir='rtl'] .flip {
+  transform: scaleX(-1);
+}
+
+.tabList {
+  --tab-border-color: var(--uoca-border);
+  flex-wrap: nowrap;
+}
+
+.tab {
+  color: var(--uoca-muted);
+  font-weight: 600;
+  min-width: 0;
+  padding-inline: 6px;
+  --tab-section-margin: 6px;
+}
+
+.tab:hover {
+  background: var(--mantine-color-uoca-0);
+}
+
+.tab[data-active] {
+  color: var(--mantine-color-uoca-8);
+}

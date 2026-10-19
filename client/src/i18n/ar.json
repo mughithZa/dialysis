@@ -25,7 +25,9 @@
     "type": "النوع",
     "actions": "الإجراءات",
     "signedInAs": "مسجّل الدخول باسم {{name}}",
-    "listSeparator": "، "
+    "listSeparator": "، ",
+    "showMore": "عرض المزيد",
+    "showLess": "عرض أقل"
   },
   "login": {
     "title": "تسجيل الدخول",
@@ -628,7 +630,10 @@
       "noHeparin": "لم يُسجَّل هيبارين. هل تريد الإغلاق على أي حال؟",
       "history": "سجل التعديلات",
       "notFound": "لم يُعثر على الجلسة.",
-      "toPatient": "العودة إلى المريض"
+      "toPatient": "العودة إلى المريض",
+      "running": "مدة الجلسة",
+      "duration": "المدة",
+      "sections": "سجل الجلسة"
     },
     "usage": {
       "title": "الأدوية والمستلزمات",
@@ -645,7 +650,10 @@
       "edit": "تغيير",
       "remove": "حذف",
       "removed": "تم الحذف.",
-      "updated": "تم التحديث."
+      "updated": "تم التحديث.",
+      "menu": "خيارات {{item}}",
+      "quickAdd": "إضافة سريعة",
+      "quickAddItem": "إضافة {{item}}"
     },
     "type": {
       "all": "الكل",
@@ -672,7 +680,12 @@
       "diastolic": "الانبساطي",
       "addBp": "إضافة قراءة",
       "bpAdded": "تمت إضافة القراءة.",
-      "kg": "كغ"
+      "kg": "كغ",
+      "weightTitle": "الوزن",
+      "weightLoss": "الوزن المسحوب (UF)",
+      "kgValue": "{{kg}} كغ",
+      "before": "قبل",
+      "after": "بعد"
     },
     "notes": {
       "title": "الملاحظات",
@@ -684,7 +697,8 @@
       "remove": "حذف",
       "removed": "تم حذف الملاحظة.",
       "updated": "تم تحديث الملاحظة.",
-      "saveEdit": "حفظ التغييرات"
+      "saveEdit": "حفظ التغييرات",
+      "menu": "خيارات الملاحظة"
     },
     "history": {
       "title": "سجل التعديلات",
@@ -700,6 +714,16 @@
         "note.update": "تعديل ملاحظة",
         "note.remove": "حذف ملاحظة"
       }
+    },
+    "elapsed": {
+      "min": "{{m}} دقيقة",
+      "h": "{{h}} ساعة",
+      "hMin": "{{h}} ساعة و{{m}} دقيقة"
+    },
+    "tabs": {
+      "usage": "الأدوية",
+      "vitals": "القياسات",
+      "notes": "الملاحظات"
     }
   },
   "me": {
@@ -750,9 +774,6 @@
     "waiting_other": "بالانتظار ({{count}})",
     "noBlocks": "لم تُعدّ فترات الجلسات بعد.",
     "closed": "المركز مغلق اليوم",
-    "summary": "مكتملة {{done}} · لم يحضر {{didNotCome}} · مؤجلة أو ملغاة {{other}}",
-    "empty": "أجهزة فارغة: {{machines}}",
-    "noneEmpty": "لا يوجد",
     "unclosed_zero": "لا توجد جلسات مفتوحة من أيام سابقة",
     "unclosed_one": "جلسة واحدة من يوم سابق ما زالت مفتوحة",
     "unclosed_two": "جلستان من أيام سابقة ما زالتا مفتوحتين",
@@ -763,7 +784,25 @@
     "noneActive": "لا أحد على الأجهزة الآن",
     "noneActiveHint": "تظهر الجلسات هنا بعد بدئها.",
     "noneWaiting": "لا أحد بالانتظار",
-    "noneWaitingHint": "يظهر هنا المرضى المحجوزون لهذه الفترة حتى تبدأ جلساتهم."
+    "noneWaitingHint": "يظهر هنا المرضى المحجوزون لهذه الفترة حتى تبدأ جلساتهم.",
+    "statActive": "جارية",
+    "statWaiting": "بالانتظار",
+    "statDone": "مكتملة",
+    "statFree": "أجهزة فارغة",
+    "legend": {
+      "active": "جارية",
+      "waiting": "بالانتظار",
+      "completed": "مكتملة",
+      "did_not_come": "لم يحضر",
+      "postponed": "مؤجلة أو ملغاة",
+      "free": "فارغ"
+    },
+    "legendCount": "{{label}}: {{n}}",
+    "free": "فارغ",
+    "tile": "الجهاز {{label}}: {{name}}، {{status}}",
+    "tileFree": "الجهاز {{label}}: فارغ",
+    "grid": "أجهزة هذه الفترة",
+    "elapsed": "{{time}} على الجهاز"
   },
   "timeline": {
     "upcoming": "القادمة",

@@ -23,6 +23,9 @@ export interface SessionCard {
   nurse: { id: string; name: string } | null;
   /** Who ran the session (set when it is opened). */
   runBy: { id: string; name: string } | null;
+  /** When the session was opened (started) and closed, ISO; null until then. Drives the nurse's elapsed timer. */
+  openedAt: string | null;
+  closedAt: string | null;
 }
 
 /** Builds display cards (and the nurse assigned to each chair/shift) for sessions of one centre. */
@@ -81,6 +84,8 @@ export async function toSessionCards(
         chairLabel: s.chairLabel ?? chair.label,
         nurse: nurseId ? { id: nurseId, name: nurses.get(nurseId) ?? '' } : null,
         runBy: runner ? { id: runner.id as string, name: runner.name } : null,
+        openedAt: s.openedAt ? s.openedAt.toISOString() : null,
+        closedAt: s.closedAt ? s.closedAt.toISOString() : null,
       },
       nurseId,
     });

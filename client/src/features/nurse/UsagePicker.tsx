@@ -60,7 +60,18 @@ export function AmountForm({
 }
 
 /** Pick a medicine or supply and record an amount. Mount with a `key` so each open starts fresh. */
-export function UsagePicker({ sessionId, usage, onDone }: { sessionId: string; usage: UsageLineDto[]; onDone: () => void }) {
+export function UsagePicker({
+  sessionId,
+  usage,
+  initial = null,
+  onDone,
+}: {
+  sessionId: string;
+  usage: UsageLineDto[];
+  /** Skip the list and go straight to the amount for this item (quick-add chips). */
+  initial?: ItemDto | null;
+  onDone: () => void;
+}) {
   const { t } = useTranslation();
   const items = useCatalogItems();
   const units = useCatalogUnits();
@@ -68,7 +79,7 @@ export function UsagePicker({ sessionId, usage, onDone }: { sessionId: string; u
   const [mode, setMode] = useState<'pick' | 'add'>('pick');
   const [type, setType] = useState('all');
   const [q, setQ] = useState('');
-  const [chosen, setChosen] = useState<ItemDto | null>(null);
+  const [chosen, setChosen] = useState<ItemDto | null>(initial);
 
   if (chosen) {
     return (

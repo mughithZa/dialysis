@@ -1,0 +1,83 @@
+/* Colours come only from theme.ts: the tile's tone arrives as --tile-bg / --tile-fg (STATUS_TONES). */
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: 8px;
+}
+
+.tile {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 2px;
+  min-height: 64px;
+  min-width: 0;
+  padding-block: 6px;
+  padding-inline: 10px 6px;
+  border-radius: var(--mantine-radius-md);
+  border: 1px solid var(--uoca-border);
+  border-inline-start: 5px solid var(--tile-fg);
+  background: var(--tile-bg);
+  color: var(--tile-fg);
+  text-decoration: none;
+}
+
+a.tile:focus-visible {
+  outline: 2px solid var(--uoca-brown);
+  outline-offset: 2px;
+}
+
+a.tile:active {
+  transform: scale(0.97);
+}
+
+.free {
+  background: var(--uoca-surface);
+  color: var(--uoca-muted);
+  border: 1px dashed var(--uoca-border-strong);
+}
+
+.label {
+  font-size: 20px;
+  font-weight: 700;
+  line-height: 1.1;
+}
+
+.name {
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 1.25;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px 12px;
+}
+
+.legendItem {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  color: var(--uoca-muted);
+}
+
+.swatch {
+  inline-size: 12px;
+  block-size: 12px;
+  border-radius: 3px;
+  background: var(--tile-bg);
+  border: 2px solid var(--tile-fg);
+  flex-shrink: 0;
+}
+
+.swatchFree {
+  background: var(--uoca-surface);
+  border: 1px dashed var(--uoca-border-strong);
+}

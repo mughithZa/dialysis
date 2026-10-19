@@ -24,6 +24,8 @@ const row = (id: string, patient: string, chair: string, status: string, over: R
   nurse: { id: 'n1', name: 'Huda' },
   runBy: null,
   mine: false,
+  openedAt: null,
+  closedAt: null,
   ...over,
 });
 
@@ -59,57 +61,115 @@ const FRONT = ['sessions.view', 'sessions.run', 'sessions.postpone', 'schedule.b
 const NURSE = ['sessions.view', 'sessions.run', 'sessions.postpone'];
 
 describe('BoardPage', () => {
-  it('renders blocks, the Active and Waiting groups and the summary line', async () => {
-    mount(FRONT, {
-      active: [row('1', 'Layla', '1', 'active', { hasActiveOrders: true })],
-      waiting: [row('2', 'Omar', '2', 'scheduled')],
-      done: [row('3', 'Huda P', '3', 'completed')],
-      didNotCome: [row('4', 'Sami', '4', 'did_not_come')],
-      other: [row('5', 'Rana', '5', 'postponed')],
-      emptyMachines: [{ id: 'm6', label: '6' }],
-    });
-    expect(await screen.findByText('Layla')).toBeInTheDocument();
+  const FULL = {
+    active: [row('1', 'Layla', '1', 'active', { hasActiveOrders: true })],
+    waiting: [row('2', 'Omar', '2', 'scheduled')],
+    done: [row('3', 'Huda P', '3', 'completed')],
+    didNotCome: [row('4', 'Sami', '4', 'did_not_come')],
+    other: [row('5', 'Rana', '5', 'postponed')],
+    emptyMachines: [
+      { id: 'c4', label: '4' },
+      { id: 'c5', label: '5' },
+      { id: 'm6', label: '6' },
+      { id: 'm10', label: '10' },
+    ],
+  };
+
+  it('renders blocks, stat cards, the Active and Waiting groups', async () => {
+    mount(FRONT, FULL);
+    expect(await screen.findByRole('link', { name: 'Layla' })).toBeInTheDocument();
     expect(screen.getByRole('radio', { name: 'Morning' })).toBeChecked();
     expect(screen.getByRole('radio', { name: 'Afternoon' })).toBeInTheDocument();
     expect(screen.getByText('Active now (1)')).toBeInTheDocument();
     expect(screen.getByText('Waiting (1)')).toBeInTheDocument();
     expect(screen.getByText('Orders')).toBeInTheDocument();
-    expect(screen.getByText('Omar')).toBeInTheDocument();
-    expect(screen.getByText(/Done 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Did not come 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Postponed or cancelled 1/)).toBeInTheDocument();
-    expect(screen.getByText(/Empty machines: 6/)).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Omar' })).toBeInTheDocument();
+    const stat = (label: string) => screen.getByText(label, { selector: '[data-stat-card] p' }).previousElementSibling?.textContent;
+    expect(stat('Active')).toBe('1');
+    expect(stat('Waiting')).toBe('1');
+    expect(stat('Done')).toBe('1');
+    expect(stat('Free machines')).toBe('4');
     expect(screen.getAllByRole('link', { name: 'Open' })[0]).toHaveAttribute('href', '/c/c1/sessions/1');
+  });
+
+  it('draws one tile per machine, in machine order, coloured by state, with a legend', async () => {
+    mount(FRONT, FULL);
+    const grid = await screen.findByRole('list', { name: 'Machines in this block' });
+    const tiles = within(grid).getAllByRole('listitem').map((li) => li.firstElementChild as HTMLElement);
+    // machines 4 and 5 have only a dead session (did not come, postponed): they show that, not "free"
+    expect(tiles.map((el) => [el.textContent, el.dataset.tileState])).toEqual([
+      ['1Layla', 'active'],
+      ['2Omar', 'waiting'],
+      ['3Huda P', 'completed'],
+      ['4Sami', 'did_not_come'],
+      ['5Rana', 'postponed'],
+      ['6Free', 'free'],
+      ['10Free', 'free'],
+    ]);
+    expect(within(grid).getByRole('link', { name: 'Machine 1: Layla, Active' })).toHaveAttribute('href', '/c/c1/sessions/1');
+    expect(within(grid).getByRole('link', { name: 'Machine 4: Sami, Did not come' })).toHaveAttribute('href', '/c/c1/sessions/4');
+    // free tiles are not links: tapping them does nothing
+    expect(within(grid).getAllByRole('link')).toHaveLength(5);
+    expect(tiles[5]!.tagName).toBe('DIV');
+    expect(tiles[5]).toHaveAttribute('aria-label', 'Machine 6: free');
+    // each state has its own colour
+    const bg = (i: number) => tiles[i]!.style.getPropertyValue('--tile-bg');
+    expect(new Set([0, 1, 2, 3, 4].map(bg)).size).toBe(5);
+    for (const text of ['Active 1', 'Waiting 1', 'Done 1', 'Did not come 1', 'Postponed or cancelled 1', 'Free 2']) {
+      expect(screen.getByText(text)).toBeInTheDocument();
+    }
+  });
+
+  it('a machine shows its live session over a dead one on the same machine', async () => {
+    mount(FRONT, {
+      waiting: [row('2', 'Omar', '1', 'scheduled', { chair: { id: 'c1', label: '1' } })],
+      didNotCome: [row('4', 'Sami', '1', 'did_not_come', { chair: { id: 'c1', label: '1' } })],
+    });
+    const grid = await screen.findByRole('list', { name: 'Machines in this block' });
+    expect(within(grid).getAllByRole('link').map((a) => a.getAttribute('aria-label'))).toEqual(['Machine 1: Omar, Waiting']);
+  });
+
+  it('shows how long an active session has been running', async () => {
+    const openedAt = new Date(Date.now() - 80 * 60_000 - 5_000).toISOString();
+    mount(FRONT, { active: [row('1', 'Layla', '1', 'active', { openedAt })] });
+    const elapsed = await screen.findByText(/on the machine/);
+    expect(elapsed).toHaveTextContent(/^1 h 20 min on the machine · started \S.*$/);
+  });
+
+  it('keeps the block tabs readable when not selected', async () => {
+    mount(FRONT, {});
+    const afternoon = await screen.findByText('Afternoon');
+    expect(afternoon.closest('label')!.style.color).toBe('var(--mantine-color-uoca-8)');
   });
 
   it('a nurse sees only her machines until she turns the toggle off', async () => {
     mount(NURSE, {
       waiting: [row('1', 'Mine P', '1', 'scheduled', { mine: true }), row('2', 'Other P', '2', 'scheduled')],
     });
-    expect(await screen.findByText('Mine P')).toBeInTheDocument();
-    expect(screen.queryByText('Other P')).not.toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Mine P' })).toBeInTheDocument();
+    expect(screen.queryByRole('link', { name: 'Other P' })).not.toBeInTheDocument();
     expect(screen.getByText(/1 other machine/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('switch', { name: 'My machines' }));
-    expect(await screen.findByText('Other P')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Other P' })).toBeInTheDocument();
   });
 
   it('the front desk sees every machine by default', async () => {
     mount(FRONT, { waiting: [row('1', 'Mine P', '1', 'scheduled', { mine: true }), row('2', 'Other P', '2', 'scheduled')] });
-    expect(await screen.findByText('Other P')).toBeInTheDocument();
-    expect(screen.getByText('Mine P')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Other P' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mine P' })).toBeInTheDocument();
     expect(screen.getByRole('switch', { name: 'My machines' })).not.toBeChecked();
   });
 
   it('shows the My machines toggle only to users who can run sessions', async () => {
     mount(['sessions.view'], { waiting: [row('1', 'Mine P', '1', 'scheduled', { mine: true }), row('2', 'Other P', '2', 'scheduled')] });
-    expect(await screen.findByText('Other P')).toBeInTheDocument();
-    expect(screen.getByText('Mine P')).toBeInTheDocument();
+    expect(await screen.findByRole('link', { name: 'Other P' })).toBeInTheDocument();
+    expect(screen.getByRole('link', { name: 'Mine P' })).toBeInTheDocument();
     expect(screen.queryByRole('switch', { name: 'My machines' })).toBeNull();
   });
 
   it('shows row actions by permission', async () => {
     mount(['sessions.view'], { waiting: [row('1', 'Omar', '1', 'scheduled')] });
-    await screen.findByText('Omar');
+    await screen.findByRole('link', { name: 'Omar' });
     expect(screen.queryByRole('button', { name: 'Start' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Did not come' })).not.toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'Postpone' })).not.toBeInTheDocument();

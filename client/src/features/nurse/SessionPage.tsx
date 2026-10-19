@@ -1,9 +1,17 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { Alert, Anchor, Button, Card, Group, Loader, Modal, Stack, Text, Title } from '@mantine/core';
-import { IconPill } from '@tabler/icons-react';
-import { EmptyState } from '../../components/EmptyState';
+import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, Spoiler, Stack, Tabs, Text, Title } from '@mantine/core';
+import {
+  IconChevronLeft,
+  IconClipboardText,
+  IconClock,
+  IconHeartRateMonitor,
+  IconHistory,
+  IconNote,
+  IconPill,
+  IconCircleCheck,
+} from '@tabler/icons-react';
 import { StatusBadge } from '../../components/StatusBadge';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
@@ -11,68 +19,120 @@ import { formatDay } from '../../components/timelineApi';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
 import { toLocalDate, todayLocal } from '../desk/dates';
-import { hasHeparin, useRemoveUsage, useSession, useSessionAction, useUpdateUsage, type SessionDetail, type UsageLineDto } from './api';
+import { hasHeparin, useSession, useSessionAction, type SessionDetail } from './api';
+import { elapsedMinutes, formatElapsed, useNow } from './elapsed';
 import { HistoryDrawer } from './HistoryDrawer';
 import { NotesList } from './NotesList';
-import { AmountForm, UsagePicker } from './UsagePicker';
+import { UsageList } from './UsageList';
 import { timeRange } from '../../i18n/format';
 import { VitalsForm } from './VitalsForm';
+import classes from './SessionPage.module.css';
 
-function UsageRow({ sessionId, line, canEdit }: { sessionId: string; line: UsageLineDto; canEdit: boolean }) {
+/** Running time of an active session (ticks every minute) or how long a completed one lasted. */
+function SessionTimer({ s }: { s: SessionDetail }) {
   const { t } = useTranslation();
-  const update = useUpdateUsage(sessionId);
-  const remove = useRemoveUsage(sessionId);
-  const [editing, setEditing] = useState(false);
+  const now = useNow();
+  if (!s.openedAt) return null;
+  if (s.status === 'active') {
+    return (
+      <span className={classes.timer} data-session-timer>
+        <IconClock size={16} aria-hidden />
+        <Text span size="sm" fw={500}>
+          {t('nurse.session.running')}
+        </Text>
+        <span>{formatElapsed(t, elapsedMinutes(s.openedAt, now))}</span>
+      </span>
+    );
+  }
+  if (s.status === 'completed' && s.closedAt) {
+    return (
+      <span className={`${classes.timer} ${classes.timerDone}`} data-session-timer>
+        <IconClock size={16} aria-hidden />
+        <Text span size="sm" fw={500}>
+          {t('nurse.session.duration')}
+        </Text>
+        <span>{formatElapsed(t, elapsedMinutes(s.openedAt, new Date(s.closedAt)))}</span>
+      </span>
+    );
+  }
+  return null;
+}
+
+/** Sticky card at the top: who, where and when, the status and the running timer. */
+function SessionSummary({ s }: { s: SessionDetail }) {
+  const { t, i18n } = useTranslation();
   return (
-    <Stack gap="xs">
-      <Group justify="space-between" wrap="nowrap">
-        <Text>{t('sessions.history.usage', { item: line.item.name, amount: line.amount, unit: line.item.unit })}</Text>
-        {canEdit && (
-          <Group gap="xs" wrap="nowrap">
-            <Button mih={44} variant="default" onClick={() => setEditing(true)}>
-              {t('nurse.usage.edit')}
-            </Button>
-            <Button
-              mih={44}
-              variant="default"
-              color="danger"
-              loading={remove.isPending}
-              onClick={() => remove.mutate(line.id, { onSuccess: () => notifications.show({ message: t('nurse.usage.removed') }) })}
-            >
-              {t('nurse.usage.remove')}
-            </Button>
-          </Group>
-        )}
-      </Group>
-      {remove.isError && <Alert color="danger">{errorMessage(t, remove.error)}</Alert>}
-      <Modal opened={editing} onClose={() => setEditing(false)} title={line.item.name}>
-        {editing && (
-          <AmountForm
-            itemName={line.item.name}
-            unit={line.item.unit}
-            initial={String(line.amount)}
-            loading={update.isPending}
-            error={update.error}
-            onSubmit={(amount) =>
-              update.mutate(
-                { lineId: line.id, amount },
-                {
-                  onSuccess: () => {
-                    notifications.show({ message: t('nurse.usage.updated') });
-                    setEditing(false);
-                  },
-                },
-              )
-            }
-          />
-        )}
-      </Modal>
-    </Stack>
+    <Card padding="sm" shadow="md" className={classes.summary}>
+      <Stack gap={4}>
+        <Group justify="space-between" wrap="nowrap" gap="sm">
+          <Title order={3} style={{ minWidth: 0, overflowWrap: 'anywhere' }}>
+            {s.patient.name}
+          </Title>
+          <StatusBadge status={s.status} size="lg" />
+        </Group>
+        <Text c="dimmed" size="sm">
+          {t('board.machine', { label: s.chairLabel })} · {s.shift.name} ({timeRange(s.start, s.end)}) · {formatDay(s.date, i18n.language)}
+        </Text>
+        <Group gap="xs">
+          <SessionTimer s={s} />
+        </Group>
+      </Stack>
+    </Card>
   );
 }
 
-function SessionView({ s }: { s: SessionDetail }) {
+/** Doctor orders and recent doctor notes as one highlighted callout; long content folds behind "Show more". */
+function OrdersCallout({ s }: { s: SessionDetail }) {
   const { t, i18n } = useTranslation();
+  if (s.orders.length === 0 && s.recentNotes.length === 0) return null;
+  return (
+    <div className={classes.orders} role="note" aria-label={t('nurse.session.orders')}>
+      <Group gap={6} wrap="nowrap" mb={4} c="amber.7">
+        <IconClipboardText size={18} aria-hidden />
+        <Text fw={700} size="sm">
+          {t('nurse.session.orders')}
+        </Text>
+      </Group>
+      <Spoiler maxHeight={88} showLabel={t('common.showMore')} hideLabel={t('common.showLess')} styles={{ control: { minHeight: 44, fontWeight: 600 } }}>
+        <Stack gap={6}>
+          {s.orders.map((o) => (
+            <Text key={o.id} size="sm" dir="auto">
+              {o.text}
+              <Text component="span" size="xs" c="dimmed">
+                {' '}
+                - {o.doctor.name}
+              </Text>
+            </Text>
+          ))}
+          {s.recentNotes.length > 0 && (
+            <Text fw={600} size="xs" c="amber.7">
+              {t('doctor.notes.title')}
+            </Text>
+          )}
+          {s.recentNotes.map((n) => (
+            <Text key={n.id} size="sm" dir="auto">
+              {n.text}
+              <Text component="span" size="xs" c="dimmed">
+                {' '}
+                - {n.author.name}, {formatDay(toLocalDate(new Date(n.at)), i18n.language)}
+              </Text>
+            </Text>
+          ))}
+        </Stack>
+      </Spoiler>
+    </div>
+  );
+}
+
+const count = (n: number) =>
+  n > 0 ? (
+    <Badge size="sm" circle variant="light" color="uoca">
+      {n}
+    </Badge>
+  ) : null;
+
+function SessionView({ s }: { s: SessionDetail }) {
+  const { t } = useTranslation();
   const centreId = useCentreId();
   const action = useSessionAction(s.id);
   const canRun = useCan('sessions.run');
@@ -82,7 +142,7 @@ function SessionView({ s }: { s: SessionDetail }) {
   const canNotes = useCan('sessions.addNotes');
   const canEditClosed = useCan('sessions.editClosed');
   const canHistory = useCan('sessions.viewHistory');
-  const [adding, setAdding] = useState(false);
+  const [tab, setTab] = useState<string | null>('usage');
   const [confirmClose, setConfirmClose] = useState(false);
   const [historyOpen, setHistoryOpen] = useState(false);
 
@@ -97,48 +157,18 @@ function SessionView({ s }: { s: SessionDetail }) {
 
   return (
     <Stack gap="md">
-      <Anchor component={Link} to={canRun ? `/c/${centreId}/today` : `/c/${centreId}/patients/${s.patient.id}`} mih={44} style={{ display: 'inline-flex', alignItems: 'center' }}>
+      <Anchor
+        component={Link}
+        to={canRun ? `/c/${centreId}/today` : `/c/${centreId}/patients/${s.patient.id}`}
+        mih={44}
+        fw={600}
+        style={{ display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}
+      >
+        <IconChevronLeft size={18} className={classes.flip} aria-hidden />
         {t(canRun ? 'nav.today' : 'nurse.session.toPatient')}
       </Anchor>
-      <Stack gap={4}>
-        <Group justify="space-between" wrap="nowrap">
-          <Title order={2}>{s.patient.name}</Title>
-          <StatusBadge status={s.status} size="lg" />
-        </Group>
-        <Text c="dimmed">
-          {t('board.machine', { label: s.chairLabel })} · {s.shift.name} ({timeRange(s.start, s.end)}) · {formatDay(s.date, i18n.language)}
-        </Text>
-      </Stack>
-
-      {(s.orders.length > 0 || s.recentNotes.length > 0) && (
-        <Alert color="warning" title={t('nurse.session.orders')}>
-          <Stack gap="xs">
-            {s.orders.map((o) => (
-              <Text key={o.id}>
-                {o.text}
-                <Text component="span" size="sm" c="dimmed">
-                  {' '}
-                  - {o.doctor.name}
-                </Text>
-              </Text>
-            ))}
-            {s.recentNotes.length > 0 && (
-              <Text fw={600} size="sm">
-                {t('doctor.notes.title')}
-              </Text>
-            )}
-            {s.recentNotes.map((n) => (
-              <Text key={n.id}>
-                {n.text}
-                <Text component="span" size="sm" c="dimmed">
-                  {' '}
-                  - {n.author.name}, {formatDay(toLocalDate(new Date(n.at)), i18n.language)}
-                </Text>
-              </Text>
-            ))}
-          </Stack>
-        </Alert>
-      )}
+      <SessionSummary s={s} />
+      <OrdersCallout s={s} />
 
       {action.isError && <Alert color="danger">{errorMessage(t, action.error)}</Alert>}
 
@@ -158,44 +188,64 @@ function SessionView({ s }: { s: SessionDetail }) {
       )}
 
       {recording && (
-        <>
-          <Card withBorder padding="sm">
-            <Stack gap="sm">
-              <Title order={4}>{t('nurse.usage.title')}</Title>
-              {s.usage.length === 0 && <EmptyState compact icon={IconPill} title={t('nurse.usage.none')} hint={t('empty.usageHint')} />}
-              {s.usage.map((l) => (
-                <UsageRow key={l.id} sessionId={s.id} line={l} canEdit={may(canUsage)} />
-              ))}
-              {may(canUsage) && (
-                <Button size="lg" mih={56} onClick={() => setAdding(true)}>
-                  {t('nurse.usage.add')}
-                </Button>
-              )}
-            </Stack>
-          </Card>
-          <Card withBorder padding="sm">
-            <VitalsForm key={`${s.vitals.weightBefore}-${s.vitals.weightAfter}`} session={s} canEdit={may(canVitals)} />
-          </Card>
-          <Card withBorder padding="sm">
-            <NotesList session={s} canEdit={may(canNotes)} />
-          </Card>
-        </>
+        <Tabs value={tab} onChange={setTab} aria-label={t('nurse.session.sections')} classNames={{ list: classes.tabList, tab: classes.tab }}>
+          <Tabs.List grow mb="sm">
+            <Tabs.Tab value="usage" mih={48} leftSection={<IconPill size={18} />} rightSection={count(s.usage.length)}>
+              {t('nurse.tabs.usage')}
+            </Tabs.Tab>
+            <Tabs.Tab value="vitals" mih={48} leftSection={<IconHeartRateMonitor size={18} />}>
+              {t('nurse.tabs.vitals')}
+            </Tabs.Tab>
+            <Tabs.Tab value="notes" mih={48} leftSection={<IconNote size={18} />} rightSection={count(s.notes.length)}>
+              {t('nurse.tabs.notes')}
+            </Tabs.Tab>
+          </Tabs.List>
+          <Tabs.Panel value="usage">
+            <Card padding="sm">
+              <Stack gap="sm">
+                <Title order={4}>{t('nurse.usage.title')}</Title>
+                <UsageList session={s} canEdit={may(canUsage)} />
+              </Stack>
+            </Card>
+          </Tabs.Panel>
+          <Tabs.Panel value="vitals">
+            <Card padding="sm">
+              <VitalsForm key={`${s.vitals.weightBefore}-${s.vitals.weightAfter}`} session={s} canEdit={may(canVitals)} />
+            </Card>
+          </Tabs.Panel>
+          <Tabs.Panel value="notes">
+            <Card padding="sm">
+              <Stack gap="sm">
+                <Title order={4}>{t('nurse.notes.title')}</Title>
+                <NotesList session={s} canEdit={may(canNotes)} />
+              </Stack>
+            </Card>
+          </Tabs.Panel>
+        </Tabs>
       )}
 
-      {s.status === 'active' && canRun && (
-        <Button size="xl" mih={64} color="danger" loading={action.isPending} onClick={() => (hasHeparin(s.usage) ? close() : setConfirmClose(true))}>
-          {t('nurse.session.close')}
-        </Button>
-      )}
       {s.status === 'completed' && canHistory && (
-        <Button mih={44} variant="default" onClick={() => setHistoryOpen(true)}>
+        <Button mih={44} variant="default" leftSection={<IconHistory size={18} />} onClick={() => setHistoryOpen(true)}>
           {t('nurse.session.history')}
         </Button>
       )}
 
-      <Modal opened={adding} onClose={() => setAdding(false)} title={t('nurse.usage.add')} fullScreen>
-        {adding && <UsagePicker sessionId={s.id} usage={s.usage} onDone={() => setAdding(false)} />}
-      </Modal>
+      {s.status === 'active' && canRun && (
+        <div className={classes.actionBar}>
+          <Button
+            fullWidth
+            size="lg"
+            mih={56}
+            color="danger"
+            leftSection={<IconCircleCheck size={20} />}
+            loading={action.isPending}
+            onClick={() => (hasHeparin(s.usage) ? close() : setConfirmClose(true))}
+          >
+            {t('nurse.session.close')}
+          </Button>
+        </div>
+      )}
+
       <Modal opened={confirmClose} onClose={() => setConfirmClose(false)} title={t('nurse.session.close')}>
         <Stack gap="md">
           <Text>{t('nurse.session.noHeparin')}</Text>
