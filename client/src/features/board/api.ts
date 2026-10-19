@@ -33,6 +33,8 @@ export interface BoardDto {
   didNotCome: BoardRow[];
   other: BoardRow[];
   emptyMachines: { id: string; label: string }[];
+  /** Sessions still active from an earlier day (never closed), oldest first. */
+  unclosed: BoardRow[];
 }
 
 export const BOARD_REFRESH_MS = 30_000;

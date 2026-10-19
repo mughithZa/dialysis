@@ -21,7 +21,12 @@ export interface BoardDto {
   /** postponed, cancelled, missed */
   other: BoardRow[];
   emptyMachines: { id: string; label: string }[];
+  /** Sessions still active from an earlier day (opened, never closed), oldest first, whatever date or block is shown. */
+  unclosed: BoardRow[];
 }
+
+/** How many unclosed sessions the board lists at most. */
+export const UNCLOSED_LIMIT = 50;
 
 const byLabel = (a: string, b: string) => a.localeCompare(b, undefined, { numeric: true });
 
@@ -56,7 +61,26 @@ export async function buildBoard(
   }
 
   const working = centre.workingDays.includes(weekdayOf(day));
-  const out: BoardDto = { date: day, working, blocks, shiftId: chosen, active: [], waiting: [], done: [], didNotCome: [], other: [], emptyMachines: [] };
+  const stale = await Session.find({ centreId, status: 'active', date: { $lt: todayLocal(now) } })
+    .sort({ date: 1, shiftStart: 1, _id: 1 })
+    .limit(UNCLOSED_LIMIT);
+  const unclosed = (await toSessionCards(centreId, stale)).map(({ card }) => ({
+    ...card,
+    mine: card.nurse?.id === viewerUserId || card.runBy?.id === viewerUserId,
+  }));
+  const out: BoardDto = {
+    date: day,
+    working,
+    blocks,
+    shiftId: chosen,
+    active: [],
+    waiting: [],
+    done: [],
+    didNotCome: [],
+    other: [],
+    emptyMachines: [],
+    unclosed,
+  };
   if (!working || chosen === null) return out;
 
   const [sessions, chairs] = await Promise.all([

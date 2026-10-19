@@ -4,6 +4,7 @@ import { AuditEntry } from '../audit/audit.model.js';
 import { Session } from '../sessions/session.model.js';
 import { markMissed } from '../notify/jobs.js';
 import { closeSession, postponeSession } from '../sessions/service.js';
+import { User } from '../auth/user.model.js';
 import { RosterEntry } from './roster.model.js';
 import { resolveRoster, nurseFor } from './roster.js';
 import { makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
@@ -188,5 +189,27 @@ describe('cards: roster fallback', () => {
     expect(cards.get(missed.id)!.nurse).toBeNull();
     expect(cards.get(upcoming.id)!.nurse).toEqual({ id: s.rana.user.id, name: s.rana.user.name });
     expect(cards.get(active.id)!.nurse).toEqual({ id: s.rana.user.id, name: s.rana.user.name });
+  });
+});
+
+describe('nurses no longer on staff', () => {
+  it('a deactivated nurse or one removed from the centre covers nothing; the entry is flagged inactive', async () => {
+    const { centre, chairs, shifts, base, desk, rana, ali, post } = await setup();
+    expect((await post({ nurseId: rana.user.id, from: d(0), to: d(30) })).status).toBe(201);
+    expect((await post({ nurseId: ali.user.id, from: d(0), to: d(0), chairIds: [chairs[0]!.id] })).status).toBe(201);
+    const key = `${shifts[0]!.id}:${chairs[0]!.id}`;
+    expect((await resolveRoster(centre.id, d(0))).get(key)).toBe(ali.user.id);
+
+    // ali leaves the centre: the wider entry (rana) covers the machine again
+    await User.updateOne({ _id: ali.user._id }, { $set: { memberships: [] } });
+    expect((await resolveRoster(centre.id, d(0))).get(key)).toBe(rana.user.id);
+
+    // rana is deactivated: nobody covers it
+    await User.updateOne({ _id: rana.user._id }, { $set: { active: false } });
+    expect((await resolveRoster(centre.id, d(0))).get(key)).toBeUndefined();
+    expect(await nurseFor(centre.id, d(3), shifts[0]!.id, chairs[1]!.id)).toBeNull();
+
+    const list = (await desk.agent.get(`${base}/roster`).query({ from: d(0), to: d(6) })).body as { nurse: { id: string; active: boolean } }[];
+    expect(list.map((e) => e.nurse.active)).toEqual([false, false]);
   });
 });

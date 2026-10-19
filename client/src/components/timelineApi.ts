@@ -19,6 +19,10 @@ export interface TimelineItem {
   nurse: { name: string } | null;
   medicines: { name: string; amount: number; unit: string }[];
   statusReason?: string;
+  /** A make-up: date of the session it replaces. */
+  makeupForDate?: string;
+  /** A postponed, did-not-come or missed session: date of the make-up that replaces it. */
+  madeUpOn?: string;
   /** Staff viewers only: the session belongs to the viewer's centre, so its page can be opened. */
   linkable?: boolean;
   /** The patient's own app, when the centre shares notes: the session's nurse notes. */

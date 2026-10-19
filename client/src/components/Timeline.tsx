@@ -51,6 +51,8 @@ function SessionRow({ item, source, actions }: { item: TimelineItem; source: Tim
           {!item.linkable && item.centreName ? ` · ${item.centreName}` : ''}
         </Text>
         {item.statusReason && <Text size="sm">{item.statusReason}</Text>}
+        {item.makeupForDate && <Text size="sm">{t('timeline.makeupFor', { date: formatDay(item.makeupForDate, i18n.language) })}</Text>}
+        {item.madeUpOn && <Text size="sm">{t('timeline.madeUpOn', { date: formatDay(item.madeUpOn, i18n.language) })}</Text>}
         {item.medicines.length > 0 && (
           <Text size="sm">{item.medicines.map((m) => t('timeline.medicine', { name: m.name, amount: m.amount, unit: m.unit })).join(', ')}</Text>
         )}

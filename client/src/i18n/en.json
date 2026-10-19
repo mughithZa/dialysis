@@ -78,7 +78,9 @@
     "same_slot": "That is the session's current slot. Choose a different one.",
     "move_in_past": "A session cannot be moved to a past date.",
     "not_yet": "That session is in the future, so it cannot be marked as did not come.",
-    "cannot_deactivate_self": "You cannot deactivate your own account."
+    "cannot_deactivate_self": "You cannot deactivate your own account.",
+    "not_missed": "Only a postponed, missed or did-not-come session can be made up.",
+    "already_made_up": "That session already has a make-up booked."
   },
   "nav": {
     "centres": "Centres",
@@ -556,7 +558,8 @@
       "delete": "Delete",
       "deleted": "Roster entry deleted.",
       "confirmTitle": "Delete roster entry",
-      "confirm": "Delete {{nurse}} from {{from}} to {{to}}?"
+      "confirm": "Delete {{nurse}} from {{from}} to {{to}}?",
+      "inactive": "No longer on staff"
     }
   },
   "doctor": {
@@ -713,7 +716,10 @@
     "closed": "Centre closed today",
     "summary": "Done {{done}} · Did not come {{didNotCome}} · Postponed or cancelled {{other}}",
     "empty": "Empty machines: {{machines}}",
-    "noneEmpty": "none"
+    "noneEmpty": "none",
+    "unclosed_one": "{{count}} session from an earlier day is still open",
+    "unclosed_other": "{{count}} sessions from earlier days are still open",
+    "unclosedHelp": "Open each one, check the record and close it."
   },
   "timeline": {
     "upcoming": "Upcoming",
@@ -732,6 +738,8 @@
     "sessionNotes": "Nurse notes",
     "orders": "Doctor's orders",
     "order": "{{text}} (from {{date}})",
-    "title": "Sessions"
+    "title": "Sessions",
+    "makeupFor": "Make-up for {{date}}",
+    "madeUpOn": "Made up on {{date}}"
   }
 }

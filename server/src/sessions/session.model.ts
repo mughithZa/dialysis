@@ -36,6 +36,8 @@ const sessionSchema = new Schema({
     ),
     default: undefined,
   },
+  /** For a make-up: the postponed, did-not-come or missed session it replaces. */
+  makeupFor: { type: Schema.Types.ObjectId, ref: 'Session' },
   runBy: { type: Schema.Types.ObjectId, ref: 'User' },
   rosterNurseId: { type: Schema.Types.ObjectId, ref: 'User' },
   statusReason: String,
@@ -80,11 +82,23 @@ const sessionSchema = new Schema({
   /** Bumped by every guarded write so a concurrent status change conflicts with it. */
   rev: { type: Number, default: 0 },
 });
-sessionSchema.index({ patientId: 1, date: 1, shiftId: 1 }, { unique: true });
+/** Name of the index that replaced the all-status `patientId_1_date_1_shiftId_1`; see `syncSessionIndexes`. */
+export const PATIENT_BLOCK_INDEX = 'patient_block_live';
+export const LEGACY_PATIENT_BLOCK_INDEX = 'patientId_1_date_1_shiftId_1';
+// one live session per patient, date and block: a cancelled or postponed one does not stop rebooking that block
+sessionSchema.index(
+  { patientId: 1, date: 1, shiftId: 1 },
+  { unique: true, name: PATIENT_BLOCK_INDEX, partialFilterExpression: { status: { $in: [...LIVE_STATUSES] } } },
+);
 // hard double-booking guard: one live session per chair, shift and date
 sessionSchema.index(
   { chairId: 1, shiftId: 1, date: 1 },
   { unique: true, partialFilterExpression: { status: { $in: [...LIVE_STATUSES] } } },
+);
+// a missed session is made up at most once (a cancelled make-up frees it for another)
+sessionSchema.index(
+  { makeupFor: 1 },
+  { unique: true, partialFilterExpression: { makeupFor: { $exists: true }, status: { $in: [...LIVE_STATUSES] } } },
 );
 sessionSchema.index({ centreId: 1, date: 1 });
 sessionSchema.index({ status: 1, date: 1 });
@@ -93,3 +107,13 @@ export type SessionData = InferSchemaType<typeof sessionSchema>;
 export type SessionDoc = HydratedDocument<InferSchemaType<typeof sessionSchema>>;
 // explicit collection name: the default `sessions` is the express-session (connect-mongo) store's collection
 export const Session = model('Session', sessionSchema, 'treatment_sessions');
+
+/**
+ * Builds the session indexes, then drops the legacy all-status patient/date/block index that the live-only
+ * `PATIENT_BLOCK_INDEX` replaced (in that order, so the patient is never left unguarded). Run at startup.
+ */
+export async function syncSessionIndexes(): Promise<void> {
+  await Session.createIndexes();
+  const names = (await Session.collection.indexes()).map((i) => i.name);
+  if (names.includes(LEGACY_PATIENT_BLOCK_INDEX)) await Session.collection.dropIndex(LEGACY_PATIENT_BLOCK_INDEX);
+}

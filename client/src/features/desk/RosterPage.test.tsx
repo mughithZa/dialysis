@@ -98,8 +98,8 @@ describe('RosterPage', () => {
     useCentreUser(['schedule.view', 'schedule.assignNurses']);
     const deleted: string[] = [];
     mock([
-      { id: 'e1', nurse: { id: 'n1', name: 'Sara' }, shiftId: 'b1', from: '2026-11-02', to: '2026-11-08', chairs: [] },
-      { id: 'e2', nurse: { id: 'n1', name: 'Sara' }, shiftId: 'b2', from: '2026-11-02', to: '2026-11-02', chairs: [{ id: 'm2', label: 'M2' }] },
+      { id: 'e1', nurse: { id: 'n1', name: 'Sara', active: true }, shiftId: 'b1', from: '2026-11-02', to: '2026-11-08', chairs: [] },
+      { id: 'e2', nurse: { id: 'n1', name: 'Sara', active: true }, shiftId: 'b2', from: '2026-11-02', to: '2026-11-02', chairs: [{ id: 'm2', label: 'M2' }] },
     ]);
     server.use(
       http.delete('*/api/centres/c1/roster/:id', ({ params }) => {
@@ -120,9 +120,16 @@ describe('RosterPage', () => {
     await waitFor(() => expect(deleted).toEqual(['e1']));
   });
 
+  it('flags an entry whose nurse is no longer on staff', async () => {
+    useCentreUser(['schedule.view']);
+    mock([{ id: 'e1', nurse: { id: 'n1', name: 'Sara', active: false }, shiftId: 'b1', from: '2026-11-02', to: '2026-11-08', chairs: [] }]);
+    renderApp(<RosterPage />);
+    expect(await screen.findByText('No longer on staff')).toBeInTheDocument();
+  });
+
   it('is read-only without schedule.assignNurses', async () => {
     useCentreUser(['schedule.view']);
-    mock([{ id: 'e1', nurse: { id: 'n1', name: 'Sara' }, shiftId: 'b1', from: '2026-11-02', to: '2026-11-08', chairs: [] }]);
+    mock([{ id: 'e1', nurse: { id: 'n1', name: 'Sara', active: true }, shiftId: 'b1', from: '2026-11-02', to: '2026-11-08', chairs: [] }]);
     renderApp(<RosterPage />);
     await screen.findByText('Sara');
     expect(screen.queryByRole('button', { name: 'Assign nurse' })).toBeNull();

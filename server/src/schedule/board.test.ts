@@ -113,3 +113,19 @@ describe('GET /board', () => {
     expect((await rana.agent.get(`${base}?date=nope`)).status).toBe(400);
   });
 });
+
+describe('unclosed sessions', () => {
+  it('lists sessions still active from earlier days, oldest first, whatever block is shown', async () => {
+    const { c, rana, sess } = await setup();
+    const id = rana.user.id as string;
+    const old = await sess(0, 'active', { date: '2026-10-17' });
+    const older = await sess(1, 'active', { date: '2026-10-15' }, 1);
+    await sess(2, 'active'); // today: on the board itself, not unclosed
+    await sess(3, 'completed', { date: '2026-10-17' });
+    const board = await buildBoard(c, id, { now: at(MON, '08:00') });
+    expect(board.unclosed.map((r) => r.id)).toEqual([older.id, old.id]);
+    expect(board.active).toHaveLength(1);
+    // also on a closed day
+    expect((await buildBoard(c, id, { date: FRI, now: at(MON, '08:00') })).unclosed).toHaveLength(2);
+  });
+});

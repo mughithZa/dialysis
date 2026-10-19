@@ -48,9 +48,9 @@ describe('Timeline', () => {
           item('p1', '2026-10-01', { status: 'completed', medicines: [{ name: 'Heparin', amount: 5, unit: 'cc' }], nurse: { name: 'Rana' } }),
           item('p2', '2026-09-30', { status: 'did_not_come' }),
           item('p3', '2026-09-29', { status: 'cancelled', statusReason: 'Hospital admission' }),
-          item('p4', '2026-09-28', { status: 'postponed' }),
+          item('p4', '2026-09-28', { status: 'postponed', madeUpOn: '2026-09-26' }),
           item('p5', '2026-09-27', { status: 'missed' }),
-          item('p6', '2026-09-26', { status: 'completed', kind: 'makeup', detached: true, oneOff: true }),
+          item('p6', '2026-09-26', { status: 'completed', kind: 'makeup', detached: true, oneOff: true, makeupForDate: '2026-09-28' }),
         ],
       }),
     );
@@ -78,6 +78,8 @@ describe('Timeline', () => {
     expect(within(screen.getByTestId('timeline-row-p5')).getByText('Missed')).toBeVisible();
     const marked = within(screen.getByTestId('timeline-row-p6'));
     expect(marked.getByText('Make-up')).toBeVisible();
+    expect(marked.getByText(/^Make-up for /)).toBeVisible();
+    expect(within(screen.getByTestId('timeline-row-p4')).getByText(/^Made up on /)).toBeVisible();
     expect(marked.getByText('Moved')).toBeVisible();
     expect(marked.getByText('One-off')).toBeVisible();
   });

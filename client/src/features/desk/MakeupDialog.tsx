@@ -6,8 +6,11 @@ import { errorMessage } from '../../i18n/errors';
 import { useMakeup, useSetup } from './api';
 import { addDaysLocal, MAKEUP_WINDOW_DAYS, todayLocal } from './dates';
 
-/** Book a one-off make-up session. Mount with a `key` so each open starts fresh. */
-export function MakeupDialog({ patientId, onDone }: { patientId: string; onDone: () => void }) {
+/**
+ * Book a one-off make-up session, linked to the session it replaces when `forSessionId` is given.
+ * Mount with a `key` so each open starts fresh.
+ */
+export function MakeupDialog({ patientId, forSessionId, onDone }: { patientId: string; forSessionId?: string; onDone: () => void }) {
   const { t } = useTranslation();
   const setup = useSetup();
   const makeup = useMakeup();
@@ -24,7 +27,7 @@ export function MakeupDialog({ patientId, onDone }: { patientId: string; onDone:
         e.preventDefault();
         if (!valid) return;
         makeup.mutate(
-          { patientId, date, chairId, shiftId },
+          { patientId, date, chairId, shiftId, ...(forSessionId ? { forSessionId } : {}) },
           {
             onSuccess: () => {
               notifications.show({ message: t('desk.makeup.booked') });
