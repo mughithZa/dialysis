@@ -47,7 +47,7 @@ describe('BookDialog', () => {
       }),
     );
     const onDone = vi.fn();
-    renderApp(<BookDialog initial={{ patientId: 'p1', date: '2026-10-19' }} onDone={onDone} />);
+    renderApp(<BookDialog initial={{ patientId: 'p1', date: '2027-10-18' }} onDone={onDone} />);
 
     const row1 = await screen.findByRole('group', { name: 'Day 1' });
     await choose(row1, 'Weekday', 'Mon');
@@ -57,14 +57,14 @@ describe('BookDialog', () => {
     expect(await screen.findByRole('option', { name: 'Machine 4' })).toBeTruthy();
     expect(screen.queryByRole('option', { name: 'Machine 6' })).toBeNull();
     await userEvent.click(screen.getByRole('option', { name: 'Machine 3' }));
-    expect(freeCalls).toContain('date=2026-10-19&shiftId=s2&patientId=p1');
+    expect(freeCalls).toContain('date=2027-10-18&shiftId=s2&patientId=p1');
 
     await userEvent.click(screen.getByRole('button', { name: 'Add day' }));
     const row2 = await screen.findByRole('group', { name: 'Day 2' });
     await choose(row2, 'Weekday', 'Wed');
     await choose(row2, 'Block', 'Morning');
     await choose(row2, 'Machine', 'Machine 6');
-    expect(freeCalls).toContain('date=2026-10-21&shiftId=s1&patientId=p1');
+    expect(freeCalls).toContain('date=2027-10-20&shiftId=s1&patientId=p1');
 
     await userEvent.click(screen.getByText('Every week, same days and times'));
     await userEvent.click(screen.getByRole('button', { name: 'Book' }));
@@ -74,7 +74,7 @@ describe('BookDialog', () => {
         { weekday: 1, shiftId: 's2', chairId: 'm3' },
         { weekday: 3, shiftId: 's1', chairId: 'm6' },
       ],
-      from: '2026-10-19',
+      from: '2027-10-18',
       repeat: 'weekly',
       to: null,
     });
@@ -83,7 +83,7 @@ describe('BookDialog', () => {
   it('refuses two rows on the same weekday and block', async () => {
     useCentreUser(['schedule.view', 'schedule.book', 'patients.view']);
     useFree(() => [{ id: 'm1', label: '1' }]);
-    renderApp(<BookDialog initial={{ patientId: 'p1', date: '2026-10-19', items: [{ weekday: 1, shiftId: 's1', chairId: 'm1' }] }} onDone={() => {}} />);
+    renderApp(<BookDialog initial={{ patientId: 'p1', date: '2027-10-18', items: [{ weekday: 1, shiftId: 's1', chairId: 'm1' }] }} onDone={() => {}} />);
     await userEvent.click(await screen.findByRole('button', { name: 'Add day' }));
     const row2 = await screen.findByRole('group', { name: 'Day 2' });
     await choose(row2, 'Weekday', 'Mon');
@@ -103,7 +103,7 @@ describe('BookDialog', () => {
         return HttpResponse.json({ error: 'slot_taken' }, { status: 409 });
       }),
     );
-    renderApp(<BookDialog initial={{ patientId: 'p1', date: '2026-10-19', items: [{ weekday: 1, shiftId: 's1', chairId: 'm1' }] }} onDone={() => {}} />);
+    renderApp(<BookDialog initial={{ patientId: 'p1', date: '2027-10-18', items: [{ weekday: 1, shiftId: 's1', chairId: 'm1' }] }} onDone={() => {}} />);
     const row = await screen.findByRole('group', { name: 'Day 1' });
     await waitFor(() => expect(within(row).getByLabelText('Machine')).toHaveValue('Machine 1'));
     await userEvent.click(screen.getByRole('button', { name: 'Book' }));
@@ -124,14 +124,14 @@ describe('BookDialog', () => {
     );
     const onDone = vi.fn();
     renderApp(
-      <BookDialog mode="change" initial={{ patientId: 'p1', date: '2026-10-26', items: [{ weekday: 1, shiftId: 's1', chairId: 'm1' }] }} onDone={onDone} />,
+      <BookDialog mode="change" initial={{ patientId: 'p1', date: '2027-10-25', items: [{ weekday: 1, shiftId: 's1', chairId: 'm1' }] }} onDone={onDone} />,
     );
     const row = await screen.findByRole('group', { name: 'Day 1' });
     await waitFor(() => expect(within(row).getByLabelText('Machine')).toHaveValue('Machine 1'));
     await choose(row, 'Machine', 'Machine 2');
     await userEvent.click(screen.getByRole('button', { name: 'Change plan' }));
     await waitFor(() => expect(onDone).toHaveBeenCalled());
-    expect(body).toEqual({ items: [{ weekday: 1, shiftId: 's1', chairId: 'm2' }], from: '2026-10-26', to: null });
+    expect(body).toEqual({ items: [{ weekday: 1, shiftId: 's1', chairId: 'm2' }], from: '2027-10-25', to: null });
     expect(freeCalls.some((c) => c.includes('patientId=p1'))).toBe(true);
   });
 });

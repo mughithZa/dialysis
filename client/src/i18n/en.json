@@ -343,7 +343,9 @@
       "saved": "Patient saved.",
       "editTitle": "Edit patient",
       "next": "Next: {{day}} · {{time}}",
-      "noNext": "No upcoming session"
+      "noNext": "No upcoming session",
+      "count_one": "{{count}} patient",
+      "count_other": "{{count}} patients"
     },
     "form": {
       "name": "Full name",
@@ -364,14 +366,12 @@
     "patient": {
       "back": "All patients",
       "notFound": "Patient not found.",
-      "record": "Record",
       "pattern": "Current schedule",
       "noPattern": "No schedule yet.",
       "orders": "Doctor orders",
       "noOrders": "No orders.",
-      "actions": "Actions",
       "bookPattern": "Book schedule",
-      "postpone": "Postpone session",
+      "postpone": "Postpone",
       "makeup": "Make-up session",
       "changePlan": "Change weekly plan",
       "move": "Move",
@@ -387,7 +387,15 @@
       "newPassword": "New password (min. 8 characters)",
       "discharged": "Discharged on {{date}}: {{reason}}",
       "ordersFrom": "from {{date}}",
-      "moreActions": "More actions"
+      "moreActions": "More actions",
+      "tabs": {
+        "sessions": "Sessions",
+        "orders": "Orders",
+        "record": "Record",
+        "schedule": "Schedule"
+      },
+      "rowMenu": "Actions for {{day}}",
+      "notRecorded": "Not recorded"
     },
     "dischargeReason": {
       "transplant": "Transplant",
@@ -419,7 +427,12 @@
       "name": "Name",
       "starts": "Starts",
       "ends": "Ends",
-      "defaultBlockName": "Session {{n}}"
+      "defaultBlockName": "Session {{n}}",
+      "subtitle": "Machines, session blocks and working days of this centre.",
+      "machinesHint": "How many dialysis machines the centre runs.",
+      "blocksHint": "Propose evenly spaced blocks from the day's hours, then adjust names and times.",
+      "daysHint": "Days the centre is open.",
+      "labelsHint": "Labels shown on the schedule and the Today board."
     },
     "calendar": {
       "title": "Schedule",
@@ -428,14 +441,21 @@
       "today": "Today",
       "dayOff": "Day off",
       "noNurse": "No nurse",
-      "nurses": "Nurses",
       "machine": "Machine {{label}}",
-      "empty": "Empty",
-      "held": "Reserved for {{name}}",
-      "emptyCell": "Empty: machine {{label}}, {{block}}, {{date}}",
-      "bookedCell": "{{name}}, {{status}}",
+      "emptyCell": "Book machine {{label}}, {{block}}, {{date}}",
+      "bookedCell": "Machine {{label}}, {{block}}, {{date}}: {{name}}, {{status}}",
       "noBlocks": "No session blocks set up yet.",
-      "setupFirst": "Set up the schedule first."
+      "legend": {
+        "booked": "Booked",
+        "active": "Active",
+        "completed": "Done",
+        "did_not_come": "Did not come",
+        "postponed": "Postponed or cancelled",
+        "free": "Free"
+      },
+      "freeCell": "Machine {{label}}, {{block}}, {{date}}: free",
+      "range": "{{from}} to {{to}}",
+      "thisWeek": "This week"
     },
     "schedule": {
       "title": "Schedule",
@@ -501,10 +521,9 @@
     },
     "postpone": {
       "title": "Postpone session",
-      "date": "Session date",
-      "none": "No session to postpone on that date.",
       "postpone": "Postpone",
-      "done": "Session postponed. You can now book a make-up."
+      "done": "Session postponed. You can now book a make-up.",
+      "confirmText": "Postpone the session on {{day}}, {{block}} ({{time}})?"
     },
     "discharge": {
       "title": "Discharge patient",
@@ -579,7 +598,9 @@
       "deleted": "Roster entry deleted.",
       "confirmTitle": "Delete roster entry",
       "confirm": "Delete {{nurse}} from {{from}} to {{to}}?",
-      "inactive": "No longer on staff"
+      "inactive": "No longer on staff",
+      "back": "Back to schedule",
+      "formTitle": "Assign a nurse"
     }
   },
   "doctor": {

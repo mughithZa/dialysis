@@ -6,16 +6,7 @@ import { useAuth, useCentre } from '../auth/AuthProvider';
 import { setLanguage } from '../i18n';
 import { formatList } from '../i18n/format';
 import { roleLabel } from '../i18n/roleLabel';
-
-/** Up to two initials from a name, e.g. "Nurse 1A" -> "N1", "ياسمين حداد" -> "يح". */
-export function initials(name: string): string {
-  const words = name.trim().split(/\s+/).filter(Boolean);
-  return words
-    .slice(0, 2)
-    .map((w) => [...w][0] ?? '')
-    .join('')
-    .toUpperCase();
-}
+import { initials } from '../components/PersonAvatar';
 
 /** The user's roles in the current centre plus any global ones, translated where built in. */
 function useRoleLine(me: MeDto | null, centreId: string | null): string {

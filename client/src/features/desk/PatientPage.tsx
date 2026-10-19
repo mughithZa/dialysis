@@ -1,26 +1,34 @@
-import { useState } from 'react';
+import { Fragment, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
-import { Alert, Anchor, Badge, Button, Card, Group, Loader, Menu, Modal, PasswordInput, Select, Stack, Text, Textarea, TextInput, Title } from '@mantine/core';
-import { IconBuildingHospital, IconCalendarOff } from '@tabler/icons-react';
-import { EmptyState } from '../../components/EmptyState';
+import { ActionIcon, Alert, Anchor, Button, Card, Group, Loader, Menu, Modal, PasswordInput, Select, Stack, Tabs, Text, Textarea, Title } from '@mantine/core';
+import {
+  IconArrowsExchange,
+  IconBuildingHospital,
+  IconCalendarCog,
+  IconCalendarOff,
+  IconCalendarPlus,
+  IconCalendarRepeat,
+  IconChevronLeft,
+  IconDots,
+  IconKey,
+  IconPencil,
+  IconPhone,
+  IconUserOff,
+  type Icon,
+} from '@tabler/icons-react';
 import { notifications } from '@mantine/notifications';
+import { EmptyState } from '../../components/EmptyState';
+import { PersonAvatar } from '../../components/PersonAvatar';
+import { PatientStatusBadge } from '../../components/StatusBadge';
 import { Timeline } from '../../components/Timeline';
-import { useTimeline, type TimelineItem } from '../../components/timelineApi';
+import { formatDay, type TimelineItem } from '../../components/timelineApi';
+import { useAuth } from '../../auth/AuthProvider';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
 import { useCentreId } from '../centre/api';
 import { OrdersPanel } from '../doctor/OrdersPanel';
-import {
-  usePatient,
-  usePlan,
-  usePostpone,
-  useResetPatientPassword,
-  useSendTransfer,
-  useSetup,
-  useTransferTargets,
-  type PatientDto,
-} from './api';
+import { usePatient, usePlan, usePostpone, useResetPatientPassword, useSendTransfer, useSetup, useTransferTargets, type PatientDto, type PlanDto, type SetupDto } from './api';
 import { BookDialog } from './BookDialog';
 import { CancelDialog, DidNotComeDialog } from './CancelDialog';
 import { todayLocal } from './dates';
@@ -28,45 +36,33 @@ import { WEEKDAY_ORDER } from './weekdays';
 import { DischargeDialog } from './DischargeDialog';
 import { MakeupDialog } from './MakeupDialog';
 import { MoveDialog } from './MoveDialog';
-import { formatDate } from '../../i18n/format';
+import { formatDate, timeRange } from '../../i18n/format';
 import { PatientForm } from './PatientForm';
+import calendarClasses from './CalendarPage.module.css';
+import classes from './PatientPage.module.css';
 
-function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: (sessionId: string) => void }) {
-  const { t } = useTranslation();
-  const [date, setDate] = useState(todayLocal());
-  const centreId = useCentreId();
-  const timeline = useTimeline({ kind: 'staff', centreId, patientId });
+/** Postpone one session (from its row menu); a make-up for it can follow. */
+function PostponeDialog({ row, onDone }: { row: TimelineItem; onDone: () => void }) {
+  const { t, i18n } = useTranslation();
   const postpone = usePostpone();
-  const rows = timeline.data ? [...timeline.data.upcoming, ...timeline.data.today, ...timeline.data.past] : [];
-  const mine = rows.filter((s) => s.date === date && (s.status === 'scheduled' || s.status === 'missed'));
   return (
     <Stack gap="sm">
-      <TextInput label={t('desk.postpone.date')} type="date" value={date} onChange={(e) => setDate(e.currentTarget.value)} />
-      {timeline.isPending && <Loader size="sm" />}
-      {timeline.isError && <Alert color="danger">{errorMessage(t, timeline.error)}</Alert>}
-      {timeline.data && mine.length === 0 && <EmptyState compact icon={IconCalendarOff} title={t('desk.postpone.none')} />}
-      {mine.map((s) => (
-        <Group key={s.id} justify="space-between" wrap="nowrap">
-          <Text>
-            {s.block} · {s.chairLabel}
-          </Text>
-          <Button
-            mih={44}
-            loading={postpone.isPending && postpone.variables === s.id}
-            onClick={() =>
-              postpone.mutate(s.id, {
-                onSuccess: () => {
-                  notifications.show({ message: t('desk.postpone.done') });
-                  onDone(s.id);
-                },
-              })
-            }
-          >
-            {t('desk.postpone.postpone')}
-          </Button>
-        </Group>
-      ))}
+      <Text>{t('desk.postpone.confirmText', { day: formatDay(row.date, i18n.language), block: row.block, time: timeRange(row.start, row.end) })}</Text>
       {postpone.isError && <Alert color="danger">{errorMessage(t, postpone.error)}</Alert>}
+      <Button
+        mih={44}
+        loading={postpone.isPending}
+        onClick={() =>
+          postpone.mutate(row.id, {
+            onSuccess: () => {
+              notifications.show({ message: t('desk.postpone.done') });
+              onDone();
+            },
+          })
+        }
+      >
+        {t('desk.postpone.postpone')}
+      </Button>
     </Stack>
   );
 }
@@ -139,27 +135,119 @@ function ResetPasswordDialog({ userId, onDone }: { userId: string; onDone: () =>
   );
 }
 
-function Field({ label, value }: { label: string; value: string | null }) {
-  if (!value) return null;
+/** The patient record as label / value pairs; empty fields show a dash so the layout stays the same for everyone. */
+function RecordList({ patient }: { patient: PatientDto }) {
+  const { t } = useTranslation();
+  const rows: [string, string | null, boolean?][] = [
+    [t('desk.form.phone'), patient.phone, true],
+    [t('desk.form.emergencyName'), patient.emergencyContact.name],
+    [t('desk.form.emergencyPhone'), patient.emergencyContact.phone, true],
+    [t('desk.form.emergencyRelation'), patient.emergencyContact.relation],
+    [t('desk.form.kidneyFailureCause'), patient.kidneyFailureCause],
+    [t('desk.form.address'), patient.address],
+    [t('desk.form.socialSituation'), patient.socialSituation],
+    [t('desk.form.financialSituation'), patient.financialSituation],
+    [t('desk.form.otherDiseases'), patient.otherDiseases],
+    [t('desk.form.notes'), patient.notes],
+  ];
   return (
-    <Stack gap={0}>
-      <Text size="xs" c="dimmed">
-        {label}
+    <Card padding="md">
+      <dl className={classes.record}>
+        {rows.map(([label, value, phone]) => (
+          <div key={label} className={classes.recordRow}>
+            <dt>{label}</dt>
+            <dd>
+              {value ? (
+                <span dir={phone ? 'ltr' : 'auto'} style={{ unicodeBidi: 'isolate' }}>
+                  {value}
+                </span>
+              ) : (
+                <Text span c="dimmed" aria-label={t('desk.patient.notRecorded')}>
+                  —
+                </Text>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </Card>
+  );
+}
+
+/** The weekly plan as a small weekday (rows) x block (columns) picture (machine label in each booked slot) plus the same as text lines. */
+function WeeklyPlan({ plan, setup }: { plan: PlanDto; setup: SetupDto | undefined }) {
+  const { t } = useTranslation();
+  const blocks = setup?.blocks ?? [];
+  const blockName = (id: string) => blocks.find((b) => b.id === id)?.name ?? '';
+  const machineLabel = (id: string) => setup?.machines.find((m) => m.id === id)?.label ?? '';
+  const items = WEEKDAY_ORDER.flatMap((d) => plan.items.filter((i) => i.weekday === d));
+  const working = new Set(setup?.workingDays ?? WEEKDAY_ORDER);
+  return (
+    <Stack gap="sm">
+      {blocks.length > 0 && (
+        <table className={classes.plan} aria-hidden>
+          <thead>
+            <tr>
+              <td className={classes.planCorner} />
+              {blocks.map((b) => (
+                <th key={b.id} scope="col">
+                  {b.name}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {WEEKDAY_ORDER.map((d) => (
+              <tr key={d}>
+                <th scope="row">{t(`desk.weekdays.${d}`)}</th>
+                {blocks.map((b) => {
+                  const item = plan.items.find((i) => i.weekday === d && i.shiftId === b.id);
+                  return (
+                    <td key={b.id}>
+                      {item ? (
+                        <span className={classes.planSlot} data-plan-slot>
+                          {t('desk.calendar.machine', { label: machineLabel(item.chairId) })}
+                        </span>
+                      ) : (
+                        <span className={`${classes.planEmpty} ${working.has(d) ? '' : classes.planOff}`} />
+                      )}
+                    </td>
+                  );
+                })}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
+      <Stack gap={2}>
+        {items.map((i) => (
+          <Text key={`${i.weekday}:${i.shiftId}`} size="sm">
+            {t('desk.patient.planLine', { day: t(`desk.weekdays.${i.weekday}`), block: blockName(i.shiftId), chair: machineLabel(i.chairId) })}
+          </Text>
+        ))}
+      </Stack>
+      <Text c="dimmed" size="sm">
+        {t('desk.patient.planFrom', { date: formatDate(plan.from) })}
+        {plan.to ? `${t('common.listSeparator')}${t('desk.patient.planUntil', { date: formatDate(plan.to) })}` : ''}
       </Text>
-      <Text>{value}</Text>
     </Stack>
   );
 }
 
 type Dialog = 'edit' | 'book' | 'changePlan' | 'postpone' | 'makeup' | 'discharge' | 'transfer' | 'reset' | 'move' | 'cancel' | 'dnc';
+type PageAction = { key: Dialog; label: string; icon: Icon; danger?: boolean; disabled?: boolean };
 
 function PatientDetails({ patient }: { patient: PatientDto }) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const centreId = useCentreId();
+  const { me } = useAuth();
+  const centreName = me?.centres.find((c) => c.id === centreId)?.name;
   const canView = useCan('schedule.view');
   const plan = usePlan(patient.id, canView);
   const setup = useSetup();
   const canHistory = useCan('sessions.view');
+  const canOrders = useCan('orders.view');
+  const canWriteOrders = useCan('orders.write');
   const can = {
     edit: useCan('patients.edit'),
     book: useCan('schedule.book'),
@@ -182,39 +270,53 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
   const active = patient.status === 'active';
   const current = plan.data ?? null;
   const hasPattern = current !== null;
-  const blockName = (id: string) => setup.data?.blocks.find((b) => b.id === id)?.name ?? '';
-  const machineLabel = (id: string) => setup.data?.machines.find((m) => m.id === id)?.label ?? '';
-  const planItems = WEEKDAY_ORDER.flatMap((d) => (current?.items ?? []).filter((i) => i.weekday === d));
+  const planReady = plan.isSuccess && !!setup.data;
+
+  // One actions area: the first action allowed is the primary button, the rest go in "More actions".
+  const pageActions = (
+    [
+      active && can.book && !hasPattern && { key: 'book', label: t('desk.patient.bookPattern'), icon: IconCalendarPlus, disabled: !planReady },
+      active && can.makeup && { key: 'makeup', label: t('desk.patient.makeup'), icon: IconCalendarRepeat },
+      active && can.book && hasPattern && { key: 'changePlan', label: t('desk.patient.changePlan'), icon: IconCalendarCog, disabled: !planReady },
+      can.edit && { key: 'edit', label: t('common.edit'), icon: IconPencil },
+      active && can.transfer && { key: 'transfer', label: t('desk.patient.transfer'), icon: IconArrowsExchange },
+      can.reset && { key: 'reset', label: t('desk.patient.resetPassword'), icon: IconKey },
+      active && can.discharge && { key: 'discharge', label: t('desk.patient.discharge'), icon: IconUserOff, danger: true },
+    ] as (PageAction | false)[]
+  ).filter((a): a is PageAction => !!a);
+  const [primary, ...more] = pageActions;
+  const open = (a: PageAction) => {
+    if (a.key === 'makeup') setMakeupFor(undefined);
+    setDialog(a.key);
+  };
 
   const today = todayLocal();
-  const canActOnSessions = active && (can.book || can.postpone);
-  /** The front desk's per-session actions, shown on the rows of this centre that can still be acted on. */
-  const rowActions = (r: TimelineItem) => {
-    if (!canActOnSessions || r.centreId !== centreId) return null;
+  /** The front desk's per-session menu, on the rows of this centre that can still be acted on. */
+  const rowActions = (r: TimelineItem): ReactNode => {
+    if (!active || r.centreId !== centreId) return null;
     if (!(r.status === 'scheduled' || (r.status === 'missed' && r.date <= today))) return null;
     const future = r.date >= today;
-    const move = can.book && future && r.status === 'scheduled';
-    const cancel = can.postpone && future && r.status === 'scheduled';
-    const dnc = can.postpone && r.date <= today;
-    if (!move && !cancel && !dnc) return null;
+    const items: { key: Dialog; label: string; danger?: boolean }[] = [];
+    if (can.book && future && r.status === 'scheduled') items.push({ key: 'move', label: t('desk.patient.move') });
+    if (can.postpone) items.push({ key: 'postpone', label: t('desk.patient.postpone') });
+    if (can.postpone && r.date <= today) items.push({ key: 'dnc', label: t('desk.patient.didNotCome') });
+    if (can.postpone && future && r.status === 'scheduled') items.push({ key: 'cancel', label: t('desk.patient.cancel'), danger: true });
+    if (items.length === 0) return null;
     return (
-      <>
-        {move && (
-          <Button mih={44} variant="default" onClick={() => act('move', r)}>
-            {t('desk.patient.move')}
-          </Button>
-        )}
-        {cancel && (
-          <Button mih={44} variant="default" onClick={() => act('cancel', r)}>
-            {t('desk.patient.cancel')}
-          </Button>
-        )}
-        {dnc && (
-          <Button mih={44} variant="default" onClick={() => act('dnc', r)}>
-            {t('desk.patient.didNotCome')}
-          </Button>
-        )}
-      </>
+      <Menu position="bottom-end">
+        <Menu.Target>
+          <ActionIcon variant="subtle" size={44} aria-label={t('desk.patient.rowMenu', { day: formatDay(r.date, i18n.language) })}>
+            <IconDots size={20} aria-hidden />
+          </ActionIcon>
+        </Menu.Target>
+        <Menu.Dropdown>
+          {items.map((i) => (
+            <Menu.Item key={i.key} mih={44} color={i.danger ? 'danger' : undefined} onClick={() => act(i.key, r)}>
+              {i.label}
+            </Menu.Item>
+          ))}
+        </Menu.Dropdown>
+      </Menu>
     );
   };
 
@@ -232,127 +334,129 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
     reset: t('desk.patient.resetPassword'),
   };
 
+  // Tabs by permission. Doctors (who write orders) land on Orders; a doctors' trends tab will sit next to it.
+  const tabs = [
+    canHistory && { value: 'sessions', label: t('desk.patient.tabs.sessions') },
+    canOrders && { value: 'orders', label: t('desk.patient.tabs.orders') },
+    { value: 'record', label: t('desk.patient.tabs.record') },
+    canView && { value: 'schedule', label: t('desk.patient.tabs.schedule') },
+  ].filter((x): x is { value: string; label: string } => !!x);
+  const [tab, setTab] = useState<string | null>(null);
+  const currentTab = tab ?? (canWriteOrders && canOrders ? 'orders' : tabs[0]!.value);
+
   return (
     <Stack gap="md">
-      <Group justify="space-between" wrap="nowrap" align="flex-start">
-        <Title order={2}>{patient.name}</Title>
-        <Badge variant="light" color={patient.status === 'transferring' ? 'warning' : 'neutral'}>
-          {t(`desk.patients.status.${patient.status}`)}
-        </Badge>
-      </Group>
+      <Card padding="md">
+        <Stack gap="md">
+          <Group wrap="nowrap" align="flex-start" gap="md">
+            <PersonAvatar name={patient.name} size={56} fz={20} />
+            <Stack gap={4} style={{ flex: 1, minWidth: 0 }}>
+              <Group gap="xs" align="center" wrap="wrap">
+                <Title order={2} style={{ overflowWrap: 'anywhere' }}>
+                  {patient.name}
+                </Title>
+                <PatientStatusBadge status={patient.status} />
+              </Group>
+              {patient.phone && (
+                <Group gap={6} wrap="nowrap" c="dimmed">
+                  <IconPhone size={16} aria-hidden style={{ flexShrink: 0 }} />
+                  <Text size="sm" span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                    {patient.phone}
+                  </Text>
+                </Group>
+              )}
+              {centreName && (
+                <Group gap={6} wrap="nowrap" c="dimmed">
+                  <IconBuildingHospital size={16} aria-hidden style={{ flexShrink: 0 }} />
+                  <Text size="sm" truncate>
+                    {centreName}
+                  </Text>
+                </Group>
+              )}
+            </Stack>
+          </Group>
+          {primary && (
+            <Group gap="xs" wrap="nowrap">
+              <Button
+                mih={44}
+                style={{ flex: 1 }}
+                leftSection={<primary.icon size={18} aria-hidden />}
+                disabled={primary.disabled}
+                onClick={() => open(primary)}
+              >
+                {primary.label}
+              </Button>
+              {more.length > 0 && (
+                <Menu position="bottom-end">
+                  <Menu.Target>
+                    <Button mih={44} variant="default" leftSection={<IconDots size={18} aria-hidden />}>
+                      {t('desk.patient.moreActions')}
+                    </Button>
+                  </Menu.Target>
+                  <Menu.Dropdown>
+                    {more.map((a, i) => (
+                      <Fragment key={a.key}>
+                        {a.danger && i > 0 && <Menu.Divider />}
+                        <Menu.Item
+                          mih={44}
+                          color={a.danger ? 'danger' : undefined}
+                          leftSection={<a.icon size={18} aria-hidden />}
+                          disabled={a.disabled}
+                          onClick={() => open(a)}
+                        >
+                          {a.label}
+                        </Menu.Item>
+                      </Fragment>
+                    ))}
+                  </Menu.Dropdown>
+                </Menu>
+              )}
+            </Group>
+          )}
+        </Stack>
+      </Card>
+
       {patient.discharge && (
         <Alert color="warning">
           {t('desk.patient.discharged', { date: formatDate(patient.discharge.date), reason: t(`desk.dischargeReason.${patient.discharge.reason}`) })}
         </Alert>
       )}
 
-      <Card withBorder padding="sm">
-        <Stack gap="xs">
-          <Text fw={600}>{t('desk.patient.record')}</Text>
-          <Field label={t('desk.form.phone')} value={patient.phone} />
-          <Field label={t('desk.form.emergencyName')} value={patient.emergencyContact.name} />
-          <Field label={t('desk.form.emergencyPhone')} value={patient.emergencyContact.phone} />
-          <Field label={t('desk.form.emergencyRelation')} value={patient.emergencyContact.relation} />
-          <Field label={t('desk.form.kidneyFailureCause')} value={patient.kidneyFailureCause} />
-          <Field label={t('desk.form.address')} value={patient.address} />
-          <Field label={t('desk.form.socialSituation')} value={patient.socialSituation} />
-          <Field label={t('desk.form.financialSituation')} value={patient.financialSituation} />
-          <Field label={t('desk.form.otherDiseases')} value={patient.otherDiseases} />
-          <Field label={t('desk.form.notes')} value={patient.notes} />
-        </Stack>
-      </Card>
-
-      <Card withBorder padding="sm">
-        <Stack gap="xs">
-          <Text fw={600}>{t('desk.patient.pattern')}</Text>
-          {canView && plan.isPending && <Loader size="sm" />}
-          {plan.isError && <Alert color="danger">{errorMessage(t, plan.error)}</Alert>}
-          {plan.isSuccess && !hasPattern && <EmptyState compact icon={IconCalendarOff} title={t('desk.patient.noPattern')} />}
-          {current && (
-            <>
-              {planItems.map((i) => (
-                <Text key={`${i.weekday}:${i.shiftId}`}>
-                  {t('desk.patient.planLine', { day: t(`desk.weekdays.${i.weekday}`), block: blockName(i.shiftId), chair: machineLabel(i.chairId) })}
-                </Text>
-              ))}
-              <Text c="dimmed">
-                {t('desk.patient.planFrom', { date: formatDate(current.from) })}
-                {current.to ? `${t('common.listSeparator')}${t('desk.patient.planUntil', { date: formatDate(current.to) })}` : ''}
-              </Text>
-            </>
-          )}
-        </Stack>
-      </Card>
-
-      {(can.edit || can.reset || (active && (can.book || can.postpone || can.makeup || can.discharge || can.transfer))) && (
-        <Stack gap="xs">
-          <Text fw={600}>{t('desk.patient.actions')}</Text>
-          <Group>
-            {can.edit && (
-              <Button mih={44} variant="default" onClick={() => setDialog('edit')}>
-                {t('common.edit')}
-              </Button>
-            )}
-            {active && can.book && (
-              <Button mih={44} variant="default" disabled={!plan.isSuccess || !setup.data} onClick={() => setDialog(hasPattern ? 'changePlan' : 'book')}>
-                {t(hasPattern ? 'desk.patient.changePlan' : 'desk.patient.bookPattern')}
-              </Button>
-            )}
-            {active && can.postpone && (
-              <Button mih={44} variant="default" onClick={() => setDialog('postpone')}>
-                {t('desk.patient.postpone')}
-              </Button>
-            )}
-            {active && can.makeup && (
-              <Button
-                mih={44}
-                variant="default"
-                onClick={() => {
-                  setMakeupFor(undefined);
-                  setDialog('makeup');
-                }}
-              >
-                {t('desk.patient.makeup')}
-              </Button>
-            )}
-            {((active && (can.transfer || can.discharge)) || can.reset) && (
-              <Menu position="bottom-end">
-                <Menu.Target>
-                  <Button mih={44} variant="default">
-                    {t('desk.patient.moreActions')}
-                  </Button>
-                </Menu.Target>
-                <Menu.Dropdown>
-                  {active && can.transfer && (
-                    <Menu.Item mih={44} onClick={() => setDialog('transfer')}>
-                      {t('desk.patient.transfer')}
-                    </Menu.Item>
-                  )}
-                  {can.reset && (
-                    <Menu.Item mih={44} onClick={() => setDialog('reset')}>
-                      {t('desk.patient.resetPassword')}
-                    </Menu.Item>
-                  )}
-                  {active && can.discharge && (
-                    <Menu.Item mih={44} color="danger" onClick={() => setDialog('discharge')}>
-                      {t('desk.patient.discharge')}
-                    </Menu.Item>
-                  )}
-                </Menu.Dropdown>
-              </Menu>
-            )}
-          </Group>
-        </Stack>
-      )}
-
-      <OrdersPanel patientId={patient.id} />
-
-      {canHistory && (
-        <Stack gap="xs">
-          <Text fw={600}>{t('timeline.title')}</Text>
-          <Timeline source={{ kind: 'staff', centreId, patientId: patient.id }} actions={rowActions} />
-        </Stack>
-      )}
+      <Tabs value={currentTab} onChange={setTab} keepMounted={false} classNames={{ list: classes.tabList, tab: classes.tab }}>
+        <Tabs.List grow>
+          {tabs.map((x) => (
+            <Tabs.Tab key={x.value} value={x.value} mih={44}>
+              {x.label}
+            </Tabs.Tab>
+          ))}
+        </Tabs.List>
+        {canHistory && (
+          <Tabs.Panel value="sessions" pt="md">
+            <Timeline source={{ kind: 'staff', centreId, patientId: patient.id }} actions={rowActions} />
+          </Tabs.Panel>
+        )}
+        {canOrders && (
+          <Tabs.Panel value="orders" pt="md">
+            <OrdersPanel patientId={patient.id} />
+          </Tabs.Panel>
+        )}
+        <Tabs.Panel value="record" pt="md">
+          <RecordList patient={patient} />
+        </Tabs.Panel>
+        {canView && (
+          <Tabs.Panel value="schedule" pt="md">
+            <Card padding="md">
+              <Stack gap="sm">
+                <Text fw={600}>{t('desk.patient.pattern')}</Text>
+                {plan.isPending && <Loader size="sm" />}
+                {plan.isError && <Alert color="danger">{errorMessage(t, plan.error)}</Alert>}
+                {plan.isSuccess && !hasPattern && <EmptyState compact icon={IconCalendarOff} title={t('desk.patient.noPattern')} />}
+                {current && <WeeklyPlan plan={current} setup={setup.data} />}
+              </Stack>
+            </Card>
+          </Tabs.Panel>
+        )}
+      </Tabs>
 
       <Modal opened={dialog !== null} onClose={close} title={dialog ? titles[dialog] : ''} fullScreen={dialog === 'edit'}>
         {dialog === 'edit' && <PatientForm key={patient.id} patient={patient} onDone={close} />}
@@ -368,12 +472,12 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
         {dialog === 'move' && target && <MoveDialog key={target.id} sessionId={target.id} date={target.date} onDone={close} />}
         {dialog === 'cancel' && target && <CancelDialog key={target.id} sessionId={target.id} onDone={close} />}
         {dialog === 'dnc' && target && <DidNotComeDialog key={target.id} sessionId={target.id} onDone={close} />}
-        {dialog === 'postpone' && (
+        {dialog === 'postpone' && target && (
           <PostponeDialog
-            key="postpone"
-            patientId={patient.id}
-            onDone={(sessionId) => {
-              setMakeupFor(sessionId);
+            key={target.id}
+            row={target}
+            onDone={() => {
+              setMakeupFor(target.id);
               setDialog(can.makeup ? 'makeup' : null);
             }}
           />
@@ -394,7 +498,8 @@ export function PatientPage() {
   const patient = usePatient(id);
   return (
     <Stack gap="md">
-      <Anchor component={Link} to={`/c/${centreId}/patients`}>
+      <Anchor component={Link} to={`/c/${centreId}/patients`} mih={44} style={{ display: 'inline-flex', alignItems: 'center', gap: 4, alignSelf: 'flex-start' }}>
+        <IconChevronLeft size={18} className={calendarClasses.flip} aria-hidden />
         {t('desk.patient.back')}
       </Anchor>
       {patient.isPending && <Loader />}

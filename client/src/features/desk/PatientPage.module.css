@@ -1,0 +1,101 @@
+.record {
+  margin: 0;
+}
+
+.recordRow {
+  display: grid;
+  grid-template-columns: minmax(110px, 38%) 1fr;
+  gap: 4px 12px;
+  padding-block: 10px;
+}
+
+.recordRow + .recordRow {
+  border-block-start: 1px solid var(--uoca-border);
+}
+
+.recordRow dt {
+  font-size: 13px;
+  color: var(--uoca-muted);
+}
+
+.recordRow dd {
+  margin: 0;
+  font-weight: 500;
+  overflow-wrap: anywhere;
+  white-space: pre-line;
+}
+
+.plan {
+  inline-size: 100%;
+  border-collapse: separate;
+  border-spacing: 3px;
+  table-layout: fixed;
+}
+
+.plan thead th {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--uoca-muted);
+  text-align: center;
+}
+
+.plan tbody th {
+  font-size: 12px;
+  font-weight: 600;
+  text-align: start;
+  overflow-wrap: anywhere;
+  line-height: 1.2;
+}
+
+.planCorner {
+  inline-size: 64px;
+}
+
+.tabList {
+  --tab-border-color: var(--uoca-border);
+  flex-wrap: nowrap;
+}
+
+.tab {
+  color: var(--uoca-muted);
+  font-weight: 600;
+  min-width: 0;
+  padding-inline: 6px;
+}
+
+.tab:hover {
+  background: var(--mantine-color-uoca-0);
+}
+
+.tab[data-active] {
+  color: var(--mantine-color-uoca-8);
+}
+
+.plan td {
+  padding: 0;
+}
+
+.planSlot,
+.planEmpty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  block-size: 30px;
+  border-radius: var(--mantine-radius-sm);
+}
+
+.planSlot {
+  background: var(--uoca-gold);
+  color: var(--uoca-text);
+  font-weight: 700;
+  font-size: 13px;
+}
+
+.planEmpty {
+  border: 1px dashed var(--uoca-border-strong);
+}
+
+.planOff {
+  border: none;
+  background: var(--mantine-color-neutral-0);
+}

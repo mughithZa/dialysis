@@ -110,6 +110,7 @@ test('core flow: desk builds the schedule, rosters and books; doctor notes; nurs
   await expect(page.getByText(en.desk.book.booked)).toBeVisible();
   const planLine = (day: number, block: string, chair: string) =>
     en.desk.patient.planLine.replace('{{day}}', dayName(day)).replace('{{block}}', block).replace('{{chair}}', chair);
+  await page.getByRole('tab', { name: en.desk.patient.tabs.schedule }).click();
   await expect(page.getByText(planLine(today, 'Session 1', '1'))).toBeVisible();
   await expect(page.getByText(planLine(tomorrow, 'Session 2', '2'))).toBeVisible();
 
@@ -125,6 +126,8 @@ test('core flow: desk builds the schedule, rosters and books; doctor notes; nurs
   // 4. Doctor adds a patient note and an order.
   await login(page, 'doctor');
   await goTo(page, en.nav.patients);
+  // wait for the list: the Today board the doctor lands on also links the patient (machine grid)
+  await expect(page.getByRole('heading', { name: en.desk.patients.title })).toBeVisible();
   await page.getByRole('link', { name: new RegExp(PATIENT.name) }).click();
   await page.getByLabel(en.doctor.orders.text).fill(ORDER);
   await page.getByRole('button', { name: en.doctor.orders.add }).click();

@@ -91,6 +91,13 @@ export const STATUS_TONES: Record<StatusTone, { bg: string; fg: string; strike?:
   cancelled: { bg: 'var(--mantine-color-grey-1)', fg: 'var(--mantine-color-grey-6)', strike: true },
 };
 
+/** Badge look per patient status: in care (green), moving to another centre (amber), discharged (grey). */
+export const PATIENT_STATUS_TONES: Record<'active' | 'transferring' | 'discharged', { bg: string; fg: string }> = {
+  active: STATUS_TONES.active,
+  transferring: STATUS_TONES.waiting,
+  discharged: { bg: 'var(--mantine-color-grey-1)', fg: 'var(--mantine-color-grey-7)' },
+};
+
 /**
  * Mantine's `light` variant is the shade-8 colour at 10 % opacity, which turns grey on the warm palette: use the
  * scale's own pale shades instead.

@@ -1,9 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
-import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, Stack, Tabs, Text, Textarea, Title } from '@mantine/core';
-import { IconArrowsExchange } from '@tabler/icons-react';
+import { Alert, Anchor, Badge, Button, Card, Group, Loader, Modal, Stack, Tabs, Text, Textarea } from '@mantine/core';
+import { IconArrowsExchange, IconBuildingHospital, IconCheck, IconPhone, IconX } from '@tabler/icons-react';
 import { EmptyState } from '../../components/EmptyState';
+import { PageHeader } from '../../components/PageHeader';
+import { PersonAvatar } from '../../components/PersonAvatar';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { useCentreId } from '../centre/api';
@@ -68,35 +70,50 @@ function Incoming() {
       {action.isError && <Alert color="danger">{errorMessage(t, action.error)}</Alert>}
       {list.data?.length === 0 && <EmptyState icon={IconArrowsExchange} title={t('desk.transfers.empty')} hint={t('empty.transfersHint')} />}
       {list.data?.map((tr) => (
-        <Card key={tr.id} withBorder padding="sm">
-          <Stack gap="xs">
+        <Card key={tr.id} padding="md">
+          <Stack gap="sm">
             <Group justify="space-between" wrap="nowrap" align="flex-start">
-              <Stack gap={0}>
-                <Text fw={600}>{tr.patient.name}</Text>
-                <Text size="sm" c="dimmed">
-                  {t('desk.transfers.from', { centre: tr.fromCentre.name })} · {t('desk.transfers.sent', { date: date(tr.sentAt) })}
-                </Text>
-                {tr.patient.phone && <Text size="sm">{tr.patient.phone}</Text>}
-                {tr.patient.kidneyFailureCause && <Text size="sm">{t('desk.transfers.kidney', { cause: tr.patient.kidneyFailureCause })}</Text>}
-                {tr.note && <Text size="sm">{tr.note}</Text>}
-              </Stack>
+              <Group gap="sm" wrap="nowrap" align="flex-start" style={{ minWidth: 0 }}>
+                <PersonAvatar name={tr.patient.name} size={42} />
+                <Stack gap={2} style={{ minWidth: 0 }}>
+                  <Text fw={600}>{tr.patient.name}</Text>
+                  <Group gap={4} wrap="nowrap" c="dimmed">
+                    <IconBuildingHospital size={14} aria-hidden style={{ flexShrink: 0 }} />
+                    <Text size="sm">
+                      {t('desk.transfers.from', { centre: tr.fromCentre.name })} · {t('desk.transfers.sent', { date: date(tr.sentAt) })}
+                    </Text>
+                  </Group>
+                  {tr.patient.phone && (
+                    <Group gap={4} wrap="nowrap" c="dimmed">
+                      <IconPhone size={14} aria-hidden style={{ flexShrink: 0 }} />
+                      <Text size="sm" span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                        {tr.patient.phone}
+                      </Text>
+                    </Group>
+                  )}
+                  {tr.patient.kidneyFailureCause && <Text size="sm">{t('desk.transfers.kidney', { cause: tr.patient.kidneyFailureCause })}</Text>}
+                  {tr.note && (
+                    <Text size="sm" dir="auto">
+                      {tr.note}
+                    </Text>
+                  )}
+                </Stack>
+              </Group>
               <StatusBadge status={tr.status} />
             </Group>
             {tr.status === 'pending' && (
-              <Group>
+              <Group grow>
                 <Button
                   mih={44}
+                  leftSection={<IconCheck size={18} aria-hidden />}
                   loading={action.isPending && action.variables?.id === tr.id && action.variables.action === 'accept'}
                   onClick={() =>
-                    action.mutate(
-                      { id: tr.id, action: 'accept' },
-                      { onSuccess: () => notifications.show({ message: t('desk.transfers.accepted') }) },
-                    )
+                    action.mutate({ id: tr.id, action: 'accept' }, { onSuccess: () => notifications.show({ message: t('desk.transfers.accepted') }) })
                   }
                 >
                   {t('desk.transfers.accept')}
                 </Button>
-                <Button mih={44} variant="default" onClick={() => setRejecting(tr)}>
+                <Button mih={44} variant="default" leftSection={<IconX size={18} aria-hidden />} onClick={() => setRejecting(tr)}>
                   {t('desk.transfers.reject')}
                 </Button>
               </Group>
@@ -123,22 +140,43 @@ function Outgoing({ canCancel }: { canCancel: boolean }) {
       {action.isError && <Alert color="danger">{errorMessage(t, action.error)}</Alert>}
       {list.data?.length === 0 && <EmptyState icon={IconArrowsExchange} title={t('desk.transfers.empty')} hint={t('empty.transfersHint')} />}
       {(list.data as OutgoingTransfer[] | undefined)?.map((tr) => (
-        <Card key={tr.id} withBorder padding="sm">
-          <Stack gap="xs">
+        <Card key={tr.id} padding="md">
+          <Stack gap="sm">
             <Group justify="space-between" wrap="nowrap" align="flex-start">
-              <Stack gap={0}>
-                {tr.patient && (
-                  <Anchor component={Link} to={`/c/${centreId}/patients/${tr.patient.id}`} fw={600} mih={44} display="inline-flex" style={{ alignItems: 'center' }}>
-                    {tr.patient.name}
-                  </Anchor>
-                )}
-                <Text fw={tr.patient ? undefined : 600}>{t('desk.transfers.to', { centre: tr.toCentre.name })}</Text>
-                <Text size="sm" c="dimmed">
-                  {t('desk.transfers.sent', { date: date(tr.sentAt) })}
-                </Text>
-                {tr.note && <Text size="sm">{tr.note}</Text>}
-                {tr.rejectReason && <Text size="sm">{t('desk.transfers.rejectReason', { reason: tr.rejectReason })}</Text>}
-              </Stack>
+              <Group gap="sm" wrap="nowrap" align="flex-start" style={{ minWidth: 0 }}>
+                <PersonAvatar name={tr.patient?.name ?? tr.toCentre.name} size={42} />
+                <Stack gap={0} style={{ minWidth: 0 }}>
+                  {tr.patient && (
+                    <Anchor
+                      component={Link}
+                      to={`/c/${centreId}/patients/${tr.patient.id}`}
+                      fw={600}
+                      mih={44}
+                      display="inline-flex"
+                      style={{ alignItems: 'center' }}
+                    >
+                      {tr.patient.name}
+                    </Anchor>
+                  )}
+                  <Text fw={tr.patient ? undefined : 600}>{t('desk.transfers.to', { centre: tr.toCentre.name })}</Text>
+                  <Text size="sm" c="dimmed">
+                    {t('desk.transfers.sent', { date: date(tr.sentAt) })}
+                  </Text>
+                  {tr.note && (
+                    <Text size="sm" dir="auto">
+                      {tr.note}
+                    </Text>
+                  )}
+                  {tr.rejectReason && (
+                    <Text size="sm">
+                      {t('desk.transfers.rejectReason', { reason: '' })}
+                      <span dir="auto" style={{ unicodeBidi: 'isolate' }}>
+                        {tr.rejectReason}
+                      </span>
+                    </Text>
+                  )}
+                </Stack>
+              </Group>
               <StatusBadge status={tr.status} />
             </Group>
             {canCancel && tr.status === 'pending' && (
@@ -148,10 +186,7 @@ function Outgoing({ canCancel }: { canCancel: boolean }) {
                   variant="default"
                   loading={action.isPending && action.variables?.id === tr.id}
                   onClick={() =>
-                    action.mutate(
-                      { id: tr.id, action: 'cancel' },
-                      { onSuccess: () => notifications.show({ message: t('desk.transfers.cancelled') }) },
-                    )
+                    action.mutate({ id: tr.id, action: 'cancel' }, { onSuccess: () => notifications.show({ message: t('desk.transfers.cancelled') }) })
                   }
                 >
                   {t('desk.transfers.cancel')}
@@ -174,11 +209,19 @@ export function TransfersPage() {
   const current = tab ?? (canDecide ? 'incoming' : 'outgoing');
   return (
     <Stack gap="md">
-      <Title order={2}>{t('desk.transfers.title')}</Title>
+      <PageHeader title={t('desk.transfers.title')} />
       <Tabs value={current} onChange={setTab} keepMounted={false}>
         <Tabs.List grow>
-          {canDecide && <Tabs.Tab value="incoming" mih={44}>{t('desk.transfers.incoming')}</Tabs.Tab>}
-          {canSend && <Tabs.Tab value="outgoing" mih={44}>{t('desk.transfers.outgoing')}</Tabs.Tab>}
+          {canDecide && (
+            <Tabs.Tab value="incoming" mih={44}>
+              {t('desk.transfers.incoming')}
+            </Tabs.Tab>
+          )}
+          {canSend && (
+            <Tabs.Tab value="outgoing" mih={44}>
+              {t('desk.transfers.outgoing')}
+            </Tabs.Tab>
+          )}
         </Tabs.List>
         {canDecide && (
           <Tabs.Panel value="incoming" pt="md">

@@ -27,11 +27,12 @@ function SessionRow({ item, source, actions }: { item: TimelineItem; source: Tim
           ) : (
             <Text fw={600}>{day}</Text>
           )}
-          <Group gap={4} justify="flex-end">
+          <Group gap={4} justify="flex-end" align="center">
             {item.kind === 'makeup' && <Badge variant="outline">{t('timeline.makeup')}</Badge>}
             {item.detached && <Badge variant="outline">{t('timeline.moved')}</Badge>}
             {item.oneOff && <Badge variant="outline">{t('timeline.oneOff')}</Badge>}
             <StatusBadge status={item.status} />
+            {extra}
           </Group>
         </Group>
         <Text size="sm">
@@ -73,7 +74,6 @@ function SessionRow({ item, source, actions }: { item: TimelineItem; source: Tim
             ))}
           </Stack>
         )}
-        {extra && <Group gap="xs">{extra}</Group>}
       </Stack>
     </Card>
   );
@@ -108,7 +108,7 @@ function Section({ title, highlight, children }: { title: string; highlight?: bo
 
 /**
  * A patient's sessions (Upcoming, Today, Past) with doctor notes at their date. One component for the patient's own app
- * and for staff; `actions` adds per-row buttons (the front desk's session actions).
+ * and for staff; `actions` adds a per-row control at the end of the row's header (the front desk's session menu).
  */
 export function Timeline({ source, actions }: { source: TimelineSource; actions?: (item: TimelineItem) => ReactNode }) {
   const { t } = useTranslation();

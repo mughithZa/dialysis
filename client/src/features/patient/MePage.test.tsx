@@ -59,12 +59,12 @@ describe('MePage', () => {
 
   it('shows the next session at the top, and not while a session is active', async () => {
     server.use(
-      http.get('*/api/me/overview', () => HttpResponse.json(overview({ upcoming: [mini('s2', '2026-10-20'), mini('s3', '2026-10-22')] }))),
+      http.get('*/api/me/overview', () => HttpResponse.json(overview({ upcoming: [mini('s2', '2027-10-19'), mini('s3', '2027-10-21')] }))),
       http.get('*/api/me/timeline', () => HttpResponse.json(timeline())),
     );
     renderApp(<MePage />);
     const next = await screen.findByRole('status', { name: 'Your next session' });
-    expect(within(next).getByText('Tuesday, Oct 20')).toBeVisible();
+    expect(within(next).getByText('Tuesday, Oct 19')).toBeVisible();
     expect(within(next).getByText('07:00–11:00 · Damascus')).toBeVisible();
   });
 

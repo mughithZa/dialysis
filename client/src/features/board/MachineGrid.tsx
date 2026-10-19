@@ -54,7 +54,7 @@ export function machineTiles(d: BoardDto): MachineTile[] {
 }
 
 /** Wraps only between words, so "Patient 1-03" never splits as "Patient 1-" / "03". */
-function NoBreakWords({ text }: { text: string }) {
+export function NoBreakWords({ text }: { text: string }) {
   const words = text.trim().split(/\s+/);
   return (
     <>
@@ -68,7 +68,7 @@ function NoBreakWords({ text }: { text: string }) {
   );
 }
 
-const toneVars = (tone: StatusTone | 'free'): CSSProperties | undefined =>
+export const toneVars = (tone: StatusTone | 'free'): CSSProperties | undefined =>
   tone === 'free' ? undefined : ({ '--tile-bg': STATUS_TONES[tone].bg, '--tile-fg': STATUS_TONES[tone].fg } as CSSProperties);
 
 const LEGEND: { state: TileState; tone: StatusTone | 'free' }[] = [

@@ -343,7 +343,13 @@
       "saved": "تم حفظ بيانات المريض.",
       "editTitle": "تعديل بيانات المريض",
       "next": "القادمة: {{day}} · {{time}}",
-      "noNext": "لا توجد جلسة قادمة"
+      "noNext": "لا توجد جلسة قادمة",
+      "count_zero": "لا يوجد مرضى",
+      "count_one": "مريض واحد",
+      "count_two": "مريضان",
+      "count_few": "{{count}} مرضى",
+      "count_many": "{{count}} مريضًا",
+      "count_other": "{{count}} مريض"
     },
     "form": {
       "name": "الاسم الكامل",
@@ -364,14 +370,12 @@
     "patient": {
       "back": "جميع المرضى",
       "notFound": "لم يُعثر على المريض.",
-      "record": "الملف",
       "pattern": "الجدول الحالي",
       "noPattern": "لا يوجد جدول بعد.",
       "orders": "تعليمات الطبيب",
       "noOrders": "لا توجد تعليمات.",
-      "actions": "الإجراءات",
       "bookPattern": "حجز جدول",
-      "postpone": "تأجيل جلسة",
+      "postpone": "تأجيل",
       "makeup": "جلسة تعويضية",
       "changePlan": "تغيير الجدول الأسبوعي",
       "move": "نقل",
@@ -387,7 +391,15 @@
       "newPassword": "كلمة المرور الجديدة (8 أحرف على الأقل)",
       "discharged": "انتهت المتابعة في {{date}}: {{reason}}",
       "ordersFrom": "اعتبارًا من {{date}}",
-      "moreActions": "إجراءات أخرى"
+      "moreActions": "إجراءات أخرى",
+      "tabs": {
+        "sessions": "الجلسات",
+        "orders": "التعليمات",
+        "record": "الملف",
+        "schedule": "الجدول"
+      },
+      "rowMenu": "إجراءات جلسة {{day}}",
+      "notRecorded": "غير مسجّل"
     },
     "dischargeReason": {
       "transplant": "زراعة كلية",
@@ -419,7 +431,12 @@
       "name": "الاسم",
       "starts": "تبدأ",
       "ends": "تنتهي",
-      "defaultBlockName": "الفترة {{n}}"
+      "defaultBlockName": "الفترة {{n}}",
+      "subtitle": "أجهزة المركز وفترات الجلسات وأيام العمل.",
+      "machinesHint": "عدد أجهزة غسيل الكلى العاملة في المركز.",
+      "blocksHint": "اقترح فترات متساوية من ساعات اليوم، ثم عدّل الأسماء والأوقات.",
+      "daysHint": "الأيام التي يعمل فيها المركز.",
+      "labelsHint": "التسميات التي تظهر في الجدول ولوحة اليوم."
     },
     "calendar": {
       "title": "الجدول",
@@ -428,14 +445,21 @@
       "today": "اليوم",
       "dayOff": "يوم عطلة",
       "noNurse": "لا يوجد ممرض",
-      "nurses": "الممرضون",
       "machine": "الجهاز {{label}}",
-      "empty": "فارغ",
-      "held": "محجوز لـ {{name}}",
-      "emptyCell": "فارغ: الجهاز {{label}}، {{block}}، {{date}}",
-      "bookedCell": "{{name}}، {{status}}",
+      "emptyCell": "حجز الجهاز {{label}}، {{block}}، {{date}}",
+      "bookedCell": "الجهاز {{label}}، {{block}}، {{date}}: {{name}}، {{status}}",
       "noBlocks": "لم تُعدّ فترات الجلسات بعد.",
-      "setupFirst": "أعدّ الجدول أولًا."
+      "legend": {
+        "booked": "محجوز",
+        "active": "جارية",
+        "completed": "مكتملة",
+        "did_not_come": "لم يحضر",
+        "postponed": "مؤجلة أو ملغاة",
+        "free": "فارغ"
+      },
+      "freeCell": "الجهاز {{label}}، {{block}}، {{date}}: فارغ",
+      "range": "{{from}} إلى {{to}}",
+      "thisWeek": "هذا الأسبوع"
     },
     "schedule": {
       "title": "الجدول",
@@ -501,10 +525,9 @@
     },
     "postpone": {
       "title": "تأجيل الجلسة",
-      "date": "تاريخ الجلسة",
-      "none": "لا توجد جلسة للتأجيل في ذلك التاريخ.",
       "postpone": "تأجيل",
-      "done": "تم تأجيل الجلسة. يمكنك الآن حجز جلسة تعويضية."
+      "done": "تم تأجيل الجلسة. يمكنك الآن حجز جلسة تعويضية.",
+      "confirmText": "تأجيل جلسة {{day}}، {{block}} ({{time}})؟"
     },
     "discharge": {
       "title": "إنهاء متابعة المريض",
@@ -579,7 +602,9 @@
       "deleted": "تم حذف المناوبة.",
       "confirmTitle": "حذف المناوبة",
       "confirm": "حذف مناوبة {{nurse}} من {{from}} إلى {{to}}؟",
-      "inactive": "لم يعد ضمن الموظفين"
+      "inactive": "لم يعد ضمن الموظفين",
+      "back": "العودة إلى الجدول",
+      "formTitle": "تعيين ممرض"
     }
   },
   "doctor": {
