@@ -134,6 +134,11 @@ export function AppShell() {
           {rest.map((item) => (
             <SideLink key={item.to} item={item} onNavigate={() => setMoreOpen(false)} />
           ))}
+          {me && (
+            <Text size="sm" c="dimmed" mt="sm">
+              {t('common.signedInAs', { name: me.name })}
+            </Text>
+          )}
           <Button variant="default" onClick={onLogout} mih={TOUCH} mt="sm">
             {t('common.logout')}
           </Button>

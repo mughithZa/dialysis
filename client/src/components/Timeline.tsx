@@ -47,7 +47,9 @@ function SessionRow({ item, source, actions }: { item: TimelineItem; source: Tim
           {item.block} · {item.start}–{item.end} · {t('timeline.machine', { label: item.chairLabel })}
         </Text>
         <Text size="sm" c="dimmed">
-          {item.nurse ? t('timeline.nurse', { name: item.nurse.name }) : t('timeline.noNurse')}
+          {item.nurse
+            ? t('timeline.nurse', { name: item.nurse.name })
+            : t(item.status === 'scheduled' || item.status === 'active' ? 'timeline.noNurse' : 'timeline.nurseNotRecorded')}
           {!item.linkable && item.centreName ? ` · ${item.centreName}` : ''}
         </Text>
         {item.statusReason && <Text size="sm">{item.statusReason}</Text>}
@@ -144,13 +146,13 @@ export function Timeline({ source, actions }: { source: TimelineSource; actions?
       {q.isPending && <Loader size="sm" />}
       {q.isError && <Alert color="danger">{errorMessage(t, q.error)}</Alert>}
       {empty && <Text c="dimmed">{t('timeline.empty')}</Text>}
-      {d && d.upcoming.length > 0 && (
-        <Section title={t('timeline.upcoming')}>{d.upcoming.map((item) => render({ kind: 'session', date: item.date, item }))}</Section>
-      )}
       {todayEntries.length > 0 && (
         <Section title={t('timeline.today')} highlight>
           {todayEntries.map(render)}
         </Section>
+      )}
+      {d && d.upcoming.length > 0 && (
+        <Section title={t('timeline.upcoming')}>{d.upcoming.map((item) => render({ kind: 'session', date: item.date, item }))}</Section>
       )}
       {pastEntries.length > 0 && <Section title={t('timeline.past')}>{pastEntries.map(render)}</Section>}
       {q.hasNextPage && (

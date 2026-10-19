@@ -116,34 +116,28 @@ describe('BoardPage', () => {
     expect(screen.getByRole('link', { name: 'Open' })).toBeInTheDocument();
   });
 
-  it('Start posts open and the row moves to Active after the refetch', async () => {
+  it('Start posts open and goes straight to the session page', async () => {
     useCentreUser(NURSE);
-    let opened = false;
     let posted = 0;
     server.use(
-      http.get('*/api/centres/c1/board', () =>
-        HttpResponse.json(
-          opened
-            ? { ...empty, active: [row('1', 'Omar', '1', 'active', { mine: true })] }
-            : { ...empty, waiting: [row('1', 'Omar', '1', 'scheduled', { mine: true })] },
-        ),
-      ),
-      http.post('*/api/centres/c1/sessions/1/open', () => {
-        posted++;
-        opened = true;
-        return HttpResponse.json({});
-      }),
+      http.get('*/api/centres/c1/board', () => HttpResponse.json({ ...empty, waiting: [row('1', 'Omar', '1', 'scheduled', { mine: true })] })),
+      http.post('*/api/centres/c1/sessions/1/open', () => (posted++, HttpResponse.json({}))),
     );
     renderApp(
       <Routes>
         <Route path="/c/:centreId/today" element={<BoardPage />} />
+        <Route path="/c/:centreId/sessions/:sessionId" element={<p>session page</p>} />
       </Routes>,
       '/c/c1/today',
     );
     await userEvent.click(await screen.findByRole('button', { name: 'Start' }));
-    expect(await screen.findByText('Active now (1)')).toBeInTheDocument();
+    expect(await screen.findByText('session page')).toBeInTheDocument();
     expect(posted).toBe(1);
-    expect(screen.queryByText('Waiting (1)')).not.toBeInTheDocument();
+  });
+
+  it("the patient's name opens the session", async () => {
+    mount(FRONT, { waiting: [row('1', 'Omar', '1', 'scheduled')] });
+    expect(await screen.findByRole('link', { name: 'Omar' })).toHaveAttribute('href', '/c/c1/sessions/1');
   });
 
   it('Postpone posts and opens the make-up booking when the user may book one', async () => {

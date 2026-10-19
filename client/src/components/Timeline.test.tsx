@@ -38,6 +38,22 @@ const serve = (body: TimelineData | ((before: string | null) => TimelineData), p
 const staff = { kind: 'staff', centreId: 'c1', patientId: 'p1' } as const;
 
 describe('Timeline', () => {
+  it('lists Today before Upcoming, and says a past session has no nurse recorded', async () => {
+    useCentreUser(['sessions.view']);
+    serve(
+      data({
+        upcoming: [item('u1', addDaysLocal(2))],
+        today: [item('t1', todayLocal())],
+        past: [item('p1', '2026-10-01', { status: 'completed' })],
+      }),
+    );
+    renderApp(<Timeline source={staff} />);
+    const headings = (await screen.findAllByRole('heading')).map((h) => h.textContent);
+    expect(headings).toEqual(['Today', 'Upcoming', 'Past']);
+    expect(within(screen.getByTestId('timeline-row-p1')).getByText('Nurse not recorded')).toBeVisible();
+    expect(within(screen.getByTestId('timeline-row-u1')).getByText('No nurse yet')).toBeVisible();
+  });
+
   it('renders Upcoming, Today and Past with row details and status badges', async () => {
     useCentreUser(['sessions.view']);
     serve(

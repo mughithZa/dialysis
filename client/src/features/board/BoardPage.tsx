@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Link } from 'react-router-dom';
-import { Alert, Badge, Button, Card, Group, Loader, Modal, SegmentedControl, Stack, Switch, Text, Title } from '@mantine/core';
+import { Link, useNavigate } from 'react-router-dom';
+import { Alert, Badge, Button, Card, Group, Loader, Modal, SegmentedControl, SimpleGrid, Stack, Switch, Text, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
+import { formatDay } from '../../components/timelineApi';
 import { useCentreId } from '../centre/api';
 import { DidNotComeDialog } from '../desk/CancelDialog';
 import { usePostpone } from '../desk/api';
@@ -33,7 +34,9 @@ function BoardRowCard({ row, waiting, actions }: { row: BoardRow; waiting: boole
       <Stack gap="xs">
         <Group justify="space-between" wrap="nowrap" align="flex-start">
           <Stack gap={2}>
-            <Text fw={600}>{row.patient.name}</Text>
+            <Text fw={600} component={Link} to={`/c/${centreId}/sessions/${row.id}`}>
+              {row.patient.name}
+            </Text>
             <Text size="sm" c="dimmed">
               {t('board.machine', { label: row.chairLabel })} · {row.nurse ? row.nurse.name : t('board.noNurse')}
               {row.status === 'active' ? ` · ${t('board.started', { time: row.start })}` : ''}
@@ -45,15 +48,15 @@ function BoardRowCard({ row, waiting, actions }: { row: BoardRow; waiting: boole
             </Badge>
           )}
         </Group>
-        <Group gap="xs">
-          <Button component={Link} to={`/c/${centreId}/sessions/${row.id}`} variant="light" mih={44}>
-            {t('board.open')}
-          </Button>
+        <SimpleGrid cols={waiting ? 2 : 1} spacing="xs">
           {waiting && actions.canRun && actions.isToday && (
             <Button mih={44} loading={busy} onClick={() => actions.onStart(row)}>
               {t('board.start')}
             </Button>
           )}
+          <Button component={Link} to={`/c/${centreId}/sessions/${row.id}`} variant="light" mih={44}>
+            {t('board.open')}
+          </Button>
           {waiting && actions.canPostpone && (
             <>
               <Button variant="default" mih={44} onClick={() => actions.onDnc(row)}>
@@ -64,7 +67,7 @@ function BoardRowCard({ row, waiting, actions }: { row: BoardRow; waiting: boole
               </Button>
             </>
           )}
-        </Group>
+        </SimpleGrid>
       </Stack>
     </Card>
   );
@@ -87,7 +90,9 @@ function UnclosedRow({ row }: { row: BoardRow }) {
 }
 
 export function BoardPage() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
+  const centreId = useCentreId();
   const canRun = useCan('sessions.run');
   const canBook = useCan('schedule.book');
   const canPostpone = useCan('sessions.postpone');
@@ -110,7 +115,13 @@ export function BoardPage() {
     canPostpone,
     isToday: !!d && d.date === todayLocal(),
     busyId: (start.isPending && start.variables) || (postpone.isPending && postpone.variables) || null,
-    onStart: (row) => start.mutate(row.id, { onSuccess: () => notifications.show({ message: t('nurse.session.opened') }) }),
+    onStart: (row) =>
+      start.mutate(row.id, {
+        onSuccess: () => {
+          notifications.show({ message: t('nurse.session.opened') });
+          navigate(`/c/${centreId}/sessions/${row.id}`);
+        },
+      }),
     onDnc: (row) => setDialog({ kind: 'dnc', row }),
     onPostpone: (row) =>
       postpone.mutate(row.id, {
@@ -133,7 +144,7 @@ export function BoardPage() {
     <Stack gap="md">
       <Group justify="space-between" align="center">
         <Title order={2}>{t('nav.today')}</Title>
-        {d && <Text c="dimmed">{d.date}</Text>}
+        {d && <Text c="dimmed">{formatDay(d.date, i18n.language)}</Text>}
       </Group>
       {board.isPending && <Loader size="sm" />}
       {error && <Alert color="danger">{errorMessage(t, error)}</Alert>}
@@ -163,6 +174,15 @@ export function BoardPage() {
           )}
           {canRun && <Switch label={t('board.mine')} checked={onlyMine} onChange={(e) => setMineOverride(e.currentTarget.checked)} />}
           {hidden > 0 && <Text size="sm" c="dimmed">{t('board.hidden', { count: hidden })}</Text>}
+          <Text size="sm" c="dimmed">
+            {t('board.summary', {
+              done: keep(d.done).length,
+              didNotCome: keep(d.didNotCome).length,
+              other: keep(d.other).length,
+            })}
+            {' · '}
+            {t('board.empty', { machines: d.emptyMachines.map((m) => m.label).join(', ') || t('board.noneEmpty') })}
+          </Text>
 
           <Stack gap="xs">
             <Text fw={600}>{t('board.active', { count: active.length })}</Text>
@@ -178,15 +198,6 @@ export function BoardPage() {
               <BoardRowCard key={r.id} row={r} waiting actions={actions} />
             ))}
           </Stack>
-          <Text size="sm">
-            {t('board.summary', {
-              done: keep(d.done).length,
-              didNotCome: keep(d.didNotCome).length,
-              other: keep(d.other).length,
-            })}
-            {' · '}
-            {t('board.empty', { machines: d.emptyMachines.map((m) => m.label).join(', ') || t('board.noneEmpty') })}
-          </Text>
         </>
       )}
 

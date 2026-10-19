@@ -10,6 +10,8 @@ import { requirePerm } from '../auth/middleware.js';
 import { User } from '../auth/user.model.js';
 import { hashPassword } from '../auth/password.js';
 import { Patient, PATIENT_STATUSES, type PatientDoc } from './patient.model.js';
+import { Session } from '../sessions/session.model.js';
+import { todayLocal } from '../lib/dates.js';
 
 export const patientsRouter = Router({ mergeParams: true });
 
@@ -83,6 +85,17 @@ patientsRouter.post('/', requirePerm('patients.create'), validate(createBody), a
   }
 });
 
+/** Each patient's earliest scheduled or active session from today: patient id -> {date, start}. */
+async function nextSessions(patientIds: mongoose.Types.ObjectId[]): Promise<Map<string, { date: string; start: string }>> {
+  if (!patientIds.length) return new Map();
+  const rows = await Session.aggregate<{ _id: mongoose.Types.ObjectId; date: string; start: string }>([
+    { $match: { patientId: { $in: patientIds }, status: { $in: ['scheduled', 'active'] }, date: { $gte: todayLocal() } } },
+    { $sort: { date: 1, shiftStart: 1 } },
+    { $group: { _id: '$patientId', date: { $first: '$date' }, start: { $first: '$shiftStart' } } },
+  ]);
+  return new Map(rows.map((r) => [String(r._id), { date: r.date, start: r.start }]));
+}
+
 const listQuery = z.object({
   q: z.string().trim().min(1).optional(),
   status: z.enum([...PATIENT_STATUSES, 'all']).optional(),
@@ -99,7 +112,9 @@ patientsRouter.get('/', requirePerm('patients.view'), validate(listQuery, 'query
       const rx = new RegExp(escapeRegex(q), 'i');
       filter.$or = [{ name: rx }, { phone: rx }];
     }
-    res.json((await Patient.find(filter).sort({ name: 1 })).map(patientDto));
+    const patients = await Patient.find(filter).sort({ name: 1 });
+    const next = await nextSessions(patients.map((p) => p._id));
+    res.json(patients.map((p) => ({ ...patientDto(p), nextSession: next.get(String(p._id)) ?? null })));
   } catch (e) {
     next(e);
   }

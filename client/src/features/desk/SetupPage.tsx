@@ -122,9 +122,9 @@ function SetupForm({ setup, machines: machineList, canSetup, onSaved }: { setup:
           {blocks.map((b, i) => (
             <Card key={b.id ?? `new-${i}`} withBorder padding="sm">
               <SimpleGrid cols={{ base: 1, xs: 3 }}>
-                <TextInput aria-label={t('desk.setup.blockName', { n: i + 1 })} value={b.name} onChange={(e) => patchBlock(i, { name: e.currentTarget.value })} disabled={!canSetup} />
-                <TextInput type="time" aria-label={t('desk.setup.blockStart', { n: i + 1 })} value={b.start} onChange={(e) => patchBlock(i, { start: e.currentTarget.value })} disabled={!canSetup} />
-                <TextInput type="time" aria-label={t('desk.setup.blockEnd', { n: i + 1 })} value={b.end} onChange={(e) => patchBlock(i, { end: e.currentTarget.value })} disabled={!canSetup} />
+                <TextInput label={t('desk.setup.name')} aria-label={t('desk.setup.blockName', { n: i + 1 })} value={b.name} onChange={(e) => patchBlock(i, { name: e.currentTarget.value })} disabled={!canSetup} />
+                <TextInput type="time" label={t('desk.setup.starts')} aria-label={t('desk.setup.blockStart', { n: i + 1 })} value={b.start} onChange={(e) => patchBlock(i, { start: e.currentTarget.value })} disabled={!canSetup} />
+                <TextInput type="time" label={t('desk.setup.ends')} aria-label={t('desk.setup.blockEnd', { n: i + 1 })} value={b.end} onChange={(e) => patchBlock(i, { end: e.currentTarget.value })} disabled={!canSetup} />
               </SimpleGrid>
             </Card>
           ))}

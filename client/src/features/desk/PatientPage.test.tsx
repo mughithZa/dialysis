@@ -92,3 +92,18 @@ describe('PatientPage session actions', () => {
     expect(screen.getAllByRole('button', { name: 'Cancel' }).length).toBeGreaterThan(0);
   });
 });
+
+describe('PatientPage actions', () => {
+  it('keeps everyday actions visible and puts transfer, password reset and discharge under More actions', async () => {
+    useCentreUser(['patients.view', 'patients.edit', 'schedule.view', 'schedule.book', 'patients.discharge', 'transfers.send', 'users.resetPassword']);
+    handlers();
+    mount();
+    expect(await screen.findByRole('button', { name: 'Edit' })).toBeVisible();
+    expect(screen.queryByRole('menuitem', { name: 'Discharge' })).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'More actions' }));
+    expect(await screen.findByRole('menuitem', { name: 'Transfer to another centre' })).toBeInTheDocument();
+    expect(screen.getByRole('menuitem', { name: 'Reset patient password' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('menuitem', { name: 'Discharge' }));
+    expect(await screen.findByRole('dialog')).toBeInTheDocument();
+  });
+});

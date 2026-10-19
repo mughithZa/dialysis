@@ -84,6 +84,11 @@ function useInvalidateDesk() {
 
 // ---------- Patients ----------
 
+/** A patient list row: the record plus the next scheduled or active session from today. */
+export interface PatientListItem extends PatientDto {
+  nextSession: { date: string; start: string } | null;
+}
+
 export const usePatients = (q: string, status: StatusFilter) => {
   const centreId = useCentreId();
   const params = new URLSearchParams();
@@ -92,7 +97,7 @@ export const usePatients = (q: string, status: StatusFilter) => {
   const qs = params.toString();
   return useQuery({
     queryKey: key(centreId, 'patients', q.trim(), status),
-    queryFn: () => apiGet<PatientDto[]>(`${base(centreId)}/patients${qs ? `?${qs}` : ''}`),
+    queryFn: () => apiGet<PatientListItem[]>(`${base(centreId)}/patients${qs ? `?${qs}` : ''}`),
     enabled: !!centreId,
   });
 };

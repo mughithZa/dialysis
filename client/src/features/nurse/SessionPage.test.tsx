@@ -61,7 +61,7 @@ function mount(session: Record<string, unknown>, perms = RUN) {
 describe('SessionPage', () => {
   it('shows the machine label and block times the session was booked with, not the live setup', async () => {
     mount(detail({ status: 'completed', date: '2026-09-01', chairLabel: '3', start: '06:00', end: '10:00' }));
-    expect(await screen.findByText('3 · Morning (06:00-10:00) · 2026-09-01')).toBeVisible();
+    expect(await screen.findByText('Machine 3 · Morning (06:00–10:00) · Tuesday, Sep 1')).toBeVisible();
   });
 
   it('asks before closing without heparin and "Close anyway" posts /close', async () => {
