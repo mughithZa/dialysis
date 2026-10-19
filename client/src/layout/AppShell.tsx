@@ -71,10 +71,14 @@ export function AppShell() {
                   onChange={switchCentre}
                   allowDeselect={false}
                   comboboxProps={{ withinPortal: true }}
-                  variant="unstyled"
                   rightSection={<IconSelector size={16} />}
                   rightSectionPointerEvents="none"
                   classNames={{ input: classes.centreSelect, section: classes.centreSection }}
+                  // a pill on the brown header (overrides the theme's white input surface)
+                  styles={{
+                    input: { backgroundColor: 'var(--uoca-on-brown-soft)', borderColor: 'var(--uoca-on-brown-line)', color: 'var(--uoca-on-brown)' },
+                  }}
+                  radius="xl"
                   maw={280}
                 />
               ) : (

@@ -1,6 +1,7 @@
 import { useState, useSyncExternalStore } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Button, CloseButton, Group, Paper, Text } from '@mantine/core';
+import { Button, Card, CloseButton, Group, Stack, Text, ThemeIcon } from '@mantine/core';
+import { IconDeviceMobile, IconDownload } from '@tabler/icons-react';
 import { clearInstallPrompt, getInstallPrompt, subscribeInstallPrompt } from './installEvent';
 
 const DISMISS_KEY = 'installPromptDismissed';
@@ -47,22 +48,28 @@ export function InstallPrompt() {
   };
 
   return (
-    <Paper withBorder p="md" radius="md">
-      <Group justify="space-between" align="flex-start" wrap="nowrap">
-        <div>
+    <Card padding="md" bg="var(--mantine-color-uoca-0)" data-testid="install-prompt">
+      <Group align="flex-start" wrap="nowrap" gap="sm">
+        <ThemeIcon variant="light" color="uoca" size={40} radius="xl" aria-hidden>
+          <IconDeviceMobile size={22} />
+        </ThemeIcon>
+        <Stack gap={6} style={{ flex: 1, minWidth: 0 }}>
           <Text fw={600}>{t('me.install.title')}</Text>
           {event ? (
-            <Button mt="xs" mih={44} onClick={() => void install()}>
-              {t('me.install.button')}
-            </Button>
+            <>
+              <Text size="sm" c="dimmed">
+                {t('me.install.hint')}
+              </Text>
+              <Button mt={4} mih={44} leftSection={<IconDownload size={18} />} onClick={() => void install()}>
+                {t('me.install.button')}
+              </Button>
+            </>
           ) : (
-            <Text size="sm" mt={4}>
-              {t('me.install.ios')}
-            </Text>
+            <Text size="sm">{t('me.install.ios')}</Text>
           )}
-        </div>
+        </Stack>
         <CloseButton size="lg" aria-label={t('me.install.dismiss')} onClick={dismiss} />
       </Group>
-    </Paper>
+    </Card>
   );
 }

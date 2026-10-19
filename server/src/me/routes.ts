@@ -36,6 +36,7 @@ function mini(s: SessionDoc, l: Awaited<ReturnType<typeof lookups>>) {
     date: s.date,
     start: s.shiftStart,
     end: s.shiftEnd,
+    chairLabel: s.chairLabel,
     centreName: l.centreName(s),
     kind: s.kind,
     status: s.status,

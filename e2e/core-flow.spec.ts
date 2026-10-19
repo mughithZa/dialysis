@@ -129,11 +129,18 @@ test('core flow: desk builds the schedule, rosters and books; doctor notes; nurs
   // wait for the list: the Today board the doctor lands on also links the patient (machine grid)
   await expect(page.getByRole('heading', { name: en.desk.patients.title })).toBeVisible();
   await page.getByRole('link', { name: new RegExp(PATIENT.name) }).click();
-  await page.getByLabel(en.doctor.orders.text).fill(ORDER);
-  await page.getByRole('button', { name: en.doctor.orders.add }).click();
+  // doctors land on Trends (no vitals yet); orders and notes are written from the Orders tab's one "New" action
+  await expect(page.getByText(en.doctor.trends.empty)).toBeVisible();
+  await page.getByRole('tab', { name: en.desk.patient.tabs.orders }).click();
+  await page.getByRole('button', { name: en.doctor.new }).click();
+  await page.getByRole('dialog').getByLabel(en.doctor.orders.text).fill(ORDER);
+  await page.getByRole('dialog').getByRole('button', { name: en.doctor.orders.add }).click();
+  await expect(page.getByRole('dialog')).toBeHidden();
   await expect(page.getByText(ORDER).first()).toBeVisible();
-  await page.getByLabel(en.doctor.notes.text).fill(DOCTOR_NOTE);
-  await page.getByRole('button', { name: en.doctor.notes.add, exact: true }).click();
+  await page.getByRole('button', { name: en.doctor.new }).click();
+  await page.getByRole('dialog').getByText(en.doctor.kind.note, { exact: true }).click();
+  await page.getByRole('dialog').getByLabel(en.doctor.notes.text).fill(DOCTOR_NOTE);
+  await page.getByRole('dialog').getByRole('button', { name: en.doctor.notes.add, exact: true }).click();
   await expect(page.getByText(en.doctor.notes.added)).toBeVisible();
   await logout(page);
 

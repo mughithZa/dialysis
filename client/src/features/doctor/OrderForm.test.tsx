@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { OrdersPanel } from './OrdersPanel';
@@ -37,14 +37,24 @@ describe('OrdersPanel', () => {
     );
     renderApp(<OrdersPanel patientId="p1" />);
     expect(await screen.findByText('No orders.')).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('New order'), 'Heparin-free until further notice');
-    await userEvent.click(screen.getByRole('button', { name: 'Add order' }));
+    expect(screen.queryByLabelText('New order')).toBeNull();
+    await userEvent.click(screen.getByRole('button', { name: 'New order / note' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await userEvent.type(dialog.getByLabelText('New order'), 'Heparin-free until further notice');
+    await userEvent.click(dialog.getByRole('button', { name: 'Add order' }));
     expect(await screen.findByText('Heparin-free until further notice')).toBeInTheDocument();
+    await waitFor(() => expect(screen.queryByRole('dialog')).toBeNull());
     expect(posted).toEqual({ text: 'Heparin-free until further notice' });
     expect(screen.getByText(/Dr Omar/)).toBeInTheDocument();
     await userEvent.click(screen.getByRole('button', { name: 'End' }));
     expect(await screen.findByText('No orders.')).toBeInTheDocument();
-    expect(screen.queryByText('Heparin-free until further notice')).toBeNull();
+    // the ended order moves to the folded "Ended orders" list
+    const toggle = screen.getByRole('button', { name: /Ended orders/ });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    const ended = await screen.findByText('Heparin-free until further notice');
+    expect(ended.closest('[data-order]')).toHaveAttribute('data-order', 'ended');
+    expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
   });
 
   it('posts a doctor note which then appears in the notes list', async () => {
@@ -63,8 +73,11 @@ describe('OrdersPanel', () => {
     );
     renderApp(<OrdersPanel patientId="p1" />);
     expect(await screen.findByText('No notes.')).toBeInTheDocument();
-    await userEvent.type(screen.getByLabelText('New note'), 'Review dry weight next week');
-    await userEvent.click(screen.getByRole('button', { name: 'Add note' }));
+    await userEvent.click(screen.getByRole('button', { name: 'New order / note' }));
+    const dialog = within(await screen.findByRole('dialog'));
+    await userEvent.click(dialog.getByText('Note'));
+    await userEvent.type(dialog.getByLabelText('New note'), 'Review dry weight next week');
+    await userEvent.click(dialog.getByRole('button', { name: 'Add note' }));
     expect(await screen.findByText('Review dry weight next week')).toBeInTheDocument();
     expect(posted).toEqual({ text: 'Review dry weight next week' });
     expect(screen.getByText(/Dr Omar/)).toBeInTheDocument();
@@ -84,8 +97,7 @@ describe('OrdersPanel', () => {
     renderApp(<OrdersPanel patientId="p1" />);
     expect(await screen.findByText('Low flux')).toBeInTheDocument();
     expect(screen.queryByRole('button', { name: 'End' })).toBeNull();
-    expect(screen.queryByLabelText('New order')).toBeNull();
-    expect(screen.queryByLabelText('New note')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'New order / note' })).toBeNull();
     expect(await screen.findByText('Old note')).toBeInTheDocument();
   });
 });
@@ -114,6 +126,7 @@ describe('PatientPage as a doctor', () => {
       http.get('*/api/centres/c1/patients/p1/orders', () => HttpResponse.json([])),
       http.get('*/api/centres/c1/patients/p1/notes', () => HttpResponse.json([])),
       http.get('*/api/centres/c1/patients/p1/timeline', () => HttpResponse.json({ upcoming: [], today: [], past: [], notes: [] })),
+      http.get('*/api/centres/c1/patients/p1/vitals', () => HttpResponse.json({ points: [] })),
     );
     renderApp(
       <Routes>
@@ -122,8 +135,9 @@ describe('PatientPage as a doctor', () => {
       '/c/c1/patients/p1',
     );
     expect(await screen.findByText('Ali Hassan')).toBeInTheDocument();
+    await userEvent.click(await screen.findByRole('tab', { name: 'Orders' }));
     expect(await screen.findByText('No orders.')).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: 'Add order' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'New order / note' })).toBeInTheDocument();
     for (const name of ['Edit', 'Book schedule', 'Change schedule', 'Postpone session', 'Make-up session', 'Discharge', 'Transfer to another centre', 'Reset patient password']) {
       expect(screen.queryByRole('button', { name })).toBeNull();
     }

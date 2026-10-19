@@ -368,7 +368,6 @@
       "notFound": "Patient not found.",
       "pattern": "Current schedule",
       "noPattern": "No schedule yet.",
-      "orders": "Doctor orders",
       "noOrders": "No orders.",
       "bookPattern": "Book schedule",
       "postpone": "Postpone",
@@ -392,7 +391,8 @@
         "sessions": "Sessions",
         "orders": "Orders",
         "record": "Record",
-        "schedule": "Schedule"
+        "schedule": "Schedule",
+        "trends": "Trends"
       },
       "rowMenu": "Actions for {{day}}",
       "notRecorded": "Not recorded"
@@ -608,14 +608,43 @@
       "text": "New order",
       "from": "Effective from (optional)",
       "add": "Add order",
-      "end": "End"
+      "end": "End",
+      "active": "Active orders",
+      "ended": "Ended orders",
+      "endedBadge": "Ended",
+      "noneHint": "Orders you write appear here and on this patient's sessions.",
+      "added": "Order added."
     },
     "notes": {
       "title": "Doctor notes",
       "text": "New note",
       "add": "Add note",
       "none": "No notes.",
-      "added": "Note added."
+      "added": "Note added.",
+      "showAll": "Show all notes",
+      "showFewer": "Show fewer"
+    },
+    "new": "New order / note",
+    "kind": {
+      "order": "Order",
+      "note": "Note"
+    },
+    "trends": {
+      "subtitle": "Sessions with recorded vitals: {{count}}",
+      "kg": "{{value}} kg",
+      "lastWeight": "Last weight",
+      "avgLoss": "Avg. weight loss (UF)",
+      "lastBp": "Last blood pressure",
+      "weightTitle": "Weight before and after (kg)",
+      "before": "Before",
+      "after": "After",
+      "lossTitle": "Weight loss per session (kg)",
+      "loss": "Weight loss",
+      "bpTitle": "Blood pressure, session average (mmHg)",
+      "systolic": "Systolic",
+      "diastolic": "Diastolic",
+      "empty": "No vitals recorded yet.",
+      "emptyHint": "Weight and blood pressure charts appear once nurses record them in sessions."
     }
   },
   "sessions": {
@@ -753,16 +782,29 @@
       "button": "Install app",
       "dismiss": "Dismiss",
       "ios": "Tap Share, then Add to Home Screen",
-      "title": "Add this app to your phone"
+      "title": "Add this app to your phone",
+      "hint": "Open it from your home screen like any other app."
     },
     "notify": {
       "enable": "Turn on reminders",
       "on": "Notifications on",
-      "denied": "Notifications are blocked. Allow them in your browser settings to get reminders.",
-      "failed": "Could not turn on notifications."
+      "failed": "Could not turn on notifications.",
+      "title": "Session reminders",
+      "hint": "Get a reminder on your phone before each session.",
+      "blockedTitle": "Reminders are blocked",
+      "blockedHow": "Open your browser's site settings (the lock icon next to the address), set Notifications to Allow, then reload this page.",
+      "onHint": "You will get a reminder before each session."
     },
     "next": "Your next session",
-    "today": "Today"
+    "today": "Today",
+    "tomorrow": "Tomorrow",
+    "activeHint": "You are on the machine now.",
+    "noNext": "No upcoming sessions",
+    "noNextHint": "Your centre will book your next sessions.",
+    "orders": {
+      "title": "Your doctor's instructions",
+      "from": "From {{date}}"
+    }
   },
   "board": {
     "block": "Session block",
@@ -824,12 +866,12 @@
     "oneOff": "One-off",
     "note": "Doctor note",
     "sessionNotes": "Nurse notes",
-    "orders": "Doctor's orders",
-    "order": "{{text}} (from {{date}})",
     "title": "Sessions",
     "makeupFor": "Make-up for {{date}}",
     "madeUpOn": "Made up on {{date}}",
-    "nurseNotRecorded": "Nurse not recorded"
+    "nurseNotRecorded": "Nurse not recorded",
+    "showNotes": "Show notes",
+    "hideNotes": "Hide notes"
   },
   "language": {
     "label": "Language",

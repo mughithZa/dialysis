@@ -33,6 +33,31 @@ export const useNotes = (patientId: string, enabled: boolean) => {
   });
 };
 
+export interface VitalsPoint {
+  sessionId: string;
+  date: string;
+  centreName: string;
+  weightBefore: number | null;
+  weightAfter: number | null;
+  weightLoss: number | null;
+  /** Average of the session's BP readings. */
+  systolic: number | null;
+  diastolic: number | null;
+  bpCount: number;
+}
+
+export const TREND_SESSIONS = 30;
+
+/** Per-session weights and BP of the last sessions with vitals, oldest first (sessions.view). */
+export const useVitals = (patientId: string, enabled = true) => {
+  const centreId = useCentreId();
+  return useQuery({
+    queryKey: ['desk', centreId, 'vitals', patientId],
+    queryFn: () => apiGet<{ points: VitalsPoint[] }>(`/centres/${centreId}/patients/${patientId}/vitals?limit=${TREND_SESSIONS}`),
+    enabled: enabled && !!centreId,
+  });
+};
+
 export function useCreateNote(patientId: string) {
   const centreId = useCentreId();
   const qc = useQueryClient();

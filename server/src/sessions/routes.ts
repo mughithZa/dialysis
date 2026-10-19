@@ -16,6 +16,7 @@ import { loadPatientInCentre } from '../patients/load.js';
 import { recentNotesFor } from '../notes/service.js';
 import { addDays, localDateTime, todayLocal } from '../lib/dates.js';
 import { buildTimeline } from './timeline.js';
+import { buildVitals } from './vitals.js';
 import { toSessionCards } from './card.js';
 import { SessionChange } from './change.model.js';
 import { Session, type SessionDoc } from './session.model.js';
@@ -481,6 +482,24 @@ sessionsRouter.get(
       const { before, limit } = req.query as unknown as z.infer<typeof historyQuery>;
       const patient = await loadPatientInCentre(centreOf(req), req.params.id);
       res.json(await buildTimeline(patient._id, { kind: 'staff', centreId: centreOf(req) }, { before, limit }));
+    } catch (e) {
+      next(e);
+    }
+  },
+);
+
+const vitalsQuery = z.object({ limit: z.coerce.number().int().min(1).max(100).default(30) });
+
+/** Per-session weights and BP for the doctor's trend charts (same audience as a session's vitals). */
+sessionsRouter.get(
+  '/patients/:id/vitals',
+  requirePerm('sessions.view'),
+  validate(vitalsQuery, 'query'),
+  async (req, res, next) => {
+    try {
+      const { limit } = req.query as unknown as z.infer<typeof vitalsQuery>;
+      const patient = await loadPatientInCentre(centreOf(req), req.params.id);
+      res.json({ points: await buildVitals(patient._id, limit) });
     } catch (e) {
       next(e);
     }

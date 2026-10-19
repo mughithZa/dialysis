@@ -1,5 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { screen, within } from '@testing-library/react';
+import { screen, waitFor, within } from '@testing-library/react';
+import { addDaysLocal } from '../desk/dates';
 import userEvent from '@testing-library/user-event';
 import { http, HttpResponse } from 'msw';
 import { MePage } from './MePage';
@@ -65,7 +66,41 @@ describe('MePage', () => {
     renderApp(<MePage />);
     const next = await screen.findByRole('status', { name: 'Your next session' });
     expect(within(next).getByText('Tuesday, Oct 19')).toBeVisible();
-    expect(within(next).getByText('07:00–11:00 · Damascus')).toBeVisible();
+    expect(within(next).getByText('07:00–11:00')).toBeVisible();
+    expect(within(next).getByText('Damascus')).toBeVisible();
+    expect(within(next).queryByText(/Machine/)).toBeNull(); // no label from an older server
+  });
+
+  it('names the machine, and says Today or Tomorrow for the next session', async () => {
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview({ upcoming: [mini('s2', addDaysLocal(1), { chairLabel: '4' })] }))),
+      http.get('*/api/me/timeline', () => HttpResponse.json(timeline())),
+    );
+    renderApp(<MePage />);
+    const next = await screen.findByRole('status', { name: 'Your next session' });
+    expect(within(next).getByText('Tomorrow')).toBeVisible();
+    expect(within(next).getByText('Machine 4')).toBeVisible();
+  });
+
+  it('shows the active session as the hero card with its machine', async () => {
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview({ active: mini('s1', '2026-10-18', { status: 'active', chairLabel: '2' }) }))),
+      http.get('*/api/me/timeline', () => HttpResponse.json(timeline())),
+    );
+    renderApp(<MePage />);
+    const hero = await screen.findByRole('status', { name: 'Session active now' });
+    expect(hero).toHaveAttribute('data-hero', 'active');
+    expect(within(hero).getByText('Machine 2')).toBeVisible();
+    expect(within(hero).getByText('You are on the machine now.')).toBeVisible();
+  });
+
+  it('says when there is no upcoming session', async () => {
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview())),
+      http.get('*/api/me/timeline', () => HttpResponse.json(timeline())),
+    );
+    renderApp(<MePage />);
+    expect(await screen.findByText('No upcoming sessions')).toBeVisible();
   });
 
   it('hides the next-session card while a session is active', async () => {
@@ -109,6 +144,36 @@ describe('MePage', () => {
     expect(screen.getByRole('heading', { name: 'Past' })).toBeVisible();
   });
 
+  it("shows the doctor's active orders once, in their own card, not on every session", async () => {
+    const orders = [{ text: 'EPO 4000 IU every session', from: '2026-10-01' }];
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview())),
+      http.get('*/api/me/timeline', () =>
+        HttpResponse.json(
+          timeline({
+            upcoming: [item('u1', '2027-10-20', { orders }), item('u2', '2027-10-22', { orders })],
+            past: [item('a', '2026-10-15', { status: 'completed', orders })],
+          }),
+        ),
+      ),
+    );
+    renderApp(<MePage />);
+    const card = within(await screen.findByTestId('my-orders'));
+    expect(card.getByRole('heading', { name: "Your doctor's instructions" })).toBeVisible();
+    expect(card.getByText('From Oct 1, 2026')).toBeVisible();
+    expect(screen.getAllByText('EPO 4000 IU every session')).toHaveLength(1);
+  });
+
+  it('has no orders card when there are no orders (or the centre keeps them private)', async () => {
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview())),
+      http.get('*/api/me/timeline', () => HttpResponse.json(timeline({ upcoming: [item('u1', '2027-10-20')] }))),
+    );
+    renderApp(<MePage />);
+    expect(await screen.findByTestId('timeline-row-u1')).toBeVisible();
+    expect(screen.queryByTestId('my-orders')).toBeNull();
+  });
+
   it('shows no notes when the centre keeps them private', async () => {
     server.use(
       http.get('*/api/me/overview', () => HttpResponse.json(overview())),
@@ -124,6 +189,52 @@ describe('MePage reminders', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
     Reflect.deleteProperty(navigator, 'serviceWorker');
+  });
+
+  function fakePush(permission: NotificationPermission, subscription: unknown = null) {
+    const reg = { pushManager: { getSubscription: vi.fn().mockResolvedValue(subscription), subscribe: vi.fn() } };
+    Object.defineProperty(navigator, 'serviceWorker', { value: { ready: Promise.resolve(reg) }, configurable: true });
+    vi.stubGlobal('PushManager', class {});
+    vi.stubGlobal('Notification', Object.assign(function () {}, { permission, requestPermission: vi.fn() }));
+    server.use(
+      http.get('*/api/me/overview', () => HttpResponse.json(overview())),
+      http.get('*/api/me/timeline', () => HttpResponse.json(timeline())),
+      http.get('*/api/push/key', () => HttpResponse.json({ publicKey: 'AQAB' })),
+    );
+  }
+
+  it('offers a reminders card with a clear button when off', async () => {
+    fakePush('default');
+    renderApp(<MePage />);
+    const card = within(await screen.findByTestId('reminders'));
+    expect(card.getByText('Session reminders')).toBeVisible();
+    expect(card.getByText('Get a reminder on your phone before each session.')).toBeVisible();
+    expect(card.getByRole('button', { name: 'Turn on reminders' })).toBeVisible();
+  });
+
+  it('explains how to allow notifications when they are blocked', async () => {
+    fakePush('denied');
+    renderApp(<MePage />);
+    const card = within(await screen.findByTestId('reminders'));
+    expect(card.getByText('Reminders are blocked')).toBeVisible();
+    expect(card.getByText(/set Notifications to Allow/)).toBeVisible();
+    expect(card.queryByRole('button')).toBeNull();
+  });
+
+  it('says reminders are on once subscribed', async () => {
+    fakePush('granted', { endpoint: 'https://p.example/x' });
+    renderApp(<MePage />);
+    const card = within(await screen.findByTestId('reminders'));
+    expect(card.getByText('Notifications on')).toBeVisible();
+    expect(card.queryByRole('button')).toBeNull();
+  });
+
+  it('shows nothing when the server has no push key', async () => {
+    fakePush('default');
+    server.use(http.get('*/api/push/key', () => HttpResponse.json({ publicKey: null })));
+    renderApp(<MePage />);
+    expect(await screen.findByText('Layla')).toBeVisible();
+    await waitFor(() => expect(screen.queryByTestId('reminders')).toBeNull());
   });
 
   it('shows a hint when turning on notifications fails', async () => {

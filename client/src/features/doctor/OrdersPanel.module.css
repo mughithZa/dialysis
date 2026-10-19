@@ -1,0 +1,24 @@
+/* Colours come only from theme.ts (Mantine colour scales and the --uoca-* variables). */
+
+.ended {
+  color: var(--mantine-color-grey-7);
+}
+
+.text {
+  white-space: pre-line;
+  overflow-wrap: anywhere;
+}
+
+.toggle {
+  display: flex;
+  align-items: center;
+  color: var(--uoca-muted);
+}
+
+.toggle svg {
+  transition: transform 150ms ease;
+}
+
+.toggle .open {
+  transform: rotate(180deg);
+}

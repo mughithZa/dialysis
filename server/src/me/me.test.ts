@@ -41,7 +41,8 @@ describe('GET /api/me/overview', () => {
       [addDays(today, 2), '12:00'],
       [addDays(today, 13), '07:00'],
     ]);
-    expect(none.body.upcoming[0]).toMatchObject({ end: '11:30', centreName: 'North', kind: 'regular', status: 'scheduled' });
+    expect(none.body.upcoming[0]).toMatchObject({ end: '11:30', centreName: 'North', kind: 'regular', status: 'scheduled', chairLabel: expect.any(String) });
+    expect(none.body.upcoming[0].chairLabel.length).toBeGreaterThan(0);
     const act = await mk(addDays(today, -3), 'active');
     const got = await agent.get('/api/me/overview');
     expect(got.body.active).toMatchObject({ id: act.id, status: 'active', centreName: centre.name });

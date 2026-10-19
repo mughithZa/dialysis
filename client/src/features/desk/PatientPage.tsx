@@ -1,4 +1,4 @@
-import { Fragment, useState, type ReactNode } from 'react';
+import { Fragment, lazy, Suspense, useState, type ReactNode } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link, useParams } from 'react-router-dom';
 import { ActionIcon, Alert, Anchor, Button, Card, Group, Loader, Menu, Modal, PasswordInput, Select, Stack, Tabs, Text, Textarea, Title } from '@mantine/core';
@@ -40,6 +40,9 @@ import { formatDate, timeRange } from '../../i18n/format';
 import { PatientForm } from './PatientForm';
 import calendarClasses from './CalendarPage.module.css';
 import classes from './PatientPage.module.css';
+
+// the charts library is large: load it only when a doctor opens Trends
+const TrendsPanel = lazy(() => import('../doctor/TrendsPanel').then((m) => ({ default: m.TrendsPanel })));
 
 /** Postpone one session (from its row menu); a make-up for it can follow. */
 function PostponeDialog({ row, onDone }: { row: TimelineItem; onDone: () => void }) {
@@ -334,15 +337,17 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
     reset: t('desk.patient.resetPassword'),
   };
 
-  // Tabs by permission. Doctors (who write orders) land on Orders; a doctors' trends tab will sit next to it.
+  // Tabs by permission. Doctors (who write orders) get weight/BP trends next to Orders and land on Trends.
+  const canTrends = canHistory && canWriteOrders;
   const tabs = [
     canHistory && { value: 'sessions', label: t('desk.patient.tabs.sessions') },
+    canTrends && { value: 'trends', label: t('desk.patient.tabs.trends') },
     canOrders && { value: 'orders', label: t('desk.patient.tabs.orders') },
     { value: 'record', label: t('desk.patient.tabs.record') },
     canView && { value: 'schedule', label: t('desk.patient.tabs.schedule') },
   ].filter((x): x is { value: string; label: string } => !!x);
   const [tab, setTab] = useState<string | null>(null);
-  const currentTab = tab ?? (canWriteOrders && canOrders ? 'orders' : tabs[0]!.value);
+  const currentTab = tab ?? (canTrends ? 'trends' : canWriteOrders && canOrders ? 'orders' : tabs[0]!.value);
 
   return (
     <Stack gap="md">
@@ -433,6 +438,13 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
         {canHistory && (
           <Tabs.Panel value="sessions" pt="md">
             <Timeline source={{ kind: 'staff', centreId, patientId: patient.id }} actions={rowActions} />
+          </Tabs.Panel>
+        )}
+        {canTrends && (
+          <Tabs.Panel value="trends" pt="md">
+            <Suspense fallback={<Loader size="sm" />}>
+              <TrendsPanel patientId={patient.id} />
+            </Suspense>
           </Tabs.Panel>
         )}
         {canOrders && (

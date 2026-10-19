@@ -29,7 +29,20 @@ export const BRAND = {
   borderStrong: '#d9caa3',
   muted: '#8a7a5c',
   onBrown: '#f5ead0',
+  /** Translucent fills and lines on the brown header (controls such as the centre picker). */
+  onBrownSoft: 'rgba(245, 234, 208, 0.14)',
+  onBrownLine: 'rgba(245, 234, 208, 0.38)',
   white: '#ffffff',
+} as const;
+
+/**
+ * Chart series colours (warm gold, blue, red). The brand browns are too grey to tell apart as series, so charts use
+ * these; checked for colour-blind separation and 3:1 contrast on white.
+ */
+export const CHART = {
+  gold: '#a8741a',
+  blue: '#1f72a8',
+  red: '#b0342a',
 } as const;
 
 /** Browser/OS chrome colour (PWA manifest `theme_color`, `<meta name="theme-color">`). */
@@ -122,6 +135,11 @@ export const cssVariablesResolver: CSSVariablesResolver = () => ({
     '--uoca-muted': BRAND.muted,
     '--uoca-on-brown': BRAND.onBrown,
     '--uoca-surface': BRAND.white,
+    '--uoca-on-brown-soft': BRAND.onBrownSoft,
+    '--uoca-on-brown-line': BRAND.onBrownLine,
+    '--uoca-chart-gold': CHART.gold,
+    '--uoca-chart-blue': CHART.blue,
+    '--uoca-chart-red': CHART.red,
   },
   light: {
     '--mantine-color-body': BRAND.cream,

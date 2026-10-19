@@ -24,19 +24,27 @@
 }
 
 .centreSelect {
-  color: var(--uoca-on-brown);
   font-weight: 700;
-  font-size: var(--mantine-font-size-md);
-  min-height: 26px;
-  height: 26px;
-  line-height: 26px;
-  padding-inline-end: 22px;
+  font-size: var(--mantine-font-size-sm);
+  min-height: 32px;
+  height: 32px;
+  line-height: 30px;
+  padding-inline-start: 12px;
+  padding-inline-end: 30px;
+  margin-block-start: 2px;
   cursor: pointer;
+  text-overflow: ellipsis;
+}
+
+.centreSelect:focus,
+.centreSelect:focus-visible {
+  outline: 2px solid var(--uoca-gold);
+  outline-offset: 1px;
 }
 
 .centreSection {
   color: var(--uoca-gold);
-  width: 20px;
+  width: 28px;
 }
 
 .navbar {

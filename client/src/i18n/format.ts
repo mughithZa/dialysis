@@ -9,6 +9,12 @@ export function formatDate(date: string, lng: string = i18n.language): string {
   return new Intl.DateTimeFormat(dateLocale(lng), { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(y, m - 1, d));
 }
 
+/** A short local date for chart axes and compact rows, e.g. "5 Oct" / "5 تشرين الأول". */
+export function formatShortDate(date: string, lng: string = i18n.language): string {
+  const [y, m, d] = date.split('-').map(Number) as [number, number, number];
+  return new Intl.DateTimeFormat(dateLocale(lng), { day: 'numeric', month: 'short' }).format(new Date(y, m - 1, d));
+}
+
 /** Joins short items (machine labels, medicines) with the language's comma: "1, 2, 3" / "1، 2، 3". */
 export const formatList = (items: string[], lng: string = i18n.language): string => items.join(lng === 'ar' ? '، ' : ', ');
 

@@ -1,0 +1,43 @@
+/* Colours come only from theme.ts (Mantine colour scales and the --uoca-* variables). */
+
+.medIcon {
+  color: var(--uoca-muted);
+  flex-shrink: 0;
+  margin-block-start: 2px;
+}
+
+.toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  align-self: flex-start;
+  margin-block-end: -8px;
+  color: var(--mantine-color-uoca-8);
+}
+
+.toggle svg {
+  transition: transform 150ms ease;
+}
+
+.toggle .open {
+  transform: rotate(180deg);
+}
+
+.notes {
+  padding: 8px 12px;
+  border-radius: var(--mantine-radius-md);
+  background: var(--mantine-color-uoca-0);
+  border-inline-start: 3px solid var(--mantine-color-uoca-3);
+}
+
+.list {
+  overflow: hidden;
+}
+
+.row {
+  padding: 10px 14px;
+}
+
+.row + .row {
+  border-block-start: 1px solid var(--uoca-border);
+}

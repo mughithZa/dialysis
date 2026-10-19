@@ -8,11 +8,14 @@ export function StatCard({
   label,
   icon: IconCmp,
   color = 'uoca',
+  compact,
 }: {
   value: ReactNode;
   label: string;
   icon?: Icon;
   color?: MantineColor;
+  /** Smaller number, for three cards side by side on a phone. */
+  compact?: boolean;
 }) {
   return (
     <Card padding="sm" data-stat-card>
@@ -23,7 +26,7 @@ export function StatCard({
           </ThemeIcon>
         )}
         <Stack gap={0} style={{ minWidth: 0 }}>
-          <Text fz={26} fw={700} lh={1.15} c={`${color}.7`}>
+          <Text fz={compact ? 20 : 26} fw={700} style={compact ? { whiteSpace: 'nowrap' } : undefined} lh={1.15} c={`${color}.7`}>
             {value}
           </Text>
           <Text size="sm" c="dimmed" lineClamp={2}>

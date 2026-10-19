@@ -126,13 +126,14 @@ describe('Timeline', () => {
     expect(screen.queryByText('Doctor note')).toBeNull();
   });
 
-  it("shows a session's nurse notes and the doctor's orders under its row when the patient may see them", async () => {
+  it("the patient's own rows keep nurse notes behind a toggle and never repeat the doctor's orders", async () => {
     serve(
       data({
         past: [
           item('p1', '2026-10-01', {
             status: 'completed',
             linkable: undefined,
+            medicines: [{ name: 'Heparin', amount: 5, unit: 'cc' }],
             notes: [{ at: '2026-10-01T09:00:00.000Z', text: 'felt dizzy' }],
             orders: [{ text: 'no heparin', from: '2026-09-25' }],
           }),
@@ -143,13 +144,16 @@ describe('Timeline', () => {
     );
     renderApp(<Timeline source={{ kind: 'me' }} />);
     const row = within(await screen.findByTestId('timeline-row-p1'));
-    expect(row.getByText('Nurse notes')).toBeVisible();
-    expect(row.getByText('felt dizzy')).toBeVisible();
-    expect(row.getByText("Doctor's orders")).toBeVisible();
-    expect(row.getByText(/no heparin/)).toBeVisible();
+    expect(row.getByText('Heparin: 5 cc')).toBeVisible();
+    expect(row.queryByText(/no heparin/)).toBeNull();
+    const toggle = row.getByRole('button', { name: 'Show notes' });
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+    await userEvent.click(toggle);
+    expect(row.getByRole('button', { name: 'Hide notes' })).toHaveAttribute('aria-expanded', 'true');
+    expect(row.getByText('Nurse notes')).toBeInTheDocument();
+    expect(row.getByText('felt dizzy')).toBeInTheDocument();
     const plain = within(screen.getByTestId('timeline-row-p2'));
-    expect(plain.queryByText('Nurse notes')).toBeNull();
-    expect(plain.queryByText("Doctor's orders")).toBeNull();
+    expect(plain.queryByRole('button', { name: 'Show notes' })).toBeNull();
   });
 
   it('interleaves notes with sessions by date, newest first', async () => {

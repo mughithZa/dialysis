@@ -55,9 +55,9 @@ describe('roster precedence', () => {
   it('same span: explicit machines beat all-machines', async () => {
     const { chairs, shifts, centre, rana, ali, post } = await setup();
     await post({ nurseId: ali.user.id, from: d(15), to: d(21), chairIds: [chairs[0]!.id] });
-    await post({ nurseId: rana.user.id, from: '2026-11-02', to: '2026-11-08' }); // later, but empty chairIds
-    expect(await nurseFor(centre.id, '2026-11-03', shifts[0]!.id, chairs[0]!.id)).toBe(ali.user.id);
-    expect(await nurseFor(centre.id, '2026-11-03', shifts[0]!.id, chairs[1]!.id)).toBe(rana.user.id);
+    await post({ nurseId: rana.user.id, from: d(15), to: d(21) }); // later, but empty chairIds
+    expect(await nurseFor(centre.id, d(16), shifts[0]!.id, chairs[0]!.id)).toBe(ali.user.id);
+    expect(await nurseFor(centre.id, d(16), shifts[0]!.id, chairs[1]!.id)).toBe(rana.user.id);
   });
 
   it('empty chairIds covers active machines only', async () => {

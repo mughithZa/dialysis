@@ -7,6 +7,8 @@ export interface MiniSession {
   date: string;
   start: string;
   end: string;
+  /** Machine label (snapshot); absent from older servers. */
+  chairLabel?: string;
   centreName: string;
   kind: 'regular' | 'makeup';
   status: SessionStatus;

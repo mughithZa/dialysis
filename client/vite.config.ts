@@ -57,8 +57,20 @@ export default defineConfig({
   build: {
     rolldownOptions: {
       output: {
-        // Keep the UI kit out of the app chunk so neither crosses the 500 kB warning limit.
-        codeSplitting: { groups: [{ name: 'mantine', test: /node_modules[\\/]@mantine/ }] },
+        // Keep the UI kit out of the app chunk so neither crosses the 500 kB warning limit; the charts (recharts and its
+        // d3 helpers) get their own chunk, loaded only with the doctor's Trends tab.
+        codeSplitting: {
+          groups: [
+            { name: 'charts-lodash', priority: 3, test: /node_modules[\\/]lodash[\\/]/ },
+            { name: 'charts-d3', priority: 3, test: /node_modules[\\/](victory-vendor|d3-[^\\/]+|internmap|decimal\.js-light)[\\/]/ },
+            {
+              name: 'charts',
+              priority: 2,
+              test: /node_modules[\\/](@mantine[\\/]charts|recharts|recharts-scale|react-smooth|eventemitter3|fast-equals|tiny-invariant|react-transition-group|dom-helpers)[\\/]/,
+            },
+            { name: 'mantine', priority: 1, test: /node_modules[\\/]@mantine/ },
+          ],
+        },
       },
     },
   },

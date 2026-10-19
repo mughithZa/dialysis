@@ -196,15 +196,32 @@ describe('PatientPage tabs', () => {
     expect(screen.getAllByLabelText('Not recorded').length).toBeGreaterThan(0);
   });
 
-  it('opens on Orders for a doctor, and has no Schedule tab without schedule.view', async () => {
+  it('opens on Trends for a doctor, next to Orders, and has no Schedule tab without schedule.view', async () => {
     useCentreUser(['patients.view', 'sessions.view', 'orders.view', 'orders.write']);
+    handlers();
+    server.use(
+      http.get('*/api/centres/c1/patients/p1/vitals', () => HttpResponse.json({ points: [] })),
+      http.get('*/api/centres/c1/patients/p1/orders', () => HttpResponse.json([])),
+      http.get('*/api/centres/c1/patients/p1/notes', () => HttpResponse.json([])),
+    );
+    mount();
+    expect(await screen.findByRole('tab', { name: 'Trends', selected: true })).toBeTruthy();
+    expect(screen.getAllByRole('tab').map((t) => t.textContent)).toEqual(['Sessions', 'Trends', 'Orders', 'Record']);
+    expect(await screen.findByText('No vitals recorded yet.')).toBeVisible();
+    await userEvent.click(screen.getByRole('tab', { name: 'Orders' }));
+    expect(await screen.findByText('No orders.')).toBeVisible();
+    expect(screen.queryByRole('tab', { name: 'Schedule' })).toBeNull();
+  });
+
+  it('has no Trends tab without orders.write', async () => {
+    useCentreUser(['patients.view', 'sessions.view', 'orders.view']);
     handlers();
     server.use(
       http.get('*/api/centres/c1/patients/p1/orders', () => HttpResponse.json([])),
       http.get('*/api/centres/c1/patients/p1/notes', () => HttpResponse.json([])),
     );
     mount();
-    expect(await screen.findByRole('tab', { name: 'Orders', selected: true })).toBeTruthy();
-    expect(screen.queryByRole('tab', { name: 'Schedule' })).toBeNull();
+    expect(await screen.findByRole('tab', { name: 'Sessions', selected: true })).toBeTruthy();
+    expect(screen.queryByRole('tab', { name: 'Trends' })).toBeNull();
   });
 });
