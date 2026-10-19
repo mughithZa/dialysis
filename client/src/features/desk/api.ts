@@ -224,7 +224,8 @@ export function useChangePlan() {
 
 export interface RosterEntryDto {
   id: string;
-  nurse: { id: string; name: string };
+  /** `active` is false once the nurse is deactivated or leaves the centre: the entry then covers nothing. */
+  nurse: { id: string; name: string; active: boolean };
   shiftId: string;
   from: string;
   to: string;
@@ -282,7 +283,7 @@ export function useMakeup() {
   const centreId = useCentreId();
   const invalidate = useInvalidateDesk();
   return useMutation({
-    mutationFn: ({ patientId, ...body }: { patientId: string; date: string; chairId: string; shiftId: string }) =>
+    mutationFn: ({ patientId, ...body }: { patientId: string; date: string; chairId: string; shiftId: string; forSessionId?: string }) =>
       apiPost(`${base(centreId)}/patients/${patientId}/makeup`, body),
     onSettled: invalidate,
   });

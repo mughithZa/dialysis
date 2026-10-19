@@ -28,7 +28,7 @@ import { MakeupDialog } from './MakeupDialog';
 import { MoveDialog } from './MoveDialog';
 import { PatientForm } from './PatientForm';
 
-function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: () => void }) {
+function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: (sessionId: string) => void }) {
   const { t } = useTranslation();
   const [date, setDate] = useState(todayLocal());
   const centreId = useCentreId();
@@ -54,7 +54,7 @@ function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: () =
               postpone.mutate(s.id, {
                 onSuccess: () => {
                   notifications.show({ message: t('desk.postpone.done') });
-                  onDone();
+                  onDone(s.id);
                 },
               })
             }
@@ -167,6 +167,8 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
     reset: useCan('users.resetPassword'),
   };
   const [dialog, setDialog] = useState<Dialog | null>(null);
+  /** The session just postponed, so the make-up that follows is linked to it. */
+  const [makeupFor, setMakeupFor] = useState<string | undefined>(undefined);
   const [target, setTarget] = useState<TimelineItem | null>(null);
   const close = () => setDialog(null);
   const act = (d: Dialog, row: TimelineItem) => {
@@ -299,7 +301,14 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
               </Button>
             )}
             {active && can.makeup && (
-              <Button mih={44} variant="default" onClick={() => setDialog('makeup')}>
+              <Button
+                mih={44}
+                variant="default"
+                onClick={() => {
+                  setMakeupFor(undefined);
+                  setDialog('makeup');
+                }}
+              >
                 {t('desk.patient.makeup')}
               </Button>
             )}
@@ -345,8 +354,17 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
         {dialog === 'move' && target && <MoveDialog key={target.id} sessionId={target.id} date={target.date} onDone={close} />}
         {dialog === 'cancel' && target && <CancelDialog key={target.id} sessionId={target.id} onDone={close} />}
         {dialog === 'dnc' && target && <DidNotComeDialog key={target.id} sessionId={target.id} onDone={close} />}
-        {dialog === 'postpone' && <PostponeDialog key="postpone" patientId={patient.id} onDone={() => setDialog(can.makeup ? 'makeup' : null)} />}
-        {dialog === 'makeup' && <MakeupDialog key="makeup" patientId={patient.id} onDone={close} />}
+        {dialog === 'postpone' && (
+          <PostponeDialog
+            key="postpone"
+            patientId={patient.id}
+            onDone={(sessionId) => {
+              setMakeupFor(sessionId);
+              setDialog(can.makeup ? 'makeup' : null);
+            }}
+          />
+        )}
+        {dialog === 'makeup' && <MakeupDialog key="makeup" patientId={patient.id} forSessionId={makeupFor} onDone={close} />}
         {dialog === 'discharge' && <DischargeDialog key="discharge" patientId={patient.id} onDone={close} />}
         {dialog === 'transfer' && <TransferDialog key="transfer" patientId={patient.id} onDone={close} />}
         {dialog === 'reset' && <ResetPasswordDialog key="reset" userId={patient.userId} onDone={close} />}

@@ -444,6 +444,7 @@ const makeupBody = z.object({
     .refine((s) => DateTime.fromISO(s, { zone: 'utc' }).isValid),
   chairId: z.string().min(1),
   shiftId: z.string().min(1),
+  forSessionId: z.string().min(1).optional(),
 });
 
 sessionsRouter.post(

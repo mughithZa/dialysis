@@ -1,19 +1,30 @@
 import { DateTime } from 'luxon';
+import { User } from '../auth/user.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { RosterEntry } from './roster.model.js';
 
 export const spanDays = (from: string, to: string) =>
   DateTime.fromISO(to, { zone: 'utc' }).diff(DateTime.fromISO(from, { zone: 'utc' }), 'days').days;
 
+/** Of `nurseIds`, those who can still cover a slot in `centreId`: an active user who is still a member there. */
+export async function onDutyNurses(centreId: string, nurseIds: unknown[]): Promise<Set<string>> {
+  if (!nurseIds.length) return new Set();
+  const users = await User.find({ _id: { $in: nurseIds }, active: true, 'memberships.centreId': centreId }, { _id: 1 });
+  return new Set(users.map((u) => String(u._id)));
+}
+
 /**
  * Who covers each active machine in each block on `date`: key `${shiftId}:${chairId}` -> nurseId.
  * Per machine the winner is the entry with the smallest span, then explicit machines over "all", then the latest created.
+ * Entries of a nurse who was deactivated or left the centre are ignored, so their slots show "No nurse".
  */
 export async function resolveRoster(centreId: string, date: string): Promise<Map<string, string>> {
-  const [entries, chairs] = await Promise.all([
+  const [all, chairs] = await Promise.all([
     RosterEntry.find({ centreId, from: { $lte: date }, to: { $gte: date } }),
     Chair.find({ centreId, active: true }, { _id: 1 }),
   ]);
+  const onDuty = await onDutyNurses(centreId, [...new Set(all.map((e) => String(e.nurseId)))]);
+  const entries = all.filter((e) => onDuty.has(String(e.nurseId)));
   const active = new Set(chairs.map((c) => String(c._id)));
   const ranked = entries
     .map((e) => ({ e, span: spanDays(e.from, e.to), explicit: e.chairIds.length > 0 }))

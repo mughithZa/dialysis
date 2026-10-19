@@ -6,7 +6,7 @@ import { Item } from '../catalog/item.model.js';
 import { Unit } from '../catalog/unit.model.js';
 import { addDays, todayLocal, weekdayOf } from '../lib/dates.js';
 import { Centre } from '../centres/centre.model.js';
-import { Session } from './session.model.js';
+import { LEGACY_PATIENT_BLOCK_INDEX, PATIENT_BLOCK_INDEX, Session, syncSessionIndexes } from './session.model.js';
 import { UsageLine } from './usage.model.js';
 import { ALL_DAYS, makeCentre, makePatient, programManager, staffIn, makeSession } from '../../test/factories.js';
 
@@ -234,5 +234,92 @@ describe('postpone and make-up', () => {
     await Centre.updateOne({ _id: centre._id }, { $set: { workingDays: [0, 1, 2, 3, 4, 5, 6].filter((d) => d !== weekdayOf(d1)) } });
     const res = await desk.agent.post(`${base}/patients/${patient.id}/makeup`).send({ date: d1, chairId: chairs[1]!.id, shiftId: shifts[1]!.id });
     expect([res.status, res.body.error]).toEqual([400, 'not_working_day']);
+  });
+});
+
+describe('rebooking a block the patient released', () => {
+  it('a cancelled session does not stop a one-off, a move or a make-up into the same block that day', async () => {
+    const { centre, base, desk, chairs, shifts } = await setup();
+    const { patient } = await makePatient(centre.id);
+    const d = addDays(todayLocal(), 2);
+    const once = (chair: number) =>
+      desk.agent
+        .post(`${base}/patients/${patient.id}/plan`)
+        .send({ items: [{ weekday: weekdayOf(d), shiftId: shifts[0]!.id, chairId: chairs[chair]!.id }], from: d, repeat: 'once' });
+    const first = await once(0);
+    expect(first.status).toBe(201);
+    expect((await desk.agent.post(`${base}/sessions/${first.body.sessions[0].id}/cancel`).send({ reason: 'hospital' })).status).toBe(200);
+    const again = await once(1);
+    expect(again.status).toBe(201);
+    // the patient's live session in that block still blocks a second one
+    const twice = await once(2);
+    expect(twice.status).toBe(409);
+    expect(twice.body.error).toBe('session_exists');
+  });
+
+  it('postponed this morning: make-up later that day in the same block on another machine', async () => {
+    const { base, desk, chairs, shifts, book } = await setup();
+    const { patient, session } = await book();
+    await desk.agent.post(`${base}/sessions/${session.id}/postpone`);
+    const res = await desk.agent
+      .post(`${base}/patients/${patient.id}/makeup`)
+      .send({ date: todayLocal(), chairId: chairs[1]!.id, shiftId: shifts[0]!.id, forSessionId: session.id });
+    expect(res.status).toBe(201);
+  });
+
+  it('syncSessionIndexes replaces the legacy all-status index', async () => {
+    await Session.init();
+    await Session.collection.createIndex({ patientId: 1, date: 1, shiftId: 1 }, { unique: true, name: LEGACY_PATIENT_BLOCK_INDEX });
+    await syncSessionIndexes();
+    const names = (await Session.collection.indexes()).map((i) => i.name);
+    expect(names).toContain(PATIENT_BLOCK_INDEX);
+    expect(names).not.toContain(LEGACY_PATIENT_BLOCK_INDEX);
+    await syncSessionIndexes(); // idempotent
+  });
+});
+
+describe('make-up linked to the session it replaces', () => {
+  it('links a postponed session; refuses a second live make-up, a scheduled session and another patient\'s session', async () => {
+    const { base, desk, chairs, shifts, book } = await setup();
+    const { patient, session } = await book();
+    const other = await book([weekdayOf(todayLocal())], 3);
+    const makeup = (pid: string, forSessionId: string, chair = 1, days = 1) =>
+      desk.agent
+        .post(`${base}/patients/${pid}/makeup`)
+        .send({ date: addDays(todayLocal(), days), chairId: chairs[chair]!.id, shiftId: shifts[1]!.id, forSessionId });
+
+    const scheduled = await makeup(patient.id, session.id);
+    expect(scheduled.status).toBe(409);
+    expect(scheduled.body.error).toBe('not_missed');
+
+    await desk.agent.post(`${base}/sessions/${session.id}/postpone`);
+    expect((await makeup(other.patient.id, session.id)).status).toBe(404);
+    const first = await makeup(patient.id, session.id);
+    expect(first.status).toBe(201);
+    expect(String((await Session.findById(first.body.id))!.makeupFor)).toBe(session.id);
+
+    const second = await makeup(patient.id, session.id, 2, 2);
+    expect(second.status).toBe(409);
+    expect(second.body.error).toBe('already_made_up');
+
+    // cancelling the make-up frees the missed session for another one
+    await desk.agent.post(`${base}/sessions/${first.body.id}/cancel`).send({ reason: 'clash' });
+    expect((await makeup(patient.id, session.id, 2, 2)).status).toBe(201);
+  });
+
+  it('the timeline shows the make-up date on the original and the original date on the make-up', async () => {
+    const { base, desk, chairs, shifts, book } = await setup();
+    const { patient, session } = await book();
+    await desk.agent.post(`${base}/sessions/${session.id}/postpone`);
+    const date = addDays(todayLocal(), 1);
+    const res = await desk.agent
+      .post(`${base}/patients/${patient.id}/makeup`)
+      .send({ date, chairId: chairs[1]!.id, shiftId: shifts[1]!.id, forSessionId: session.id });
+    expect(res.status).toBe(201);
+    const tl = (await desk.agent.get(`${base}/patients/${patient.id}/timeline`)).body;
+    const original = tl.today.find((i: { id: string }) => i.id === session.id);
+    expect(original.madeUpOn).toBe(date);
+    const up = tl.upcoming.find((i: { id: string }) => i.id === res.body.id);
+    expect(up.makeupForDate).toBe(todayLocal());
   });
 });

@@ -13,7 +13,7 @@ import { User } from '../auth/user.model.js';
 import { Chair } from '../centres/chair.model.js';
 import { Shift } from '../centres/shift.model.js';
 import { RosterEntry, type RosterEntryDoc } from './roster.model.js';
-import { resolveRoster, spanDays } from './roster.js';
+import { onDutyNurses, resolveRoster, spanDays } from './roster.js';
 
 export const rosterRouter = Router({ mergeParams: true });
 
@@ -36,16 +36,17 @@ const createBody = z.object({
   chairIds: z.array(z.string().min(1)),
 });
 
-async function entryDtos(entries: RosterEntryDoc[]) {
-  const [nurses, chairs] = await Promise.all([
+async function entryDtos(centreId: string, entries: RosterEntryDoc[]) {
+  const [nurses, chairs, onDuty] = await Promise.all([
     User.find({ _id: { $in: entries.map((e) => e.nurseId) } }),
     Chair.find({ _id: { $in: entries.flatMap((e) => e.chairIds) } }),
+    onDutyNurses(centreId, [...new Set(entries.map((e) => String(e.nurseId)))]),
   ]);
   const nurseName = new Map(nurses.map((u) => [u.id as string, u.name]));
   const label = new Map(chairs.map((c) => [c.id as string, c.label]));
   return entries.map((e) => ({
     id: e.id as string,
-    nurse: { id: String(e.nurseId), name: nurseName.get(String(e.nurseId)) ?? '' },
+    nurse: { id: String(e.nurseId), name: nurseName.get(String(e.nurseId)) ?? '', active: onDuty.has(String(e.nurseId)) },
     shiftId: String(e.shiftId),
     from: e.from,
     to: e.to,
@@ -58,7 +59,7 @@ rosterRouter.get('/', requirePerm('schedule.view'), async (req, res, next) => {
     const q = rangeQuery.safeParse(req.query);
     if (!q.success) throw badRequest('validation');
     const entries = await RosterEntry.find({ centreId: centreOf(req), from: { $lte: q.data.to }, to: { $gte: q.data.from } }).sort({ from: 1, _id: 1 });
-    res.json(await entryDtos(entries));
+    res.json(await entryDtos(centreOf(req), entries));
   } catch (e) {
     next(e);
   }
@@ -118,7 +119,7 @@ rosterRouter.post('/', requirePerm('schedule.assignNurses'), validate(createBody
       for (const d of docs) await recordAudit(req, 'roster.create', 'roster', d.id, { ...b, shiftId: String(d.shiftId) }, tx);
       return docs;
     });
-    res.status(201).json(await entryDtos(created));
+    res.status(201).json(await entryDtos(centreId, created));
   } catch (e) {
     next(e);
   }

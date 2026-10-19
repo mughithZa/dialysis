@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Button, Card, Chip, Group, Loader, Modal, MultiSelect, Select, SegmentedControl, Stack, Text, TextInput, Title } from '@mantine/core';
+import { Alert, Badge, Button, Card, Chip, Group, Loader, Modal, MultiSelect, Select, SegmentedControl, Stack, Text, TextInput, Title } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -186,7 +186,14 @@ export function RosterPage() {
                 <Card key={e.id} withBorder padding="sm">
                   <Group justify="space-between" wrap="nowrap" align="flex-start">
                     <Stack gap={2}>
-                      <Text fw={500}>{e.nurse.name}</Text>
+                      <Group gap="xs">
+                        <Text fw={500}>{e.nurse.name}</Text>
+                        {!e.nurse.active && (
+                          <Badge color="warning" variant="light">
+                            {t('desk.roster.inactive')}
+                          </Badge>
+                        )}
+                      </Group>
                       <Text size="sm">{t('desk.roster.dates', { from: e.from, to: e.to })}</Text>
                       <Text size="sm" c="dimmed">
                         {e.chairs.length === 0 ? t('desk.roster.allMachines') : e.chairs.map((c) => c.label).join(', ')}

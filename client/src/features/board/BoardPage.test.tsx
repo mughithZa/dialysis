@@ -41,6 +41,7 @@ const empty = {
   didNotCome: [],
   other: [],
   emptyMachines: [],
+  unclosed: [],
 };
 
 function mount(perms: string[], board: Record<string, unknown>) {
@@ -182,6 +183,14 @@ describe('BoardPage', () => {
     await userEvent.click(within(dialog).getByRole('button', { name: 'Record did not come' }));
     await waitFor(() => expect(body).toBeDefined());
     expect(body).toEqual({ reason: 'Sick' });
+  });
+
+  it('warns about sessions left open on earlier days, with a link to each', async () => {
+    mount(FRONT, { unclosed: [row('9', 'Laila', '4', 'active', { date: '2026-10-17' })] });
+    const alert = await screen.findByRole('alert');
+    expect(within(alert).getByText('1 session from an earlier day is still open')).toBeInTheDocument();
+    expect(within(alert).getByText(/2026-10-17 · Morning · Machine 4 · Laila/)).toBeInTheDocument();
+    expect(within(alert).getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/c/c1/sessions/9');
   });
 
   it('says the centre is closed on a non-working day', async () => {

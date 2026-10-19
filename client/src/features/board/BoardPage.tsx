@@ -70,6 +70,22 @@ function BoardRowCard({ row, waiting, actions }: { row: BoardRow; waiting: boole
   );
 }
 
+/** A session opened on an earlier day and never closed: open it to close it. */
+function UnclosedRow({ row }: { row: BoardRow }) {
+  const { t } = useTranslation();
+  const centreId = useCentreId();
+  return (
+    <Group justify="space-between" wrap="nowrap">
+      <Text size="sm">
+        {row.date} · {row.shift.name} · {t('board.machine', { label: row.chairLabel })} · {row.patient.name}
+      </Text>
+      <Button component={Link} to={`/c/${centreId}/sessions/${row.id}`} variant="light" mih={44}>
+        {t('board.open')}
+      </Button>
+    </Group>
+  );
+}
+
 export function BoardPage() {
   const { t } = useTranslation();
   const canRun = useCan('sessions.run');
@@ -121,6 +137,16 @@ export function BoardPage() {
       </Group>
       {board.isPending && <Loader size="sm" />}
       {error && <Alert color="danger">{errorMessage(t, error)}</Alert>}
+      {d && d.unclosed.length > 0 && (
+        <Alert color="warning" title={t('board.unclosed', { count: d.unclosed.length })}>
+          <Stack gap="xs">
+            <Text size="sm">{t('board.unclosedHelp')}</Text>
+            {d.unclosed.map((r) => (
+              <UnclosedRow key={r.id} row={r} />
+            ))}
+          </Stack>
+        </Alert>
+      )}
       {d && !d.working && <Text>{t('board.closed')}</Text>}
       {d && d.working && (
         <>
@@ -166,7 +192,9 @@ export function BoardPage() {
 
       <Modal opened={dialog !== null} onClose={close} title={dialog?.kind === 'dnc' ? t('desk.didNotCome.title') : t('desk.makeup.title')}>
         {dialog?.kind === 'dnc' && <DidNotComeDialog key={dialog.row.id} sessionId={dialog.row.id} onDone={close} />}
-        {dialog?.kind === 'makeup' && <MakeupDialog key={dialog.row.id} patientId={dialog.row.patient.id} onDone={close} />}
+        {dialog?.kind === 'makeup' && (
+          <MakeupDialog key={dialog.row.id} patientId={dialog.row.patient.id} forSessionId={dialog.row.id} onDone={close} />
+        )}
       </Modal>
     </Stack>
   );

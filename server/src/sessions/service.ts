@@ -185,7 +185,12 @@ export interface MakeupInput {
   date: string;
   chairId: string;
   shiftId: string;
+  /** The postponed, did-not-come or missed session this make-up replaces (optional). */
+  forSessionId?: string;
 }
+
+/** Statuses of a session that a make-up can replace. */
+export const MAKEUP_FOR_STATUSES = ['postponed', 'did_not_come', 'missed'] as const;
 
 /**
  * Creates a make-up session for an active patient within today..today+3 on a free machine/block. "Free" is
@@ -205,6 +210,12 @@ export async function createMakeup(centreId: string, patientId: string, input: M
   if (!shift.active) throw badRequest('inactive_shift');
   const centre = await Centre.findById(centreId);
   if (!centre?.workingDays.includes(weekdayOf(input.date))) throw badRequest('not_working_day');
+  let makeupFor: SessionDoc | undefined;
+  if (input.forSessionId !== undefined) {
+    makeupFor = await loadSessionInCentre(centreId, input.forSessionId);
+    if (String(makeupFor.patientId) !== String(patient._id)) throw notFound();
+    if (!(MAKEUP_FOR_STATUSES as readonly string[]).includes(makeupFor.status)) throw conflict('not_missed');
+  }
 
   return withTransaction(async (tx) => {
     await lockCentreSchedule(centreId, tx);
@@ -225,13 +236,17 @@ export async function createMakeup(centreId: string, patientId: string, input: M
             shiftEnd: shift.end,
             chairLabel: chair.label,
             kind: 'makeup',
+            ...(makeupFor ? { makeupFor: makeupFor._id } : {}),
           },
         ],
         { session: tx },
       );
       return created!;
     } catch (e) {
-      if ((e as { code?: number }).code === 11000) throw conflict('session_exists');
+      if ((e as { code?: number }).code === 11000) {
+        const key = (e as { keyPattern?: Record<string, unknown> }).keyPattern ?? {};
+        throw conflict('makeupFor' in key ? 'already_made_up' : 'session_exists');
+      }
       throw e;
     }
   });

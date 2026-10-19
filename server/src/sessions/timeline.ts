@@ -8,7 +8,7 @@ import { PatientNote } from '../notes/patient-note.model.js';
 import { Order } from '../orders/order.model.js';
 import { toNoteItems, type NoteItem } from '../notes/service.js';
 import { resolveRoster } from '../schedule/roster.js';
-import { Session, type SessionDoc } from './session.model.js';
+import { LIVE_STATUSES, Session, type SessionDoc } from './session.model.js';
 import { UsageLine } from './usage.model.js';
 
 export type TimelineViewer = { kind: 'staff'; centreId: string } | { kind: 'patient'; seeNotes: boolean };
@@ -29,6 +29,10 @@ export interface TimelineItem {
   nurse: { name: string } | null;
   medicines: { name: string; amount: number; unit: string }[];
   statusReason?: string;
+  /** A make-up: date of the session it replaces. */
+  makeupForDate?: string;
+  /** A postponed, did-not-come or missed session: date of the (live) make-up that replaces it. */
+  madeUpOn?: string;
   /** Staff viewers only. */
   linkable?: boolean;
   /** Patient viewers whose centre shares notes only: the session's nurse notes (no staff ids). */
@@ -53,6 +57,12 @@ async function toItems(sessions: SessionDoc[], viewer: TimelineViewer, today: st
     Centre.find({ _id: { $in: sessions.map((s) => s.centreId) } }),
     UsageLine.find({ sessionId: { $in: sessions.map((s) => s._id) } }).sort({ createdAt: 1 }),
   ]);
+  const [replaced, makeups] = await Promise.all([
+    Session.find({ _id: { $in: sessions.map((s) => s.makeupFor).filter(Boolean) } }, { date: 1 }),
+    Session.find({ makeupFor: { $in: sessions.map((s) => s._id) }, status: { $in: [...LIVE_STATUSES] } }, { makeupFor: 1, date: 1 }),
+  ]);
+  const replacedDate = new Map(replaced.map((r) => [String(r._id), r.date]));
+  const madeUpOn = new Map(makeups.map((m) => [String(m.makeupFor), m.date]));
   const catalog = await CatalogItem.find({ _id: { $in: lines.map((l) => l.itemId) } });
   const units = await Unit.find({ _id: { $in: catalog.map((i) => i.unitId) } });
 
@@ -98,6 +108,10 @@ async function toItems(sessions: SessionDoc[], viewer: TimelineViewer, today: st
         }),
     };
     if (s.statusReason) item.statusReason = s.statusReason;
+    const forDate = s.makeupFor ? replacedDate.get(String(s.makeupFor)) : undefined;
+    if (forDate) item.makeupForDate = forDate;
+    const upOn = madeUpOn.get(String(s._id));
+    if (upOn) item.madeUpOn = upOn;
     if (viewer.kind === 'staff') item.linkable = item.centreId === viewer.centreId;
     if (shareNotes) {
       item.notes = s.notes.map((n) => ({ at: n.at, text: n.text }));
