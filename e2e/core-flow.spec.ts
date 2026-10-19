@@ -142,7 +142,8 @@ test('core flow: desk builds the schedule, rosters and books; doctor notes; nurs
   await expect(card(page, OTHER.name)).toHaveCount(1); // rostered on all machines, so both are "mine"
   await mine.getByRole('button', { name: en.board.start, exact: true }).click();
   await expect(page.getByText(en.nurse.session.opened)).toBeVisible();
-  await mine.getByRole('link', { name: en.board.open }).click();
+  // Start goes straight to the session page
+  await expect(page.getByRole('button', { name: en.nurse.session.close })).toBeVisible();
   await expect(page.getByText(ORDER)).toBeVisible();
 
   await page.getByRole('button', { name: en.nurse.usage.add, exact: true }).click();
