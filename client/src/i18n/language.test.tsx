@@ -3,7 +3,9 @@ import { screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { DirectionProvider } from '@mantine/core';
 import i18n, { dateLocale, initialLanguage, setLanguage } from '.';
-import { DirectionSync, LanguageSwitch } from './LanguageSwitch';
+import { http, HttpResponse } from 'msw';
+import { DirectionSync, LanguageSwitch, LanguageSync } from './LanguageSwitch';
+import { server } from '../test/server';
 import { formatDay } from '../components/timelineApi';
 import { roleLabel } from './roleLabel';
 import { formatDate, formatList, timeRange } from './format';
@@ -63,6 +65,54 @@ describe('interface language', () => {
     expect(timeRange('07:00', '11:30')).toBe('07:00–11:30');
     await setLanguage('ar');
     expect(timeRange('07:00', '11:30')).toBe('\u206607:00–11:30\u2069');
+  });
+
+  describe('saved language per user', () => {
+    const signIn = (language: 'en' | 'ar' | null) =>
+      server.use(
+        http.get('*/api/auth/me', () =>
+          HttpResponse.json({ id: 'u1', name: 'Jasmin', kind: 'staff', language, globalPermissions: [], centres: [] }),
+        ),
+      );
+    const capturePuts = () => {
+      const puts: unknown[] = [];
+      server.use(
+        http.put('*/api/auth/language', async ({ request }) => {
+          puts.push(await request.json());
+          return new HttpResponse(null, { status: 204 });
+        }),
+      );
+      return puts;
+    };
+
+    it('applies the language the user saved, on a device set to another language, without overwriting it', async () => {
+      signIn('ar');
+      const puts = capturePuts();
+      renderApp(<LanguageSync />);
+      await waitFor(() => expect(i18n.language).toBe('ar'));
+      await new Promise((r) => setTimeout(r, 50));
+      expect(puts).toEqual([]);
+    });
+
+    it('saves the device language for a user who never chose one', async () => {
+      signIn(null);
+      const puts = capturePuts();
+      renderApp(<LanguageSync />);
+      await waitFor(() => expect(puts).toEqual([{ language: 'en' }]));
+    });
+
+    it('saves a new choice made with the picker', async () => {
+      signIn('en');
+      const puts = capturePuts();
+      renderApp(
+        <>
+          <LanguageSync />
+          <LanguageSwitch />
+        </>,
+      );
+      await userEvent.click(await screen.findByText('العربية'));
+      await waitFor(() => expect(puts).toEqual([{ language: 'ar' }]));
+    });
   });
 
   it('the picker switches the language and Mantine\'s direction', async () => {

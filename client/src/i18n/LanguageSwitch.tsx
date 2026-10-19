@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useRef } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Button, Group, Stack, Text, useDirection } from '@mantine/core';
 import { LANGUAGES } from '@dialysis/shared';
@@ -19,13 +19,34 @@ export function DirectionSync() {
   return null;
 }
 
-/** Tells the server the signed-in user's language when it differs, so reminders arrive in that language. */
+/**
+ * Keeps the interface language and the signed-in user's saved language in step. On sign-in the saved choice wins
+ * (so it follows the user to another device); a user who never chose one gets the device's language saved. After
+ * that, every change made with the picker is saved, so reminders arrive in that language.
+ */
 export function LanguageSync() {
   const { me } = useAuth();
   const { i18n } = useTranslation();
   const lng = currentLanguage();
+  /** The user whose saved language was applied, and the language the server now holds for them. */
+  const synced = useRef<{ userId: string; language: string } | null>(null);
   useEffect(() => {
-    if (me && me.language !== lng) void apiPut('/auth/language', { language: lng }).catch(() => {});
+    if (!me) {
+      synced.current = null;
+      return;
+    }
+    if (synced.current?.userId !== me.id) {
+      if (me.language) {
+        synced.current = { userId: me.id, language: me.language };
+        if (me.language !== lng) void setLanguage(me.language);
+        return;
+      }
+      synced.current = { userId: me.id, language: '' };
+    }
+    if (synced.current.language !== lng) {
+      synced.current.language = lng;
+      void apiPut('/auth/language', { language: lng }).catch(() => {});
+    }
   }, [me, lng, i18n.language]);
   return null;
 }

@@ -8,6 +8,11 @@ export function todayLocal(now: Date = new Date()): string {
   return DateTime.fromJSDate(now, { zone: zone() }).toISODate()!;
 }
 
+/** Current local time (HH:mm) in the app timezone. */
+export function nowTimeLocal(now: Date = new Date()): string {
+  return DateTime.fromJSDate(now, { zone: zone() }).toFormat('HH:mm');
+}
+
 /** Weekday of a local date, JS numbering: 0=Sunday … 6=Saturday. */
 export function weekdayOf(date: string): number {
   return DateTime.fromISO(date, { zone: 'utc' }).weekday % 7;

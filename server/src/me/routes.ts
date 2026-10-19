@@ -3,7 +3,7 @@ import { DateTime } from 'luxon';
 import { z } from 'zod';
 import { requirePatient } from '../auth/middleware.js';
 import { Centre } from '../centres/centre.model.js';
-import { addDays, todayLocal } from '../lib/dates.js';
+import { addDays, nowTimeLocal, todayLocal } from '../lib/dates.js';
 import { notFound } from '../lib/errors.js';
 import { validate } from '../lib/validate.js';
 import { Patient } from '../patients/patient.model.js';
@@ -51,7 +51,12 @@ meRouter.get('/overview', async (req, res, next) => {
       Session.findOne({ patientId: patient._id, status: 'active' }),
       patient.status === 'discharged'
         ? []
-        : Session.find({ patientId: patient._id, status: 'scheduled', date: { $gte: today, $lte: addDays(today, 13) } }),
+        : // a session today whose block has already ended is not "upcoming" (it is marked missed tonight)
+          Session.find({
+            patientId: patient._id,
+            status: 'scheduled',
+            $or: [{ date: { $gt: today, $lte: addDays(today, 13) } }, { date: today, shiftEnd: { $gt: nowTimeLocal() } }],
+          }),
     ]);
     const l = await lookups([...scheduled, ...(active ? [active] : [])]);
     scheduled.sort(byDateThenStart);

@@ -11,7 +11,7 @@ import { User } from '../auth/user.model.js';
 import { hashPassword } from '../auth/password.js';
 import { Patient, PATIENT_STATUSES, type PatientDoc } from './patient.model.js';
 import { Session } from '../sessions/session.model.js';
-import { todayLocal } from '../lib/dates.js';
+import { nowTimeLocal, todayLocal } from '../lib/dates.js';
 
 export const patientsRouter = Router({ mergeParams: true });
 
@@ -85,11 +85,24 @@ patientsRouter.post('/', requirePerm('patients.create'), validate(createBody), a
   }
 });
 
-/** Each patient's earliest scheduled or active session from today: patient id -> {date, start}. */
+/**
+ * Each patient's next session: the earliest one still running (active) or still to come (scheduled, not yet past
+ * its block's end today): patient id -> {date, start}.
+ */
 async function nextSessions(patientIds: mongoose.Types.ObjectId[]): Promise<Map<string, { date: string; start: string }>> {
   if (!patientIds.length) return new Map();
+  const today = todayLocal();
   const rows = await Session.aggregate<{ _id: mongoose.Types.ObjectId; date: string; start: string }>([
-    { $match: { patientId: { $in: patientIds }, status: { $in: ['scheduled', 'active'] }, date: { $gte: todayLocal() } } },
+    {
+      $match: {
+        patientId: { $in: patientIds },
+        $or: [
+          { status: 'active', date: { $gte: today } },
+          { status: 'scheduled', date: { $gt: today } },
+          { status: 'scheduled', date: today, shiftEnd: { $gt: nowTimeLocal() } },
+        ],
+      },
+    },
     { $sort: { date: 1, shiftStart: 1 } },
     { $group: { _id: '$patientId', date: { $first: '$date' }, start: { $first: '$shiftStart' } } },
   ]);

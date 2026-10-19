@@ -1,9 +1,9 @@
 import request from 'supertest';
-import { describe, it, expect, beforeAll, beforeEach } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, vi } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { Item } from '../catalog/item.model.js';
 import { Unit } from '../catalog/unit.model.js';
-import { addDays, todayLocal } from '../lib/dates.js';
+import { addDays, localDateTime, todayLocal } from '../lib/dates.js';
 import { getApp, login, makeCentre, makePatient, staffIn, makeSession } from '../../test/factories.js';
 
 beforeAll(async () => {
@@ -55,6 +55,21 @@ describe('GET /api/me/overview', () => {
     const res = await agent.get('/api/me/overview');
     expect(res.body.upcoming[0]).toMatchObject({ start: '06:15', end: '10:15' });
     expect(res.body.active).toMatchObject({ start: '12:30', end: '16:45' });
+  });
+
+  it("leaves out today's sessions whose block has already ended", async () => {
+    const { agent, mk } = await setup();
+    const today = todayLocal();
+    await mk(today, 'scheduled', 0); // 07:00–11:30
+    await mk(today, 'scheduled', 1); // 12:00–16:30
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(localDateTime(today, '13:00'));
+      const res = await agent.get('/api/me/overview');
+      expect(res.body.upcoming.map((s: { date: string; start: string }) => [s.date, s.start])).toEqual([[today, '12:00']]);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('lets a discharged patient in with no upcoming sessions', async () => {

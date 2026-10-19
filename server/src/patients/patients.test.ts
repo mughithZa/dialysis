@@ -1,10 +1,10 @@
-import { describe, it, expect, beforeEach } from 'vitest';
+import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { seedRoles } from '../auth/roles.seed.js';
 import { User } from '../auth/user.model.js';
 import { AuditEntry } from '../audit/audit.model.js';
 import { Patient } from './patient.model.js';
 import { login, makeCentre, makePatient, makeSession, programManager, staffIn } from '../../test/factories.js';
-import { addDays, todayLocal } from '../lib/dates.js';
+import { addDays, localDateTime, todayLocal } from '../lib/dates.js';
 
 beforeEach(seedRoles);
 
@@ -148,5 +148,28 @@ describe('patient list: next session', () => {
     const row = (n: string) => res.body.find((p: { name: string }) => p.name === n);
     expect(row('A').nextSession).toEqual({ date: addDays(today, 2), start: shifts[1]!.start });
     expect(row('B').nextSession).toBeNull();
+  });
+
+  it("skips a session today whose block has already ended, but keeps one still running", async () => {
+    const { centre, chairs, shifts } = await makeCentre();
+    const { agent } = await staffIn(centre.id, ['front_desk']);
+    const today = todayLocal();
+    const a = (await makePatient(centre.id, { name: 'A' })).patient;
+    const b = (await makePatient(centre.id, { name: 'B' })).patient;
+    const at = (patientId: unknown, date: string, status: string, shift: number, chair = 0) =>
+      makeSession({ centreId: centre.id, patientId: String(patientId), chairId: chairs[chair]!.id, shiftId: shifts[shift]!.id, date, status });
+    await at(a._id, today, 'scheduled', 0); // 07:00–11:30, over by 13:00
+    await at(a._id, addDays(today, 2), 'scheduled', 0);
+    await at(b._id, today, 'active', 0, 1); // opened, not closed: still the current session
+    vi.useFakeTimers({ toFake: ['Date'] });
+    try {
+      vi.setSystemTime(localDateTime(today, '13:00'));
+      const res = await agent.get(`/api/centres/${centre.id}/patients`);
+      const row = (n: string) => res.body.find((p: { name: string }) => p.name === n);
+      expect(row('A').nextSession).toEqual({ date: addDays(today, 2), start: shifts[0]!.start });
+      expect(row('B').nextSession).toEqual({ date: today, start: shifts[0]!.start });
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
