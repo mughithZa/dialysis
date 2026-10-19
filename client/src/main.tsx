@@ -1,12 +1,13 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
-import { MantineProvider } from '@mantine/core';
+import { DirectionProvider, MantineProvider } from '@mantine/core';
 import { Notifications } from '@mantine/notifications';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import '@mantine/core/styles.css';
 import '@mantine/notifications/styles.css';
-import './i18n';
+import i18n from './i18n';
+import { DirectionSync } from './i18n/LanguageSwitch';
 import App from './App';
 import { ROUTER_FUTURE } from './routerFuture';
 import { theme } from './theme';
@@ -21,12 +22,15 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <MantineProvider theme={theme}>
-        <Notifications position="top-center" />
-        <BrowserRouter future={ROUTER_FUTURE}>
-          <App />
-        </BrowserRouter>
-      </MantineProvider>
+      <DirectionProvider initialDirection={i18n.dir()} detectDirection={false}>
+        <MantineProvider theme={theme}>
+          <DirectionSync />
+          <Notifications position="top-center" />
+          <BrowserRouter future={ROUTER_FUTURE}>
+            <App />
+          </BrowserRouter>
+        </MantineProvider>
+      </DirectionProvider>
     </QueryClientProvider>
   </StrictMode>,
 );

@@ -3,6 +3,7 @@ import { useTranslation } from 'react-i18next';
 import { useNavigate } from 'react-router-dom';
 import { Alert, Button, Center, Paper, PasswordInput, Stack, TextInput, Title } from '@mantine/core';
 import { errorMessage } from '../i18n/errors';
+import { LanguageSwitch } from '../i18n/LanguageSwitch';
 import { landingPath } from '../layout/nav';
 import { readStoredCentre, resolveCentreId, useAuth } from './AuthProvider';
 
@@ -58,6 +59,7 @@ export function LoginPage() {
             <Button type="submit" size="md" mih={44} loading={busy}>
               {t('login.submit')}
             </Button>
+            <LanguageSwitch />
           </Stack>
         </form>
       </Paper>

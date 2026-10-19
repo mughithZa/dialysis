@@ -183,7 +183,7 @@ describe('BoardPage', () => {
     mount(FRONT, { unclosed: [row('9', 'Laila', '4', 'active', { date: '2026-10-17' })] });
     const alert = await screen.findByRole('alert');
     expect(within(alert).getByText('1 session from an earlier day is still open')).toBeInTheDocument();
-    expect(within(alert).getByText(/2026-10-17 · Morning · Machine 4 · Laila/)).toBeInTheDocument();
+    expect(within(alert).getByText(/Oct 17, 2026 · Morning · Machine 4 · Laila/)).toBeInTheDocument();
     expect(within(alert).getByRole('link', { name: 'Open' })).toHaveAttribute('href', '/c/c1/sessions/9');
   });
 

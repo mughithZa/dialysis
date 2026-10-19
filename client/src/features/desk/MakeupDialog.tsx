@@ -4,6 +4,7 @@ import { Alert, Button, Loader, Select, Stack, TextInput } from '@mantine/core';
 import { notifications } from '@mantine/notifications';
 import { errorMessage } from '../../i18n/errors';
 import { useMakeup, useSetup } from './api';
+import { timeRange } from '../../i18n/format';
 import { addDaysLocal, MAKEUP_WINDOW_DAYS, todayLocal } from './dates';
 
 /**
@@ -50,7 +51,7 @@ export function MakeupDialog({ patientId, forSessionId, onDone }: { patientId: s
         label={t('desk.makeup.shift')}
         value={shiftId}
         onChange={setShiftId}
-        data={(setup.data?.blocks ?? []).map((s) => ({ value: s.id, label: `${s.name} (${s.start}-${s.end})` }))}
+        data={(setup.data?.blocks ?? []).map((s) => ({ value: s.id, label: `${s.name} (${timeRange(s.start, s.end)})` }))}
       />
       {makeup.isError && <Alert color="danger">{errorMessage(t, makeup.error)}</Alert>}
       <Button type="submit" mih={44} loading={makeup.isPending} disabled={!valid}>

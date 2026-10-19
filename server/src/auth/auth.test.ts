@@ -284,3 +284,16 @@ describe('effectivePermissions', () => {
     expect(perms.has('sessions.run')).toBe(true);
   });
 });
+
+describe('language preference', () => {
+  it('PUT /auth/language stores ar or en and /me returns it; other values 400; signed out 401', async () => {
+    await createUser({ username: 'lang', memberships: [] , kind: 'patient' });
+    const agent = await login('lang');
+    expect((await agent.get('/api/auth/me')).body.language).toBeNull();
+    expect((await agent.put('/api/auth/language').send({ language: 'ar' })).status).toBe(204);
+    expect((await agent.get('/api/auth/me')).body.language).toBe('ar');
+    expect((await User.findOne({ username: 'lang' }))!.language).toBe('ar');
+    expect((await agent.put('/api/auth/language').send({ language: 'fr' })).status).toBe(400);
+    expect((await request(getApp()).put('/api/auth/language').send({ language: 'en' })).status).toBe(401);
+  });
+});

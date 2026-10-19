@@ -26,6 +26,7 @@ import { WEEKDAY_ORDER } from './weekdays';
 import { DischargeDialog } from './DischargeDialog';
 import { MakeupDialog } from './MakeupDialog';
 import { MoveDialog } from './MoveDialog';
+import { formatDate } from '../../i18n/format';
 import { PatientForm } from './PatientForm';
 
 function PostponeDialog({ patientId, onDone }: { patientId: string; onDone: (sessionId: string) => void }) {
@@ -239,7 +240,7 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
       </Group>
       {patient.discharge && (
         <Alert color="warning">
-          {t('desk.patient.discharged', { date: patient.discharge.date, reason: t(`desk.dischargeReason.${patient.discharge.reason}`) })}
+          {t('desk.patient.discharged', { date: formatDate(patient.discharge.date), reason: t(`desk.dischargeReason.${patient.discharge.reason}`) })}
         </Alert>
       )}
 
@@ -273,8 +274,8 @@ function PatientDetails({ patient }: { patient: PatientDto }) {
                 </Text>
               ))}
               <Text c="dimmed">
-                {t('desk.patient.planFrom', { date: current.from })}
-                {current.to ? `, ${t('desk.patient.planUntil', { date: current.to })}` : ''}
+                {t('desk.patient.planFrom', { date: formatDate(current.from) })}
+                {current.to ? `${t('common.listSeparator')}${t('desk.patient.planUntil', { date: formatDate(current.to) })}` : ''}
               </Text>
             </>
           )}
