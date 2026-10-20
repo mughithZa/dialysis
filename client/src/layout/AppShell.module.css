@@ -26,9 +26,10 @@
 .centreSelect {
   font-weight: 700;
   font-size: var(--mantine-font-size-sm);
-  min-height: 32px;
-  height: 32px;
-  line-height: 30px;
+  /* 44px: the project's minimum touch target (main control for multi-centre users on phones) */
+  min-height: 44px;
+  height: 44px;
+  line-height: 42px;
   padding-inline-start: 12px;
   padding-inline-end: 30px;
   margin-block-start: 2px;
