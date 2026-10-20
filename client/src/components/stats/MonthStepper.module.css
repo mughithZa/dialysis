@@ -1,0 +1,4 @@
+.step[data-disabled] {
+  background: transparent;
+  color: var(--uoca-border-strong);
+}

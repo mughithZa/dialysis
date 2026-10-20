@@ -142,7 +142,16 @@
       "closedOk": "تم إغلاق المركز.",
       "reopenedOk": "تمت إعادة فتح المركز.",
       "empty": "لا توجد مراكز بعد.",
-      "noManagers": "لا يوجد مدراء."
+      "noManagers": "لا يوجد مدراء.",
+      "count_zero": "لا توجد مراكز · {{open}} مفتوح",
+      "count_one": "مركز واحد · {{open}} مفتوح",
+      "count_two": "مركزان · {{open}} مفتوح",
+      "count_few": "{{count}} مراكز · {{open}} مفتوح",
+      "count_many": "{{count}} مركزًا · {{open}} مفتوح",
+      "count_other": "{{count}} مركز · {{open}} مفتوح",
+      "menu": "إجراءات {{name}}",
+      "closeTitle": "إغلاق {{name}}؟",
+      "closeText": "لن يتمكن الموظفون من حجز الجلسات أو تشغيلها في مركز مغلق. تبقى سجلاته محفوظة، ويمكنك إعادة فتحه في أي وقت."
     },
     "roles": {
       "title": "الأدوار",
@@ -152,7 +161,26 @@
       "centre": "المركز",
       "locked": "هذا الدور مدمج في النظام وللقراءة فقط.",
       "saved": "تم حفظ الدور.",
-      "empty": "لا توجد أدوار."
+      "empty": "لا توجد أدوار.",
+      "viewRole": "عرض الدور {{name}}",
+      "editRole": "تعديل الدور {{name}}",
+      "permCount_zero": "بلا صلاحيات",
+      "permCount_one": "صلاحية واحدة",
+      "permCount_two": "صلاحيتان",
+      "permCount_few": "{{count}} صلاحيات",
+      "permCount_many": "{{count}} صلاحية",
+      "permCount_other": "{{count}} صلاحية",
+      "permissions": "الصلاحيات",
+      "selected": "{{count}} من {{total}} محددة",
+      "categoryCount": "{{count}} من {{total}} محددة",
+      "selectAll": "تحديد الكل",
+      "selectAllIn": "تحديد الكل في {{category}}",
+      "count_zero": "لا توجد أدوار",
+      "count_one": "دور واحد",
+      "count_two": "دوران",
+      "count_few": "{{count}} أدوار",
+      "count_many": "{{count}} دورًا",
+      "count_other": "{{count}} دور"
     },
     "catalog": {
       "title": "قائمة المواد",
@@ -176,7 +204,15 @@
       "newUnit": "وحدة جديدة",
       "addUnit": "إضافة وحدة",
       "saved": "تم الحفظ.",
-      "merged": "تم دمج العناصر."
+      "merged": "تم دمج العناصر.",
+      "subtitle": "الأدوية: {{medicines}} · المستلزمات: {{supplies}}",
+      "search": "ابحث بالاسم",
+      "filter": "عرض",
+      "all": "الكل",
+      "noMatch": "لا توجد عناصر مطابقة.",
+      "noMatchHint": "جرّب اسمًا آخر، أو اعرض كل العناصر.",
+      "menu": "المزيد لـ{{name}}",
+      "unitsHint": "الوحدات التي تُقاس بها الأدوية والمستلزمات."
     },
     "dashboard": {
       "title": "لوحة المعلومات",
@@ -292,20 +328,138 @@
       "noDoctor": "لم يُعثر على طبيب بهذا الرقم.",
       "link": "ربط",
       "linked": "تم ربط الطبيب.",
-      "pickRoles": "اختر دورًا واحدًا على الأقل أعلاه للربط."
+      "pickRoles": "اختر دورًا واحدًا على الأقل أعلاه للربط.",
+      "count_zero": "لا توجد حسابات",
+      "count_one": "حساب واحد",
+      "count_two": "حسابان",
+      "count_few": "{{count}} حسابات",
+      "count_many": "{{count}} حسابًا",
+      "count_other": "{{count}} حساب",
+      "search": "ابحث بالاسم أو اسم المستخدم أو الهاتف أو الدور",
+      "filter": "عرض",
+      "filters": {
+        "all": "الكل",
+        "active": "النشطون",
+        "inactive": "غير النشطين"
+      },
+      "noMatch": "لا يوجد مستخدمون مطابقون.",
+      "noMatchHint": "جرّب بحثًا أو تصفية أخرى.",
+      "menu": "إجراءات {{name}}"
     },
     "settings": {
       "title": "الإعدادات",
       "patientsSeeNotes": "يمكن للمرضى رؤية ملاحظات الجلسات",
       "reminderHours": "ساعات التذكير قبل الجلسة",
       "reminderInvalid": "أدخل عددًا صحيحًا من 1 إلى 72.",
-      "saved": "تم حفظ الإعدادات."
+      "saved": "تم حفظ الإعدادات.",
+      "subtitle": "طريقة تعامل هذا المركز مع مرضاه.",
+      "readOnly": "يمكنك رؤية هذه الإعدادات دون تغييرها.",
+      "patientApp": "تطبيق المريض",
+      "patientAppHint": "ما يراه المرضى على هواتفهم.",
+      "patientsSeeNotesHint": "تظهر ملاحظات الممرض من كل جلسة في سجل المريض.",
+      "reminders": "التذكيرات",
+      "remindersHint": "إشعارات قبل كل جلسة محجوزة.",
+      "reminderHoursHint": "من 1 إلى 72 ساعة قبل بدء الجلسة.",
+      "hoursUnit": "ساعة"
     },
     "audit": {
       "title": "سجل العمليات",
       "user": "المستخدم",
       "allUsers": "جميع المستخدمين",
-      "empty": "لا توجد سجلات."
+      "empty": "لا توجد سجلات.",
+      "subtitle": "من غيّر ماذا في هذا المركز، الأحدث أولًا.",
+      "search": "ابحث عن عملية أو شخص",
+      "emptyHint": "ستظهر هنا التغييرات التي يجريها الموظفون.",
+      "noMatch": "لا توجد سجلات مطابقة.",
+      "noMatchHint": "جرّب كلمة أخرى أو مستخدمًا آخر.",
+      "actions": {
+        "booking": {
+          "once": "حجز جلسة واحدة"
+        },
+        "centre": {
+          "create": "إنشاء مركز",
+          "close": "إغلاق مركز",
+          "reopen": "إعادة فتح مركز"
+        },
+        "chair": {
+          "update": "إعادة تسمية جهاز"
+        },
+        "item": {
+          "create": "إضافة عنصر إلى القائمة",
+          "merge": "دمج عناصر القائمة",
+          "update": "تعديل عنصر في القائمة"
+        },
+        "manager": {
+          "resetPassword": "إعادة تعيين كلمة مرور مدير"
+        },
+        "note": {
+          "add": "إضافة ملاحظة جلسة",
+          "remove": "حذف ملاحظة جلسة",
+          "update": "تعديل ملاحظة جلسة"
+        },
+        "order": {
+          "create": "إضافة تعليمات طبيب",
+          "end": "إنهاء تعليمات طبيب"
+        },
+        "patient_note": {
+          "create": "إضافة ملاحظة طبيب"
+        },
+        "patient": {
+          "create": "تسجيل مريض",
+          "discharge": "تخريج مريض",
+          "update": "تعديل بيانات مريض"
+        },
+        "plan": {
+          "change": "تغيير الخطة الأسبوعية",
+          "create": "حجز خطة أسبوعية"
+        },
+        "role": {
+          "create": "إنشاء دور",
+          "edit": "تعديل دور"
+        },
+        "roster": {
+          "create": "تعيين ممرض",
+          "delete": "إلغاء تعيين ممرض"
+        },
+        "schedule": {
+          "setup": "تعديل إعداد الجدول"
+        },
+        "session": {
+          "cancel": "إلغاء جلسة",
+          "close": "إنهاء جلسة",
+          "did_not_come": "تسجيل عدم حضور",
+          "makeup": "حجز جلسة تعويضية",
+          "move": "نقل جلسة",
+          "open": "بدء جلسة",
+          "postpone": "تأجيل جلسة"
+        },
+        "settings": {
+          "update": "تعديل الإعدادات"
+        },
+        "transfer": {
+          "accept": "قبول نقل",
+          "cancel": "إلغاء نقل",
+          "reject": "رفض نقل",
+          "send": "إرسال طلب نقل"
+        },
+        "unit": {
+          "create": "إضافة وحدة"
+        },
+        "usage": {
+          "add": "تسجيل دواء أو مستلزم",
+          "remove": "حذف دواء أو مستلزم",
+          "update": "تعديل دواء أو مستلزم"
+        },
+        "user": {
+          "create": "إنشاء مستخدم",
+          "edit": "تعديل مستخدم",
+          "link": "ربط طبيب",
+          "resetPassword": "إعادة تعيين كلمة مرور مستخدم"
+        },
+        "vitals": {
+          "update": "تسجيل الوزن أو الضغط"
+        }
+      }
     },
     "stats": {
       "title": "التقارير"
@@ -922,5 +1076,43 @@
     "rolesHint": "تجمع الأدوار صلاحيات الموظفين.",
     "rosterHint": "وزّع الممرضين على الأجهزة لهذا الأسبوع.",
     "dashboardHint": "تظهر أرقام المراكز بعد إنشاء مركز."
+  },
+  "stats": {
+    "prevMonth": "الشهر السابق",
+    "nextMonth": "الشهر التالي",
+    "vs": "مقارنة بـ{{month}}",
+    "delta": {
+      "up_zero": "زيادة {{count}} عن {{month}}",
+      "up_one": "زيادة {{count}} عن {{month}}",
+      "up_two": "زيادة {{count}} عن {{month}}",
+      "up_few": "زيادة {{count}} عن {{month}}",
+      "up_many": "زيادة {{count}} عن {{month}}",
+      "up_other": "زيادة {{count}} عن {{month}}",
+      "down_zero": "نقص {{count}} عن {{month}}",
+      "down_one": "نقص {{count}} عن {{month}}",
+      "down_two": "نقص {{count}} عن {{month}}",
+      "down_few": "نقص {{count}} عن {{month}}",
+      "down_many": "نقص {{count}} عن {{month}}",
+      "down_other": "نقص {{count}} عن {{month}}",
+      "same": "بلا تغيير عن {{month}}"
+    },
+    "table": "جدول",
+    "bars": "أعمدة",
+    "showTable": "عرض {{title}} كجدول",
+    "showBars": "عرض {{title}} كأعمدة",
+    "moreItems_zero": "لا عناصر أخرى",
+    "moreItems_one": "عنصر آخر في الجدول",
+    "moreItems_two": "عنصران آخران في الجدول",
+    "moreItems_few": "{{count}} عناصر أخرى في الجدول",
+    "moreItems_many": "{{count}} عنصرًا آخر في الجدول",
+    "moreItems_other": "{{count}} عنصر آخر في الجدول",
+    "perCentre": "الجلسات حسب المركز",
+    "perCentreHint": "{{month}} مقارنة بـ{{previous}}",
+    "change": "التغيّر",
+    "networkSubtitle": "جميع المراكز · {{month}}",
+    "centres": "المراكز",
+    "sessionsMonth": "جلسات هذا الشهر",
+    "medicinesUsed": "الأدوية المستخدمة",
+    "byCentre": "حسب المركز"
   }
 }

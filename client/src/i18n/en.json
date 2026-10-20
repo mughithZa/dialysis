@@ -142,7 +142,12 @@
       "closedOk": "Centre closed.",
       "reopenedOk": "Centre reopened.",
       "empty": "No centres yet.",
-      "noManagers": "No managers."
+      "noManagers": "No managers.",
+      "count_one": "{{count}} centre · {{open}} open",
+      "count_other": "{{count}} centres · {{open}} open",
+      "menu": "Actions for {{name}}",
+      "closeTitle": "Close {{name}}?",
+      "closeText": "Staff can no longer book or run sessions in a closed centre. Its records stay, and you can reopen it at any time."
     },
     "roles": {
       "title": "Roles",
@@ -152,7 +157,18 @@
       "centre": "Centre",
       "locked": "This role is built in and read-only.",
       "saved": "Role saved.",
-      "empty": "No roles."
+      "empty": "No roles.",
+      "viewRole": "View role {{name}}",
+      "editRole": "Edit role {{name}}",
+      "permCount_one": "{{count}} permission",
+      "permCount_other": "{{count}} permissions",
+      "permissions": "Permissions",
+      "selected": "{{count}} of {{total}} selected",
+      "categoryCount": "{{count}} of {{total}} selected",
+      "selectAll": "Select all",
+      "selectAllIn": "Select all in {{category}}",
+      "count_one": "{{count}} role",
+      "count_other": "{{count}} roles"
     },
     "catalog": {
       "title": "Catalogue",
@@ -176,7 +192,15 @@
       "newUnit": "New unit",
       "addUnit": "Add unit",
       "saved": "Saved.",
-      "merged": "Items merged."
+      "merged": "Items merged.",
+      "subtitle": "{{medicines}} medicines · {{supplies}} supplies",
+      "search": "Search by name",
+      "filter": "Show",
+      "all": "All",
+      "noMatch": "No matching items.",
+      "noMatchHint": "Try another name, or show all items.",
+      "menu": "More for {{name}}",
+      "unitsHint": "Units that medicines and supplies are measured in."
     },
     "dashboard": {
       "title": "Dashboard",
@@ -292,20 +316,134 @@
       "noDoctor": "No doctor found with that phone number.",
       "link": "Link",
       "linked": "Doctor linked.",
-      "pickRoles": "Select at least one role above to link."
+      "pickRoles": "Select at least one role above to link.",
+      "count_one": "{{count}} account",
+      "count_other": "{{count}} accounts",
+      "search": "Search name, username, phone or role",
+      "filter": "Show",
+      "filters": {
+        "all": "All",
+        "active": "Active",
+        "inactive": "Inactive"
+      },
+      "noMatch": "No matching users.",
+      "noMatchHint": "Try another search or filter.",
+      "menu": "Actions for {{name}}"
     },
     "settings": {
       "title": "Settings",
       "patientsSeeNotes": "Patients can see session notes",
       "reminderHours": "Reminder hours before a session",
       "reminderInvalid": "Enter a whole number from 1 to 72.",
-      "saved": "Settings saved."
+      "saved": "Settings saved.",
+      "subtitle": "How this centre works with its patients.",
+      "readOnly": "You can see these settings but not change them.",
+      "patientApp": "Patient app",
+      "patientAppHint": "What patients see on their phone.",
+      "patientsSeeNotesHint": "Nurse notes from each session appear in the patient's history.",
+      "reminders": "Reminders",
+      "remindersHint": "Push notifications before each booked session.",
+      "reminderHoursHint": "From 1 to 72 hours before the session starts.",
+      "hoursUnit": "hours"
     },
     "audit": {
       "title": "Audit log",
       "user": "User",
       "allUsers": "All users",
-      "empty": "No entries."
+      "empty": "No entries.",
+      "subtitle": "Who changed what in this centre, newest first.",
+      "search": "Search action or person",
+      "emptyHint": "Changes made by staff will appear here.",
+      "noMatch": "No matching entries.",
+      "noMatchHint": "Try another word or another user.",
+      "actions": {
+        "booking": {
+          "once": "Single session booked"
+        },
+        "centre": {
+          "create": "Centre created",
+          "close": "Centre closed",
+          "reopen": "Centre reopened"
+        },
+        "chair": {
+          "update": "Machine renamed"
+        },
+        "item": {
+          "create": "Catalogue item added",
+          "merge": "Catalogue items merged",
+          "update": "Catalogue item changed"
+        },
+        "manager": {
+          "resetPassword": "Manager password reset"
+        },
+        "note": {
+          "add": "Session note added",
+          "remove": "Session note removed",
+          "update": "Session note changed"
+        },
+        "order": {
+          "create": "Doctor order added",
+          "end": "Doctor order ended"
+        },
+        "patient_note": {
+          "create": "Doctor note added"
+        },
+        "patient": {
+          "create": "Patient registered",
+          "discharge": "Patient discharged",
+          "update": "Patient details changed"
+        },
+        "plan": {
+          "change": "Weekly plan changed",
+          "create": "Weekly plan booked"
+        },
+        "role": {
+          "create": "Role created",
+          "edit": "Role changed"
+        },
+        "roster": {
+          "create": "Nurse assigned",
+          "delete": "Nurse assignment removed"
+        },
+        "schedule": {
+          "setup": "Schedule setup changed"
+        },
+        "session": {
+          "cancel": "Session cancelled",
+          "close": "Session closed",
+          "did_not_come": "Marked did not come",
+          "makeup": "Make-up session booked",
+          "move": "Session moved",
+          "open": "Session started",
+          "postpone": "Session postponed"
+        },
+        "settings": {
+          "update": "Settings changed"
+        },
+        "transfer": {
+          "accept": "Transfer accepted",
+          "cancel": "Transfer cancelled",
+          "reject": "Transfer rejected",
+          "send": "Transfer sent"
+        },
+        "unit": {
+          "create": "Unit added"
+        },
+        "usage": {
+          "add": "Medicine or supply recorded",
+          "remove": "Medicine or supply removed",
+          "update": "Medicine or supply changed"
+        },
+        "user": {
+          "create": "User created",
+          "edit": "User changed",
+          "link": "Doctor linked",
+          "resetPassword": "User password reset"
+        },
+        "vitals": {
+          "update": "Weight or blood pressure recorded"
+        }
+      }
     },
     "stats": {
       "title": "Reports"
@@ -902,5 +1040,31 @@
     "rolesHint": "Roles group permissions for staff.",
     "rosterHint": "Assign nurses to machines for this week.",
     "dashboardHint": "Centre figures appear once a centre is created."
+  },
+  "stats": {
+    "prevMonth": "Previous month",
+    "nextMonth": "Next month",
+    "vs": "vs {{month}}",
+    "delta": {
+      "up_one": "{{count}} more than {{month}}",
+      "up_other": "{{count}} more than {{month}}",
+      "down_one": "{{count}} fewer than {{month}}",
+      "down_other": "{{count}} fewer than {{month}}",
+      "same": "Same as {{month}}"
+    },
+    "table": "Table",
+    "bars": "Bars",
+    "showTable": "Show {{title}} as a table",
+    "showBars": "Show {{title}} as bars",
+    "moreItems_one": "{{count}} more item in the table",
+    "moreItems_other": "{{count}} more items in the table",
+    "perCentre": "Sessions per centre",
+    "perCentreHint": "{{month}} compared with {{previous}}",
+    "change": "Change",
+    "networkSubtitle": "All centres · {{month}}",
+    "centres": "Centres",
+    "sessionsMonth": "Sessions this month",
+    "medicinesUsed": "Medicines used",
+    "byCentre": "By centre"
   }
 }

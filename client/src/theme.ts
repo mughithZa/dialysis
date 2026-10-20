@@ -89,6 +89,15 @@ const grey: MantineColorsTuple = [
   '#807b72', '#6a655d', '#55514a', '#403d38', '#2c2a26',
 ];
 
+/**
+ * Mantine's own `gray` (unchecked chips and checkboxes, tab rails, disabled controls, close buttons) re-tinted to warm
+ * sand so no cool grey shows on the cream background.
+ */
+const gray: MantineColorsTuple = [
+  '#faf7f1', '#f3eee4', '#ebe4d6', '#ddd4c1', '#c9bea6',
+  '#a99d84', '#8a7a5c', '#6f6248', '#574c38', '#3b2f1e',
+];
+
 /** Every status a badge can show: the session statuses plus the board's "waiting" (scheduled today, not started). */
 export type StatusTone = 'scheduled' | 'waiting' | 'active' | 'completed' | 'postponed' | 'missed' | 'did_not_come' | 'cancelled';
 
@@ -109,6 +118,15 @@ export const PATIENT_STATUS_TONES: Record<'active' | 'transferring' | 'discharge
   active: STATUS_TONES.active,
   transferring: STATUS_TONES.waiting,
   discharged: { bg: 'var(--mantine-color-grey-1)', fg: 'var(--mantine-color-grey-7)' },
+};
+
+/** Admin record states (centre, catalogue item, user, role scope), in the same family as the status badges. */
+export type StateTone = 'on' | 'waiting' | 'off' | 'info';
+export const STATE_TONES: Record<StateTone, { bg: string; fg: string }> = {
+  on: STATUS_TONES.active,
+  waiting: STATUS_TONES.waiting,
+  off: PATIENT_STATUS_TONES.discharged,
+  info: { bg: 'var(--mantine-color-uoca-1)', fg: 'var(--mantine-color-uoca-8)' },
 };
 
 /**
@@ -157,7 +175,7 @@ const FONT = '"IBM Plex Sans Arabic", system-ui, -apple-system, "Segoe UI", Robo
 export const theme = createTheme({
   primaryColor: 'uoca',
   primaryShade: 8,
-  colors: { uoca, neutral, success, amber, slate, danger, warning, grey },
+  colors: { uoca, neutral, success, amber, slate, danger, warning, grey, gray },
   white: BRAND.white,
   black: BRAND.text,
   fontFamily: FONT,

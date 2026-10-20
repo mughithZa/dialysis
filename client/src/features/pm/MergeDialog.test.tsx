@@ -29,7 +29,8 @@ describe('catalog merge dialog', () => {
     );
     renderApp(<CatalogPage />);
     const row = (await screen.findByText('Heparin')).closest('[data-item]') as HTMLElement;
-    await userEvent.click(within(row).getByRole('button', { name: 'Merge' }));
+    await userEvent.click(within(row).getByRole('button', { name: 'More for Heparin' }));
+    await userEvent.click(await screen.findByRole('menuitem', { name: 'Merge' }));
     const dialog = await screen.findByRole('dialog');
     expect(within(dialog).getByText('Heparin sodium')).toBeTruthy();
     expect(within(dialog).queryByText('Heparin liquid')).toBeNull();

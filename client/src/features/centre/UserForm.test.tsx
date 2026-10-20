@@ -139,12 +139,35 @@ describe('AuditPage', () => {
       }),
     );
     renderApp(<AuditPage />);
-    await screen.findByText('user.create');
+    await screen.findByText('User created');
     expect(seen[0]).toBeNull();
     await userEvent.click(screen.getByRole('textbox', { name: 'User' }));
     await userEvent.click(await screen.findByRole('option', { name: 'Sara' }));
-    await screen.findByText('user.create');
+    await screen.findByText('User created');
     await new Promise((r) => setTimeout(r, 50));
     expect(seen.at(-1)).toBe('aaaaaaaaaaaaaaaaaaaaaaaa');
+  });
+
+  it('labels actions in words, groups them by day and filters by the search box', async () => {
+    useCentreUser(['audit.view']);
+    server.use(
+      http.get('*/api/centres/c1/audit', () =>
+        HttpResponse.json([
+          { at: '2026-10-02T09:00:00.000Z', user: { id: 'a', name: 'Sara' }, action: 'session.open', entity: 'session', entityId: 'x', details: {} },
+          { at: '2026-10-01T08:00:00.000Z', user: { id: 'b', name: 'Omar' }, action: 'patient.create', entity: 'patient', entityId: 'y', details: {} },
+          { at: '2026-10-01T07:00:00.000Z', user: { id: 'b', name: 'Omar' }, action: 'brand.new', entity: 'x', entityId: 'z', details: {} },
+        ]),
+      ),
+    );
+    renderApp(<AuditPage />);
+    await screen.findByText('Session started');
+    expect(screen.getByText('Patient registered')).toBeTruthy();
+    expect(screen.getByText('brand.new')).toBeTruthy(); // unknown actions show as they are
+    expect(screen.getByText('Oct 2, 2026')).toBeTruthy();
+    expect(screen.getByText('Oct 1, 2026')).toBeTruthy();
+    expect(screen.queryByRole('textbox', { name: 'User' })).toBeNull(); // no user list without users.create/edit
+    await userEvent.type(screen.getByRole('searchbox', { name: 'Search action or person' }), 'omar');
+    expect(document.querySelectorAll('[data-audit-row]')).toHaveLength(2);
+    expect(screen.queryByText('Session started')).toBeNull();
   });
 });

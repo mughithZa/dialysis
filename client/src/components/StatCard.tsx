@@ -9,6 +9,8 @@ export function StatCard({
   icon: IconCmp,
   color = 'uoca',
   compact,
+  footer,
+  flat,
 }: {
   value: ReactNode;
   label: string;
@@ -16,9 +18,21 @@ export function StatCard({
   color?: MantineColor;
   /** Smaller number, for three cards side by side on a phone. */
   compact?: boolean;
+  /** A small line under the label, e.g. the change against last month. */
+  footer?: ReactNode;
+  /** A borderless sand tile, for figures inside another card. */
+  flat?: boolean;
 }) {
   return (
-    <Card padding="sm" data-stat-card>
+    <Card
+      padding="sm"
+      h="100%"
+      data-stat-card
+      withBorder={!flat}
+      shadow={flat ? 'none' : undefined}
+      radius={flat ? 'md' : undefined}
+      styles={flat ? { root: { backgroundColor: 'var(--mantine-color-uoca-0)', border: 0 } } : undefined}
+    >
       <Group gap="sm" wrap="nowrap" align="center">
         {IconCmp && (
           <ThemeIcon variant="light" color={color} size={40} radius="md" aria-hidden>
@@ -32,6 +46,7 @@ export function StatCard({
           <Text size="sm" c="dimmed" lineClamp={2}>
             {label}
           </Text>
+          {footer}
         </Stack>
       </Group>
     </Card>

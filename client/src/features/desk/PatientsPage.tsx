@@ -14,7 +14,7 @@ import { formatDay } from '../../components/timelineApi';
 import { useCentreId } from '../centre/api';
 import { usePatients, type PatientListItem, type StatusFilter } from './api';
 import { PatientForm } from './PatientForm';
-import classes from './PatientsPage.module.css';
+import classes from '../../components/ListRows.module.css';
 
 const FILTERS: StatusFilter[] = ['default', 'active', 'transferring', 'discharged', 'all'];
 

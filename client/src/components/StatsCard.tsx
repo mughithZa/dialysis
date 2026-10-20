@@ -1,8 +1,9 @@
 import { useTranslation } from 'react-i18next';
-import { Card, SimpleGrid, Stack, Table, Text, Title } from '@mantine/core';
+import { Card, Group, SimpleGrid, Stack, ThemeIcon, Title } from '@mantine/core';
+import { IconActivityHeartbeat, IconBuildingHospital, IconPackage, IconPill, IconUsers } from '@tabler/icons-react';
 import { StatCard } from './StatCard';
-import { IconActivityHeartbeat, IconPackageOff, IconUsers } from '@tabler/icons-react';
-import { EmptyState } from './EmptyState';
+import { DeltaText } from './stats/DeltaText';
+import { UsageBars } from './stats/UsageBars';
 
 export interface ItemTotal {
   item: { id: string; name: string };
@@ -17,56 +18,55 @@ export interface CentreStats {
   supplies: ItemTotal[];
 }
 
-function TotalsTable({ title, rows }: { title: string; rows: ItemTotal[] }) {
+/** Medicines and supplies of one month as bar lists, side by side from tablet width. */
+export function UsageSection({ stats }: { stats: CentreStats }) {
   const { t } = useTranslation();
   return (
-    <Stack gap={4}>
-      <Text fw={600}>{title}</Text>
-      {rows.length === 0 ? (
-        <EmptyState compact icon={IconPackageOff} title={t('pm.dashboard.noUsage')} />
-      ) : (
-        <Table.ScrollContainer minWidth={0}>
-          <Table verticalSpacing={6} fz="sm">
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th>{t('pm.dashboard.item')}</Table.Th>
-                <Table.Th ta="end">{t('common.total')}</Table.Th>
-                <Table.Th>{t('common.unit')}</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {rows.map((r) => (
-                <Table.Tr key={r.item.id}>
-                  <Table.Td>{r.item.name}</Table.Td>
-                  <Table.Td ta="end">{r.total}</Table.Td>
-                  <Table.Td>{r.unit}</Table.Td>
-                </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
-        </Table.ScrollContainer>
-      )}
-    </Stack>
+    <SimpleGrid cols={{ base: 1, sm: 2 }} spacing="lg">
+      <UsageBars title={t('pm.dashboard.medicines')} rows={stats.medicines} icon={IconPill} />
+      <UsageBars title={t('pm.dashboard.supplies')} rows={stats.supplies} icon={IconPackage} />
+    </SimpleGrid>
   );
 }
 
-/** One centre's month: session and patient counts plus medicine and supply totals. */
-export function StatsCard({ stats }: { stats: CentreStats }) {
+/**
+ * One centre's month: sessions and patients (with the change against `previous` when given) and the most used
+ * medicines and supplies.
+ */
+export function StatsCard({ stats, previous, previousMonth }: { stats: CentreStats; previous?: CentreStats; previousMonth?: string }) {
   const { t } = useTranslation();
+  const delta = (pick: (s: CentreStats) => number) =>
+    previous && previousMonth ? <DeltaText current={pick(stats)} previous={pick(previous)} previousMonth={previousMonth} /> : undefined;
   return (
-    <Card withBorder padding="md" data-centre-stats>
-      <Stack gap="sm">
-        <Title order={3} size="h4">
-          {stats.centre.name}
-        </Title>
+    <Card padding="md" data-centre-stats>
+      <Stack gap="md">
+        <Group gap="sm" wrap="nowrap">
+          <ThemeIcon variant="light" color="uoca" size={36} radius="md" aria-hidden>
+            <IconBuildingHospital size={20} stroke={1.7} />
+          </ThemeIcon>
+          <Title order={3} size="h4" style={{ minWidth: 0 }}>
+            {stats.centre.name}
+          </Title>
+        </Group>
         <SimpleGrid cols={2} spacing="sm">
-          <StatCard value={stats.sessions} label={t('pm.dashboard.sessions')} icon={IconActivityHeartbeat} />
-          <StatCard value={stats.patients} label={t('pm.dashboard.patients')} icon={IconUsers} />
+          <StatCard
+            flat
+            compact
+            value={stats.sessions}
+            label={t('pm.dashboard.sessions')}
+            icon={IconActivityHeartbeat}
+            footer={delta((s) => s.sessions)}
+          />
+          <StatCard
+            flat
+            compact
+            value={stats.patients}
+            label={t('pm.dashboard.patients')}
+            icon={IconUsers}
+            footer={delta((s) => s.patients)}
+          />
         </SimpleGrid>
-        <SimpleGrid cols={{ base: 1, md: 2 }}>
-          <TotalsTable title={t('pm.dashboard.medicines')} rows={stats.medicines} />
-          <TotalsTable title={t('pm.dashboard.supplies')} rows={stats.supplies} />
-        </SimpleGrid>
+        <UsageSection stats={stats} />
       </Stack>
     </Card>
   );

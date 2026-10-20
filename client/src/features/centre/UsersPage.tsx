@@ -1,8 +1,13 @@
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Alert, Badge, Button, Card, Group, Loader, Modal, PasswordInput, Stack, Text, Title } from '@mantine/core';
-import { IconUsers } from '@tabler/icons-react';
+import { Alert, Button, Card, Chip, Group, Loader, Modal, PasswordInput, Stack, Text, TextInput } from '@mantine/core';
+import { IconKey, IconPencil, IconSearch, IconUserPlus, IconUserSearch, IconUsers } from '@tabler/icons-react';
 import { EmptyState } from '../../components/EmptyState';
+import { PageHeader } from '../../components/PageHeader';
+import { PersonAvatar } from '../../components/PersonAvatar';
+import { RowMenu } from '../../components/RowMenu';
+import { StateChip } from '../../components/StateChip';
+import rows from '../../components/ListRows.module.css';
 import { notifications } from '@mantine/notifications';
 import { useCan } from '../../auth/useCan';
 import { errorMessage } from '../../i18n/errors';
@@ -41,6 +46,20 @@ function ResetPasswordForm({ user, onDone }: { user: UserRow; onDone: () => void
   );
 }
 
+export type UserFilter = 'all' | 'active' | 'inactive';
+const FILTERS: UserFilter[] = ['all', 'active', 'inactive'];
+
+/** Users matching the search (name, username or phone) and the active filter. */
+export function filterUsers(users: UserRow[], search: string, filter: UserFilter, roleName: (key: string) => string = (k) => k): UserRow[] {
+  const q = search.trim().toLocaleLowerCase();
+  return users.filter(
+    (u) =>
+      (filter === 'all' || (filter === 'active') === u.active) &&
+      (!q ||
+        [u.name, u.username, u.phone ?? '', ...u.roleKeys.map(roleName)].some((f) => f.toLocaleLowerCase().includes(q))),
+  );
+}
+
 export function UsersPage() {
   const { t } = useTranslation();
   const users = useCentreUsers();
@@ -50,66 +69,114 @@ export function UsersPage() {
   const canReset = useCan('users.resetPassword');
   const [editing, setEditing] = useState<UserRow | 'new' | null>(null);
   const [resetting, setResetting] = useState<UserRow | null>(null);
+  const [search, setSearch] = useState('');
+  const [filter, setFilter] = useState<UserFilter>('all');
 
   const roleName = (key: string) => {
     const role = roles.data?.find((r) => r.key === key);
     return role ? roleLabel(t, role) : key;
   };
+  const all = users.data ?? [];
+  const shown = filterUsers(all, search, filter, roleName);
 
   return (
     <Stack gap="md">
-      <Group justify="space-between">
-        <Title order={2}>{t('centre.users.title')}</Title>
-        {canCreate && (
-          <Button mih={44} onClick={() => setEditing('new')}>
-            {t('centre.users.new')}
-          </Button>
-        )}
-      </Group>
+      <PageHeader
+        title={t('centre.users.title')}
+        subtitle={users.data ? t('centre.users.count', { count: all.length }) : undefined}
+        action={
+          canCreate && (
+            <Button mih={44} onClick={() => setEditing('new')} leftSection={<IconUserPlus size={18} aria-hidden />}>
+              {t('centre.users.new')}
+            </Button>
+          )
+        }
+      />
+      {all.length > 0 && (
+        <>
+          <TextInput
+            aria-label={t('centre.users.search')}
+            placeholder={t('centre.users.search')}
+            type="search"
+            size="md"
+            leftSection={<IconSearch size={18} aria-hidden />}
+            value={search}
+            onChange={(e) => setSearch(e.currentTarget.value)}
+          />
+          <div role="radiogroup" aria-label={t('centre.users.filter')} className={rows.filters}>
+            <Chip.Group value={filter} onChange={(v) => setFilter(v as UserFilter)}>
+              {FILTERS.map((f) => (
+                <Chip key={f} value={f} size="sm" variant="light">
+                  {t(`centre.users.filters.${f}`)}
+                </Chip>
+              ))}
+            </Chip.Group>
+          </div>
+        </>
+      )}
       {users.isPending && <Loader />}
       {users.isError && <Alert color="danger">{errorMessage(t, users.error)}</Alert>}
-      {users.data?.length === 0 && <EmptyState icon={IconUsers} title={t('centre.users.empty')} hint={t('empty.usersHint')} />}
-      {users.data?.map((u) => (
-        <Card key={u.id} withBorder padding="sm" data-user={u.username}>
-          <Stack gap="xs">
-            <Group justify="space-between" wrap="nowrap">
-              <Stack gap={0}>
-                <Text fw={600}>{u.name}</Text>
-                <Text size="sm" c="dimmed">
-                  {u.username}
-                  {u.phone ? ` · ${u.phone}` : ''}
+      {users.data?.length === 0 && (
+        <EmptyState
+          icon={IconUsers}
+          title={t('centre.users.empty')}
+          hint={t('empty.usersHint')}
+          action={canCreate ? { label: t('centre.users.new'), onClick: () => setEditing('new'), icon: IconUserPlus } : undefined}
+        />
+      )}
+      {all.length > 0 && shown.length === 0 && (
+        <EmptyState icon={IconUserSearch} title={t('centre.users.noMatch')} hint={t('centre.users.noMatchHint')} />
+      )}
+      {shown.length > 0 && (
+        <Card padding={0}>
+          {shown.map((u) => (
+            <div key={u.id} className={rows.row} data-user={u.username}>
+              <PersonAvatar name={u.name} size={42} style={u.active ? undefined : { opacity: 0.55 }} />
+              <Stack gap={4} className={rows.main}>
+                <Group gap={6} wrap="nowrap">
+                  <Text fw={600} truncate c={u.active ? undefined : 'dimmed'}>
+                    {u.name}
+                  </Text>
+                  {!u.active && (
+                    <StateChip tone="off" size="sm">
+                      {t('centre.users.inactive')}
+                    </StateChip>
+                  )}
+                </Group>
+                <Text size="sm" c="dimmed" truncate>
+                  <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                    {u.username}
+                  </span>
+                  {u.phone && (
+                    <>
+                      {' · '}
+                      <span dir="ltr" style={{ unicodeBidi: 'isolate' }}>
+                        {u.phone}
+                      </span>
+                    </>
+                  )}
                 </Text>
+                {u.roleKeys.length > 0 && (
+                  <Group gap={4}>
+                    {u.roleKeys.map((k) => (
+                      <StateChip key={k} tone="info" size="sm">
+                        {roleName(k)}
+                      </StateChip>
+                    ))}
+                  </Group>
+                )}
               </Stack>
-              {!u.active && (
-                <Badge color="warning" variant="light">
-                  {t('centre.users.inactive')}
-                </Badge>
-              )}
-            </Group>
-            <Group gap="xs">
-              {u.roleKeys.map((k) => (
-                <Badge key={k} variant="light">
-                  {roleName(k)}
-                </Badge>
-              ))}
-            </Group>
-            {(canEdit || canReset) && (
-              <Group>
-                {canEdit && (
-                  <Button mih={44} variant="default" onClick={() => setEditing(u)}>
-                    {t('common.edit')}
-                  </Button>
-                )}
-                {canReset && (
-                  <Button mih={44} variant="default" onClick={() => setResetting(u)}>
-                    {t('centre.users.resetPassword')}
-                  </Button>
-                )}
-              </Group>
-            )}
-          </Stack>
+              <RowMenu
+                label={t('centre.users.menu', { name: u.name })}
+                items={[
+                  canEdit && { label: t('common.edit'), icon: IconPencil, onClick: () => setEditing(u) },
+                  canReset && { label: t('centre.users.resetPassword'), icon: IconKey, onClick: () => setResetting(u) },
+                ]}
+              />
+            </div>
+          ))}
         </Card>
-      ))}
+      )}
       <Modal
         opened={editing !== null}
         onClose={() => setEditing(null)}

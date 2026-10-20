@@ -197,5 +197,7 @@ test('core flow: desk builds the schedule, rosters and books; doctor notes; nurs
   await goTo(page, en.nav.dashboard);
   const stats = page.locator('[data-centre-stats]', { hasText: 'E2E Centre' });
   await expect(stats.getByText(en.pm.dashboard.sessions).locator('xpath=preceding-sibling::*[1]')).toHaveText('1');
+  await expect(stats.locator('[data-usage-bar="Heparin"]')).toContainText('5 cc');
+  await stats.getByRole('button', { name: /Medicines as a table/ }).click();
   await expect(stats.getByRole('row', { name: /Heparin\s+5\s+cc/ })).toBeVisible();
 });

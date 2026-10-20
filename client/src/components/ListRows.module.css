@@ -1,0 +1,56 @@
+/* Rows inside one card, divided by a line (centres, roles, catalogue, users, audit). */
+.row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-block-size: 64px;
+  padding-block: 10px;
+  padding-inline: 14px;
+  color: inherit;
+  text-decoration: none;
+  inline-size: 100%;
+}
+
+.row + .row {
+  border-block-start: 1px solid var(--uoca-border);
+}
+
+button.row:hover,
+a.row:hover {
+  background: var(--mantine-color-uoca-0);
+}
+
+.row:focus-visible {
+  outline: 2px solid var(--uoca-brown);
+  outline-offset: -2px;
+}
+
+.main {
+  flex: 1;
+  min-inline-size: 0;
+}
+
+/* Horizontally scrolling filter chips. */
+.filters {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-block-end: 2px;
+  scrollbar-width: none;
+}
+
+.filters > * {
+  flex-shrink: 0;
+}
+
+/* Day heading inside a list card (audit log). */
+.dayHeading {
+  padding-block: 8px;
+  padding-inline: 14px;
+  background: var(--mantine-color-uoca-0);
+  border-block-end: 1px solid var(--uoca-border);
+}
+
+.dayHeading:not(:first-child) {
+  border-block-start: 1px solid var(--uoca-border);
+}

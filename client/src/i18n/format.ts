@@ -24,3 +24,30 @@ export const formatList = (items: string[], lng: string = i18n.language): string
  */
 export const timeRange = (start: string, end: string, lng: string = i18n.language): string =>
   i18n.dir(lng) === 'rtl' ? `⁦${start}–${end}⁩` : `${start}–${end}`;
+
+const monthDate = (month: string) => {
+  const [y, m] = month.split('-').map(Number) as [number, number];
+  return new Date(y, m - 1, 1);
+};
+
+/** A `YYYY-MM` month for reading, e.g. "October 2026" / "تشرين الأول 2026". */
+export const formatMonth = (month: string, lng: string = i18n.language): string =>
+  new Intl.DateTimeFormat(dateLocale(lng), { month: 'long', year: 'numeric' }).format(monthDate(month));
+
+/** Only the month's name, e.g. "September" / "أيلول" (as in "vs September"). */
+export const formatMonthName = (month: string, lng: string = i18n.language): string =>
+  new Intl.DateTimeFormat(dateLocale(lng), { month: 'long' }).format(monthDate(month));
+
+/** A timestamp's local calendar date as `YYYY-MM-DD` (to group rows by day, then show with `formatDate`). */
+export const localDay = (iso: string): string => {
+  const d = new Date(iso);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+};
+
+/** A timestamp's local clock time, e.g. "08:05". */
+export const formatTime = (iso: string, lng: string = i18n.language): string =>
+  new Intl.DateTimeFormat(dateLocale(lng), { hour: '2-digit', minute: '2-digit', hourCycle: 'h23' }).format(new Date(iso));
+
+/** A short month name for table headers, e.g. "Sep" / "أيلول". */
+export const formatMonthShort = (month: string, lng: string = i18n.language): string =>
+  new Intl.DateTimeFormat(dateLocale(lng), { month: 'short' }).format(monthDate(month));
